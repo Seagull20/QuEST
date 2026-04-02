@@ -33,6 +33,17 @@ case "${BACKEND}" in
         ;;
 esac
 
+if [ "${BACKEND}" = "cuquantum" ] && [ -z "${CUQUANTUM_ROOT:-}" ]; then
+    for candidate in "${HOME}"/.local/lib/python*/site-packages/cuquantum; do
+        if [ -f "${candidate}/include/custatevec.h" ]; then
+            export CUQUANTUM_ROOT="${candidate}"
+            export LD_LIBRARY_PATH="${CUQUANTUM_ROOT}/lib:${LD_LIBRARY_PATH:-}"
+            info "Detected CUQUANTUM_ROOT=${CUQUANTUM_ROOT}"
+            break
+        fi
+    done
+fi
+
 info "Cluster one-node suite"
 info "Node: $(hostname)"
 if command -v nvidia-smi >/dev/null 2>&1; then

@@ -142,6 +142,28 @@ build_common_args() {
     fi
 }
 
+detect_cuquantum_root() {
+    local candidate
+
+    for candidate in \
+        "${HOME}/miniconda3/envs/quest_env" \
+        "/usr/local"; do
+        if [ -f "${candidate}/include/custatevec.h" ]; then
+            printf '%s' "${candidate}"
+            return 0
+        fi
+    done
+
+    for candidate in "${HOME}"/.local/lib/python*/site-packages/cuquantum; do
+        if [ -f "${candidate}/include/custatevec.h" ]; then
+            printf '%s' "${candidate}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 configure_backend_args() {
     local backend="$1"
     local cuda_arch=""
@@ -174,6 +196,14 @@ configure_backend_args() {
             ;;
         cuquantum)
             has_cmd nvcc || die "nvcc not found. Cannot build cuQuantum backend."
+            if [ -z "${CUQUANTUM_ROOT:-}" ]; then
+                if CUQUANTUM_ROOT="$(detect_cuquantum_root)"; then
+                    export CUQUANTUM_ROOT
+                    info "Detected CUQUANTUM_ROOT=${CUQUANTUM_ROOT}"
+                else
+                    die "CUQUANTUM_ROOT not set and custatevec.h not found."
+                fi
+            fi
             BACKEND_ARGS+=(-DENABLE_CUDA=ON -DENABLE_CUQUANTUM=ON)
             if cuda_arch="$(detect_cuda_arch)"; then
                 info "Detected CUDA architecture: ${cuda_arch}"

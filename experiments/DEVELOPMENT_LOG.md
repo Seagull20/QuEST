@@ -189,3 +189,36 @@
   - 在 cluster 上 fast-forward 后重新提交 `gpu` 与 `cuquantum` one-node 作业。
 - 接手提示：
   - 以后任何 `sbatch` 脚本如果还要 source repo 内文件，都应默认走 `SLURM_SUBMIT_DIR`，不要再写 `$(dirname "${BASH_SOURCE[0]}")` 这种本地脚本路径假设。
+
+## 2026-04-02 21:02 - 补回 cluster 上的 cuQuantum 自动探测与运行库路径
+
+- 模块：build / scripts / remote
+- 目标：修复 cluster 上 `cuquantum` 作业因 `CUQUANTUM_ROOT` 未设置而在 CMake 阶段失败的问题。
+- 已完成：
+  - `experiments/build.sh` 新增 `detect_cuquantum_root()`：
+    - 优先检查 `~/miniconda3/envs/quest_env`
+    - 再检查 `/usr/local`
+    - 再检查 `~/.local/lib/python*/site-packages/cuquantum`
+  - `experiments/scripts/sbatch_cluster_one_node.sh` 在 `BACKEND=cuquantum` 时自动导出：
+    - `CUQUANTUM_ROOT`
+    - `LD_LIBRARY_PATH=${CUQUANTUM_ROOT}/lib:...`
+- 关键决定：
+  - 不把 cluster 上的 Python 版本号写死到脚本里，而是用 `python*` 通配符兼容用户 site-packages 目录。
+  - cuQuantum 的 include/library 探测放在 `build.sh`，运行库补丁放在 submit 脚本，避免本地 CPU/GPU 路径被无关环境变量污染。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/build.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_cluster_one_node.sh`
+- 验证结果：
+  - `bash -n experiments/build.sh experiments/scripts/sbatch_cluster_one_node.sh` 通过。
+  - cluster 上已确认真实安装路径为：
+    - `~/.local/lib/python3.12/site-packages/cuquantum/include/custatevec.h`
+    - `~/.local/lib/python3.12/site-packages/cuquantum/lib/libcustatevec.so`
+- 未完成 / TODO：
+  - 还没用修复后的脚本重新提交 `cuquantum` 作业。
+  - 还需要等待 `gpu` 作业完成并检查 raw TSV 是否真正生成。
+- 下一步：
+  - push 本次修复。
+  - cluster fast-forward 后只重提 `sbatch_cluster_one_node.sh cuquantum`。
+  - 作业完成后运行 `parse_results.py` 做一次远端矩阵生成。
+- 接手提示：
+  - 如果未来 cuQuantum 安装位置再变，优先改 `detect_cuquantum_root()`；submit 脚本只负责把已经找到的路径补进 `LD_LIBRARY_PATH`。
