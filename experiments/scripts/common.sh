@@ -26,6 +26,10 @@ info() { printf '>>> %s\n' "$*"; }
 warn() { printf '>>> WARNING: %s\n' "$*" >&2; }
 die()  { printf '>>> ERROR: %s\n' "$*" >&2; exit 1; }
 
+version_ge() {
+    [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n 1)" = "$2" ]
+}
+
 ensure_results_dirs() {
     mkdir -p "${RAW_RESULTS_DIR}" "${PROCESSED_RESULTS_DIR}"
 }
@@ -39,6 +43,36 @@ source_toolchain_env_if_present() {
         . "${toolchain_env}"
         set -u
     fi
+}
+
+ensure_minimum_cmake() {
+    local required_version="$1"
+    local current_version=""
+
+    if command -v cmake >/dev/null 2>&1; then
+        current_version="$(cmake --version 2>/dev/null | awk 'NR==1 {print $3}')"
+    fi
+
+    if [ -n "${current_version}" ] && version_ge "${current_version}" "${required_version}"; then
+        return 0
+    fi
+
+    if ! type module >/dev/null 2>&1; then
+        if [ -f /etc/profile ]; then
+            # Ensure the module function is available inside non-login batch shells.
+            # shellcheck disable=SC1091
+            . /etc/profile
+        fi
+    fi
+
+    type module >/dev/null 2>&1 || die "module command unavailable; cannot load newer cmake."
+
+    info "Loading cmake/3.29.4 to satisfy minimum CMake ${required_version}"
+    module load cmake/3.29.4 >/dev/null 2>&1 || die "Failed to load cmake/3.29.4"
+
+    current_version="$(cmake --version 2>/dev/null | awk 'NR==1 {print $3}')"
+    [ -n "${current_version}" ] || die "cmake not found after loading cmake/3.29.4"
+    version_ge "${current_version}" "${required_version}" || die "cmake ${current_version} is still below required ${required_version}"
 }
 
 build_suite_targets() {

@@ -222,3 +222,33 @@
   - 作业完成后运行 `parse_results.py` 做一次远端矩阵生成。
 - 接手提示：
   - 如果未来 cuQuantum 安装位置再变，优先改 `detect_cuquantum_root()`；submit 脚本只负责把已经找到的路径补进 `LD_LIBRARY_PATH`。
+
+## 2026-04-02 21:34 - 补齐 ARCHER2 batch 环境的 CMake 自动加载
+
+- 模块：scripts / remote / build
+- 目标：避免 `ARCHER2` 的 batch job 默认落到 `/usr/bin/cmake 3.20.4`，从而在 one-node 构建阶段直接卡在 QuEST 的 `cmake_minimum_required(VERSION 3.21)`。
+- 已完成：
+  - 在 `experiments/scripts/common.sh` 新增 `ensure_minimum_cmake()` 与版本比较辅助函数。
+  - `sbatch_archer2_one_node.sh` 在构建前自动调用 `ensure_minimum_cmake 3.21`。
+  - `sbatch_archer2_qft_mpi.sh` 也同步接入相同逻辑，避免后续恢复 MPI 时再次手工修补。
+- 关键决定：
+  - 不把 `cmake/3.29.4` 硬编码到所有平台脚本，只在 ARCHER2 路径显式调用最低版本检查。
+  - 如果 batch shell 里没有 `module` 函数，先尝试 source `/etc/profile`，再加载 `cmake/3.29.4`。
+  - 本轮 MPI 提交继续暂停，但脚本层的环境兼容性一并补齐，避免下轮再返工。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/common.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_one_node.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_qft_mpi.sh`
+- 验证结果：
+  - `bash -n experiments/scripts/common.sh experiments/scripts/sbatch_archer2_one_node.sh experiments/scripts/sbatch_archer2_qft_mpi.sh` 通过。
+  - 在 ARCHER2 交互 shell 中手动执行 `module load cmake/3.29.4 && ./experiments/build.sh probe cpu_mpi` 已成功完成。
+- 未完成 / TODO：
+  - 还没用修复后的 `sbatch_archer2_one_node.sh` 真正提交 one-node 作业。
+  - 还没在 ARCHER2 上生成 `probe / qft / h_sweep / random` 的 raw TSV 与 processed 矩阵。
+- 下一步：
+  - 提交当前补丁并 push。
+  - ARCHER2 fast-forward 到最新分支。
+  - 提交 `sbatch_archer2_one_node.sh`，只做 one-node `probe + benchmark`。
+  - MPI 暂停，转入下一步待办。
+- 接手提示：
+  - 如果 ARCHER2 batch job 又在 CMake 阶段失败，先看 `archer2_quest-suite-cpu_<jobid>.out/.err` 里是否出现 `Loading cmake/3.29.4`；若没有，优先检查 batch shell 是否能拿到 `module` 函数。

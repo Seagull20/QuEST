@@ -18,6 +18,7 @@ REPO_ROOT="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pw
 cd "${REPO_ROOT}"
 ensure_results_dirs
 source_toolchain_env_if_present
+ensure_minimum_cmake 3.21
 
 export OMP_NUM_THREADS=32
 export OMP_PLACES=cores
