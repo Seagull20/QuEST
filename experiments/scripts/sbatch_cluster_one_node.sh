@@ -12,9 +12,9 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 # shellcheck source=common.sh
-. "${SCRIPT_DIR}/common.sh"
+. "${REPO_ROOT}/experiments/scripts/common.sh"
 
 BACKEND="${1:-gpu}"
 

@@ -161,3 +161,31 @@
   - 在 cluster 上重新 fetch 分支并尝试 `sbatch_cluster_one_node.sh gpu`。
 - 接手提示：
   - 如果将来 toolchain env 又挪位置，优先改这两个脚本的搜索路径，不要把绝对路径重新写死到 submit 脚本里。
+
+## 2026-04-02 21:00 - 修复 SLURM spool 目录下的 common.sh 相对路径失效
+
+- 模块：scripts / remote
+- 目标：让 `sbatch` 提交脚本在被 SLURM 复制到 spool 目录执行时，仍能正确找到 repo 内的 `common.sh`。
+- 已完成：
+  - `sbatch_cluster_one_node.sh`
+  - `sbatch_archer2_one_node.sh`
+  - `sbatch_archer2_qft_mpi.sh`
+  - 上述脚本均改为优先使用 `SLURM_SUBMIT_DIR` 作为 repo root，再从 `${REPO_ROOT}/experiments/scripts/common.sh` 引入共享逻辑。
+- 关键决定：
+  - 对于 batch 脚本，不再依赖 `BASH_SOURCE` 的目录，因为 SLURM 会把脚本复制到 `/var/spool/slurmd/job*/` 执行。
+  - 默认假设 `sbatch` 从 repo root 提交；若不是，则至少要保证 `SLURM_SUBMIT_DIR` 指向 repo root。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_cluster_one_node.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_one_node.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_qft_mpi.sh`
+- 验证结果：
+  - `bash -n experiments/scripts/sbatch_cluster_one_node.sh experiments/scripts/sbatch_archer2_one_node.sh experiments/scripts/sbatch_archer2_qft_mpi.sh` 通过。
+  - cluster 上第一次提交的失败原因已明确为 `common.sh` 路径丢失，本次修复正对该问题。
+- 未完成 / TODO：
+  - 还没用修复后的脚本重新提交 cluster 作业。
+  - ARCHER2 侧还没验证同类问题是否也会出现。
+- 下一步：
+  - push 本次修复。
+  - 在 cluster 上 fast-forward 后重新提交 `gpu` 与 `cuquantum` one-node 作业。
+- 接手提示：
+  - 以后任何 `sbatch` 脚本如果还要 source repo 内文件，都应默认走 `SLURM_SUBMIT_DIR`，不要再写 `$(dirname "${BASH_SOURCE[0]}")` 这种本地脚本路径假设。
