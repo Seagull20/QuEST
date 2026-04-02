@@ -252,3 +252,29 @@
   - MPI 暂停，转入下一步待办。
 - 接手提示：
   - 如果 ARCHER2 batch job 又在 CMake 阶段失败，先看 `archer2_quest-suite-cpu_<jobid>.out/.err` 里是否出现 `Loading cmake/3.29.4`；若没有，优先检查 batch shell 是否能拿到 `module` 函数。
+
+## 2026-04-02 21:55 - 修复 ARCHER2 上 Python 3.6 的 argparse 子命令兼容性
+
+- 模块：scripts / remote
+- 目标：修复 `ARCHER2` one-node 作业在 benchmark 真正开始前就被 `run_suite.py` 直接退出的问题。
+- 已完成：
+  - 移除 `run_suite.py` 中 `parser.add_subparsers(..., required=True)` 的用法。
+  - 改为在 `parse_args()` 之后显式检查 `handler` 是否存在，不存在时打印 help 并返回 `2`。
+- 关键决定：
+  - 不为这件事强行切换 ARCHER2 上的 Python 版本，优先让脚本兼容系统自带 `Python 3.6.15`。
+  - 兼容性修复只改参数解析入口，不改 one-node / mpi-qft 的实际执行逻辑。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/run_suite.py`
+- 验证结果：
+  - 本地直接执行 `python3 experiments/scripts/run_suite.py` 时能正常打印 usage，不再抛 `argparse` 异常。
+  - ARCHER2 失败日志已确认原始异常为：
+    - `TypeError: __init__() got an unexpected keyword argument 'required'`
+- 未完成 / TODO：
+  - 还没把该补丁 push 到远端并重新提交 ARCHER2 one-node 作业。
+  - 还没拿到 ARCHER2 的 `probe` raw TSV，因此目前没有实测 `max_qubits`。
+- 下一步：
+  - commit 并 push 当前补丁。
+  - ARCHER2 上 fast-forward 到最新分支。
+  - 重新提交 `sbatch_archer2_one_node.sh`，继续只做 one-node，不恢复 MPI。
+- 接手提示：
+  - 如果后续 ARCHER2 还报 Python 兼容问题，先查看系统版本 `python3 --version`，再检查脚本里是否误用了 3.7+ 的 `argparse` / `subprocess` / `pathlib` 特性。
