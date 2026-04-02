@@ -32,6 +32,20 @@ version_ge() {
 
 ensure_results_dirs() {
     mkdir -p "${RAW_RESULTS_DIR}" "${PROCESSED_RESULTS_DIR}"
+    if [ -n "${RAW_RESULTS_DIR_OVERRIDE:-}" ]; then
+        mkdir -p "${RAW_RESULTS_DIR_OVERRIDE}"
+    fi
+    if [ -n "${PROCESSED_RESULTS_DIR_OVERRIDE:-}" ]; then
+        mkdir -p "${PROCESSED_RESULTS_DIR_OVERRIDE}"
+    fi
+}
+
+current_raw_results_dir() {
+    printf '%s' "${RAW_RESULTS_DIR_OVERRIDE:-${RAW_RESULTS_DIR}}"
+}
+
+current_processed_results_dir() {
+    printf '%s' "${PROCESSED_RESULTS_DIR_OVERRIDE:-${PROCESSED_RESULTS_DIR}}"
 }
 
 source_toolchain_env_if_present() {

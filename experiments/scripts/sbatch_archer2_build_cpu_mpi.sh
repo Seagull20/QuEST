@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=quest-qft-mpi
+#SBATCH --job-name=quest-build-cpu
 #SBATCH --account=m25ext-s2866920
 #SBATCH --partition=standard
 #SBATCH --qos=standard
-#SBATCH --nodes=8
-#SBATCH --ntasks-per-node=1
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
-#SBATCH --time=01:00:00
+#SBATCH --time=00:40:00
 #SBATCH --output=experiments/results/raw/archer2_%x_%j.out
 #SBATCH --error=experiments/results/raw/archer2_%x_%j.err
 
@@ -21,21 +21,12 @@ ensure_results_dirs
 source_toolchain_env_if_present
 ensure_minimum_cmake 3.21
 
-export OMP_NUM_THREADS=32
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-32}"
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
 
-info "ARCHER2 QFT MPI extension"
+info "ARCHER2 build-only job"
 info "Node: $(hostname)"
-info "Allocated nodes: ${SLURM_JOB_NUM_NODES:-unknown}"
+info "OMP_NUM_THREADS=${OMP_NUM_THREADS}"
 
 build_suite_targets cpu_mpi
-
-python3 "${SCRIPT_DIR}/run_suite.py" mpi-qft \
-    --platform archer2 \
-    --backend cpu_mpi \
-    --deployment on \
-    --raw-dir "${RAW_RESULTS_DIR}" \
-    --extra-qubits 2 \
-    --node-counts 2 4 8 \
-    --cpus-per-task 32

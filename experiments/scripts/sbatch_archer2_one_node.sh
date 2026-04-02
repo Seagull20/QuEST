@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=quest-suite-cpu
+#SBATCH --account=m25ext-s2866920
 #SBATCH --partition=standard
 #SBATCH --qos=standard
 #SBATCH --nodes=1

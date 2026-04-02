@@ -278,3 +278,58 @@
   - 重新提交 `sbatch_archer2_one_node.sh`，继续只做 one-node，不恢复 MPI。
 - 接手提示：
   - 如果后续 ARCHER2 还报 Python 兼容问题，先查看系统版本 `python3 --version`，再检查脚本里是否误用了 3.7+ 的 `argparse` / `subprocess` / `pathlib` 特性。
+
+## 2026-04-02 22:27 - 把 ARCHER2 one-node benchmark 拆成并行 job arrays
+
+- 模块：scripts / remote / build / parser
+- 目标：避免单个串行 one-node 作业在 `QFT 31+` 上拖垮整套 benchmark，并按任务时长为 `build / probe / qft / h_sweep / random` 分别选择更合适的 QoS。
+- 已完成：
+  - `common.sh` 支持 `RAW_RESULTS_DIR_OVERRIDE` / `PROCESSED_RESULTS_DIR_OVERRIDE`，允许一次 run 的 raw 结果写入独立 staging 目录。
+  - 新增 `sbatch_archer2_build_cpu_mpi.sh`，专门负责一次性构建四个 `cpu_mpi` 可执行文件。
+  - 新增 `sbatch_archer2_probe_cpu_mpi.sh`，专门负责 one-node max-qubit probe。
+  - 新增 `sbatch_archer2_point.sh`，通过 `BENCHMARK` + `SLURM_ARRAY_TASK_ID` 统一执行 `qft / h_sweep / random` 的单点 job。
+  - 新增 `submit_archer2_parallel.sh`，在登录节点自动：
+    - 可选取消旧的串行 CPU benchmark job
+    - 提交 build
+    - 等 probe 完成并读取 `max_qubits`
+    - 计算 sample points
+    - 并行提交 `QFT`、`H sweep`、`Random` job arrays
+    - 记录 `submission_meta.txt`
+  - 给现有 `sbatch_archer2_one_node.sh` 与 `sbatch_archer2_qft_mpi.sh` 补上 `#SBATCH --account=m25ext-s2866920`
+  - 更新 `experiments/scripts/README.md`，记录新的 ARCHER2 提交流程和 QoS 选择理由。
+- 关键决定：
+  - `build` 用 `standard`，因为四个 benchmark 一次性构建已经接近 `short` 的 `20 min` 上限。
+  - `probe` 与 `h_sweep` 用 `short`，因为它们本身足够短，适合快速出结果。
+  - `QFT` 与 `Random` 用 `standard`，因为高 qubit 点在 ARCHER2 CPU 上明显超出 `short` 的安全时长。
+  - `QFT` 改成“一 qubit 一个 job array task”，最大化 one-node benchmark 并行度，并避免某个高 qubit 点拖死整个 suite。
+  - 一次 ARCHER2 run 的 raw TSV 写入 `results/raw/<run_tag>/`，避免和旧的 `.tsv` 混用。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/common.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_build_cpu_mpi.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_probe_cpu_mpi.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_point.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_parallel.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_one_node.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_qft_mpi.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/README.md`
+- 验证结果：
+  - `bash -n` 检查通过：
+    - `common.sh`
+    - `sbatch_archer2_build_cpu_mpi.sh`
+    - `sbatch_archer2_probe_cpu_mpi.sh`
+    - `sbatch_archer2_point.sh`
+    - `submit_archer2_parallel.sh`
+    - 以及更新过的 `sbatch_archer2_one_node.sh` / `sbatch_archer2_qft_mpi.sh`
+- 未完成 / TODO：
+  - 还没把新的并行提交流程 push 到远端并在 ARCHER2 上实际启动。
+  - 当前旧的串行 one-node 作业仍在跑，需要在提交新流程前决定是否取消。
+  - 新并行 run 完成后，还需要用 `parse_results.py --raw-dir <run_tag_dir>` 做一次定向聚合。
+- 下一步：
+  - commit 并 push 当前改动。
+  - ARCHER2 `/work/.../QuEST` fast-forward 到最新分支。
+  - 取消旧的串行 job。
+  - 在 `tmux` 中启动 `bash experiments/scripts/submit_archer2_parallel.sh`。
+  - 等 probe 完成后检查 `submission_meta.txt`，确认 `QFT / H / Random` arrays 都已发出。
+- 接手提示：
+  - 如果只想重跑某一个 benchmark，不必再走整套 `one-node`；直接用 `sbatch_archer2_point.sh` 配合 `--array` 和 `BENCHMARK=...` 即可。
+  - 解析结果时请优先指向本次 run 的独立 raw 目录，而不是整个 `results/raw/` 根目录。

@@ -2,5 +2,6 @@
 experiments/build/
 experiments/results/raw/*
 experiments/results/processed/*
+experiments/results/staging/
 !experiments/results/raw/.gitkeep
 !experiments/results/processed/.gitkeep
