@@ -1,0 +1,6 @@
+.DS_Store
+experiments/build/
+experiments/results/raw/*
+experiments/results/processed/*
+!experiments/results/raw/.gitkeep
+!experiments/results/processed/.gitkeep
