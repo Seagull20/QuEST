@@ -6,7 +6,21 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 EXPERIMENTS_DIR="${REPO_ROOT}/experiments"
 RAW_RESULTS_DIR="${EXPERIMENTS_DIR}/results/raw"
 PROCESSED_RESULTS_DIR="${EXPERIMENTS_DIR}/results/processed"
-TOOLCHAIN_ENV="${REPO_ROOT}/.quest_toolchain_env.sh"
+find_toolchain_env() {
+    local candidate
+
+    for candidate in \
+        "${REPO_ROOT}/.quest_toolchain_env.sh" \
+        "${REPO_ROOT}/../.quest_toolchain_env.sh" \
+        "${REPO_ROOT}/../../.quest_toolchain_env.sh"; do
+        if [ -f "${candidate}" ]; then
+            printf '%s' "${candidate}"
+            return 0
+        fi
+    done
+
+    return 1
+}
 
 info() { printf '>>> %s\n' "$*"; }
 warn() { printf '>>> WARNING: %s\n' "$*" >&2; }
@@ -17,10 +31,12 @@ ensure_results_dirs() {
 }
 
 source_toolchain_env_if_present() {
-    if [ -f "${TOOLCHAIN_ENV}" ]; then
+    local toolchain_env=""
+
+    if toolchain_env="$(find_toolchain_env)"; then
         set +u
         # shellcheck disable=SC1090
-        . "${TOOLCHAIN_ENV}"
+        . "${toolchain_env}"
         set -u
     fi
 }

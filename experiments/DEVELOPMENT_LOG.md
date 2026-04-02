@@ -133,3 +133,31 @@
 - 接手提示：
   - 本地最值得先看的入口是 `experiments/scripts/run_suite.py`，因为 one-node 与 MPI 的 fail-fast 策略都集中在这里。
   - 远端如果 batch job 启动失败，先检查 Python 是否可用、MPI toolchain 是否由 `.quest_toolchain_env.sh` 提供、以及 cuQuantum 运行库是否进入 `LD_LIBRARY_PATH`。
+
+## 2026-04-02 20:59 - 适配 cluster 的 repo 外部 toolchain 路径
+
+- 模块：build / scripts / remote
+- 目标：让远端脚本在 `.quest_toolchain_env.sh` 不在 repo 根目录时仍能自动找到 toolchain 环境。
+- 已完成：
+  - `experiments/build.sh` 增加向上回溯查找 `.quest_toolchain_env.sh` 的逻辑。
+  - `experiments/scripts/common.sh` 同步增加相同的 fallback 搜索顺序。
+- 关键决定：
+  - toolchain env 搜索顺序固定为：
+    - repo 根目录
+    - repo 父目录
+    - repo 爷目录
+  - 这样可以兼容 cluster 上现有的 `~/quest_project/.quest_toolchain_env.sh`。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/build.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/common.sh`
+- 验证结果：
+  - `bash -n experiments/build.sh experiments/scripts/common.sh` 通过。
+  - `./experiments/build.sh list` 仍能正常输出 benchmark 列表。
+- 未完成 / TODO：
+  - 还未在 cluster 上实际提交 GPU 作业验证 `nvcc`、CUDA 运行库和 cuQuantum 路径。
+  - ARCHER2 SSH 仍未打通。
+- 下一步：
+  - 重新 push 本次补丁。
+  - 在 cluster 上重新 fetch 分支并尝试 `sbatch_cluster_one_node.sh gpu`。
+- 接手提示：
+  - 如果将来 toolchain env 又挪位置，优先改这两个脚本的搜索路径，不要把绝对路径重新写死到 submit 脚本里。

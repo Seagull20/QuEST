@@ -5,7 +5,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QUEST_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BENCHMARKS_DIR="${SCRIPT_DIR}/benchmarks"
 BUILD_ROOT="${SCRIPT_DIR}/build"
-TOOLCHAIN_ENV="${QUEST_ROOT}/.quest_toolchain_env.sh"
+find_toolchain_env() {
+    local candidate
+
+    for candidate in \
+        "${QUEST_ROOT}/.quest_toolchain_env.sh" \
+        "${QUEST_ROOT}/../.quest_toolchain_env.sh" \
+        "${QUEST_ROOT}/../../.quest_toolchain_env.sh"; do
+        if [ -f "${candidate}" ]; then
+            printf '%s' "${candidate}"
+            return 0
+        fi
+    done
+
+    return 1
+}
 
 info()  { printf '>>> %s\n' "$*"; }
 warn()  { printf '>>> WARNING: %s\n' "$*" >&2; }
@@ -202,10 +216,12 @@ build_target() {
     output_exe="${benchmark}"
     build_dir="${BUILD_ROOT}/${benchmark}/${backend}"
 
-    if [ -f "${TOOLCHAIN_ENV}" ]; then
+    local toolchain_env=""
+
+    if toolchain_env="$(find_toolchain_env)"; then
         set +u
         # shellcheck disable=SC1090
-        . "${TOOLCHAIN_ENV}"
+        . "${toolchain_env}"
         set -u
     fi
 
