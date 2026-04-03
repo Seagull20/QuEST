@@ -527,3 +527,45 @@
   - smoke 成功后提交全量 thread sweep。
 - 接手提示：
   - thread sweep 的 manifest 会在运行时写到新的 run raw 目录；不要手工复用旧 run 里的 manifest。
+
+## 2026-04-03 18:25 - 修正 ARCHER2 thread sweep 的绑定方式
+
+- 模块：scripts / remote
+- 目标：确认 thread sweep 的执行方式与已有 `ARCHER2` one-node baseline 可比，避免因为 Slurm 启动方式本身引入数量级级别的性能偏差。
+- 已完成：
+  - 在 `ARCHER2` 上提交了一组 thread smoke：
+    - `QFT q=26 t=32`
+    - `H sweep q=26 t=32`
+    - `Random q=26 t=32`
+  - 发现 `sbatch_archer2_thread_point.sh` 中的
+    - `srun --hint=nomultithread --cpu-bind=cores`
+    会导致显著回退：
+    - `QFT q=26 t=32` 约 `71.45 s`
+    - `H sweep q=26 t=32` 单 gate 平均约 `0.306 s`
+  - 又提交了一个 direct-exec 对照作业（同样是 `QFT q=26 t=32`，但不嵌套 `srun`）。
+  - 对照结果恢复到预期量级：
+    - `QFT q=26 t=32` 约 `6.45 s`
+  - 因此把 `sbatch_archer2_thread_point.sh` 改回：
+    - 在 batch shell 中直接执行 benchmark
+    - 保留 `OMP_NUM_THREADS / OMP_PLACES / OMP_PROC_BIND`
+    - 去掉嵌套 `srun`
+- 关键决定：
+  - thread sweep 的可比性优先于“形式上显式写 `srun`”。
+  - 既然 direct-exec 与已有 baseline 对齐，而 nested `srun` 会带来约一个数量级的额外 slowdown，就不再在 thread point job 内使用 `srun`。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_thread_point.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/README.md`
+- 验证结果：
+  - 远端 smoke raw 明确显示：
+    - `srun` 版本 `QFT q26 t32` 总时间约 `71.45 s`
+    - direct 版本 `QFT q26 t32` 总时间约 `6.45 s`
+- 未完成 / TODO：
+  - 还没用修正后的 `thread_point` 重新跑完整的 thread smoke。
+  - 还没正式提交全量 thread sweep。
+- 下一步：
+  - commit + push 这个绑定修正。
+  - ARCHER2 fast-forward。
+  - 重新跑修正后的 smoke，确认 `QFT / H / Random` 都恢复到合理量级。
+  - smoke 通过后再提交全量 thread sweep。
+- 接手提示：
+  - 如果后续又想引入 `srun` 或额外 binding 选项，必须先做和现有 baseline 的 A/B 对照；否则很容易把 scheduler/binding 开销误当成算法或线程扩展行为。

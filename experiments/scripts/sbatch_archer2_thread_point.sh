@@ -123,4 +123,7 @@ info "Threads: ${BENCH_THREADS}"
 info "Node: $(hostname)"
 info "Output: ${OUTPUT_PATH}"
 
-srun --hint=nomultithread --cpu-bind=cores "${CMD[@]}"
+# Run the benchmark directly inside the batch shell. A nested `srun` with
+# explicit binding caused a large regression versus the established ARCHER2
+# one-node baseline, while direct execution preserved the expected timings.
+"${CMD[@]}"

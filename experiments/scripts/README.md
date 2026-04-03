@@ -126,6 +126,8 @@ bash experiments/scripts/submit_archer2_thread_sweep.sh
   - `--preheat-qubits 24`
   - `--warmup 0`
 - 因为 `--cpus-per-task` 不能在同一个 Slurm array 内随 task 改变，线程 sweep 采用“每个线程数一组 array”的提交方式，而不是把 `32/64/128` 混在同一个 array 里。
+- `thread_point` 在 batch shell 中直接执行 benchmark，不再额外嵌套 `srun`。
+  - 原因：对照 smoke 显示，`srun --hint=nomultithread --cpu-bind=cores` 会把 `QFT q=26 t=32` 从约 `6.4s` 拉高到约 `71s`，明显偏离已有 one-node baseline。
 - `short` QoS 任务分两批：
   - 先跑 `H sweep`
   - 再跑 `Random q=26,29`
