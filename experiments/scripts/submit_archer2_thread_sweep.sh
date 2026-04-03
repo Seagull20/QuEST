@@ -120,6 +120,8 @@ RANDOM_SMALL_JOB_IDS=()
 RANDOM_LARGE_JOB_IDS=()
 
 for threads in ${THREADS_LIST}; do
+    qft_job_id=""
+    h_job_id=""
     qft_manifest="${RUN_RAW_DIR}/manifest_qft_t${threads}.txt"
     h_manifest="${RUN_RAW_DIR}/manifest_h_t${threads}.txt"
     random_small_manifest="${RUN_RAW_DIR}/manifest_random_small_t${threads}.txt"
@@ -130,18 +132,26 @@ for threads in ${THREADS_LIST}; do
     write_manifest "${random_small_manifest}" ${RANDOM_SMALL_QUBITS}
     write_manifest "${random_large_manifest}" ${RANDOM_LARGE_QUBITS}
 
-    QFT_JOB_IDS+=("$(normalize_job_id "$(submit_thread_array qft "${threads}" "${qft_manifest}" standard 03:00:00 "${QFT_REPS}" "${BUILD_JOB}")")")
-    H_JOB_IDS+=("$(normalize_job_id "$(submit_thread_array h_sweep "${threads}" "${h_manifest}" short 00:18:00 "${H_REPS}" "${BUILD_JOB}" 1)")")")
+    qft_job_id="$(submit_thread_array qft "${threads}" "${qft_manifest}" standard 03:00:00 "${QFT_REPS}" "${BUILD_JOB}")"
+    h_job_id="$(submit_thread_array h_sweep "${threads}" "${h_manifest}" short 00:18:00 "${H_REPS}" "${BUILD_JOB}" 1)"
+
+    QFT_JOB_IDS+=("$(normalize_job_id "${qft_job_id}")")
+    H_JOB_IDS+=("$(normalize_job_id "${h_job_id}")")
 done
 
 H_DEPENDENCY="$(join_by_comma "${H_JOB_IDS[@]}")"
 
 for threads in ${THREADS_LIST}; do
+    random_small_job_id=""
+    random_large_job_id=""
     random_small_manifest="${RUN_RAW_DIR}/manifest_random_small_t${threads}.txt"
     random_large_manifest="${RUN_RAW_DIR}/manifest_random_large_t${threads}.txt"
 
-    RANDOM_SMALL_JOB_IDS+=("$(normalize_job_id "$(submit_thread_array random "${threads}" "${random_small_manifest}" short 00:20:00 "${RANDOM_REPS}" "${H_DEPENDENCY}" 1)")")")
-    RANDOM_LARGE_JOB_IDS+=("$(normalize_job_id "$(submit_thread_array random "${threads}" "${random_large_manifest}" standard 06:00:00 "${RANDOM_REPS}" "${BUILD_JOB}")")")
+    random_small_job_id="$(submit_thread_array random "${threads}" "${random_small_manifest}" short 00:20:00 "${RANDOM_REPS}" "${H_DEPENDENCY}" 1)"
+    random_large_job_id="$(submit_thread_array random "${threads}" "${random_large_manifest}" standard 06:00:00 "${RANDOM_REPS}" "${BUILD_JOB}")"
+
+    RANDOM_SMALL_JOB_IDS+=("$(normalize_job_id "${random_small_job_id}")")
+    RANDOM_LARGE_JOB_IDS+=("$(normalize_job_id "${random_large_job_id}")")
 done
 
 {

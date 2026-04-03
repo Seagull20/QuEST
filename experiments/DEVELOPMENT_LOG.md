@@ -569,3 +569,26 @@
   - smoke 通过后再提交全量 thread sweep。
 - 接手提示：
   - 如果后续又想引入 `srun` 或额外 binding 选项，必须先做和现有 baseline 的 A/B 对照；否则很容易把 scheduler/binding 开销误当成算法或线程扩展行为。
+
+## 2026-04-03 18:29 - 修复 thread sweep submitter 的数组提交语法
+
+- 模块：scripts
+- 目标：修复 `submit_archer2_thread_sweep.sh` 在真正提交 arrays 之前就退出的 shell 语法错误。
+- 已完成：
+  - 把四处嵌套的 `$(normalize_job_id "$(submit_thread_array ... )")` 改成：
+    - 先保存原始 `job_id`
+    - 再单独调用 `normalize_job_id`
+  - `bash -n experiments/scripts/submit_archer2_thread_sweep.sh` 已通过。
+- 关键决定：
+  - 后续不再在 job 提交器里写多层嵌套 command substitution，统一拆成中间变量，降低 shell quoting 风险。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_thread_sweep.sh`
+- 验证结果：
+  - 原先运行到 `line 143` 的语法错误已消失。
+- 未完成 / TODO：
+  - 还没用修正后的 submitter 重新提交全量 thread sweep。
+- 下一步：
+  - commit + push。
+  - ARCHER2 fast-forward 后重新执行 `submit_archer2_thread_sweep.sh`。
+- 接手提示：
+  - 如果提交器再次提前退出，优先跑 `bash -n`，不要先去怀疑 Slurm 队列本身。
