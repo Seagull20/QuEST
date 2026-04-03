@@ -333,3 +333,52 @@
 - 接手提示：
   - 如果只想重跑某一个 benchmark，不必再走整套 `one-node`；直接用 `sbatch_archer2_point.sh` 配合 `--array` 和 `BENCHMARK=...` 即可。
   - 解析结果时请优先指向本次 run 的独立 raw 目录，而不是整个 `results/raw/` 根目录。
+
+## 2026-04-03 06:34 - 按上一轮中断进度调整 h_sweep walltime，并把 random 拆到 rep 粒度
+
+- 模块：scripts / remote
+- 目标：补齐上一轮 `ARCHER2` 并行 run 中超时的两个点：
+  - `h_sweep q=33`
+  - `random q=33`
+- 已完成：
+  - `sbatch_archer2_point.sh` 支持：
+    - `POINT_REPS`
+    - `POINT_WARMUP`
+    - `POINT_TAG`
+    - `RANDOM_SPLIT_BY_REP=1` 时自动把 `SLURM_ARRAY_TASK_ID` 映射到输出后缀 `repN`
+  - `submit_archer2_parallel.sh` 的 `H sweep` 提交逻辑改为“按 qubit 单独提交 job”，不再用单一 array。
+  - `submit_archer2_parallel.sh` 的 `Random` 提交逻辑改为“按 qubit 提交 array，每个 task 只跑一个 rep”，也就是 `POINT_REPS=1`、`POINT_WARMUP=1`。
+  - 为 `h_sweep q=33` 增加基于上一轮中断进度的 walltime 估计：
+    - 上一轮 `13104849_33` 在 `00:10:15` 时只写完 `66 / 132` 条数据行
+    - 因此把 `q=33` 的 `h_sweep` 预算上调到 `00:25:00`
+  - 为 `random q=33` 的 rep-split task 增加更长 walltime：
+    - 上一轮 `random q=33` 在 `6h` 内只完成 `warmup + 1 measured rep`
+    - 现在单个 rep task 仍带 `warmup=1`，因此给 `07:00:00`
+- 关键决定：
+  - `h_sweep` 这轮不再继续按 `target` 细分，而是沿用“单 qubit 一个 job”，只针对 `q=33` 放宽时限。
+  - `random` 不按 layer 拆，因为那会改变 benchmark 语义；只按 repetition 拆，这是对现有 parser 最兼容的切法。
+  - split 之后的 random 输出文件形如：
+    - `random_archer2_cpu_mpi_off_q33_rep1.tsv`
+    - `random_archer2_cpu_mpi_off_q33_rep2.tsv`
+    - `random_archer2_cpu_mpi_off_q33_rep3.tsv`
+  - parser 仍可直接聚合，因为它按 row 内容统计，并忽略 warmup 行。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_point.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_parallel.sh`
+- 验证结果：
+  - `bash -n experiments/scripts/sbatch_archer2_point.sh experiments/scripts/submit_archer2_parallel.sh` 通过。
+  - 上一轮超时文件已人工核对：
+    - `h_sweep_archer2_cpu_mpi_off_q33.tsv` 共有 `67` 行，说明只完成了一半左右
+    - `random_archer2_cpu_mpi_off_q33.tsv` 只写出 `warmup + rep1`
+- 未完成 / TODO：
+  - 还没把这次补丁 push 到远端并重提缺失点。
+  - 还没删除上一轮 `q33` 的 partial raw 文件并补跑。
+- 下一步：
+  - commit 并 push 当前补丁。
+  - ARCHER2 `/work/...` fast-forward。
+  - 删除上一轮 `h_sweep q33` 与 `random q33` 的 partial 文件。
+  - 重新提交：
+    - `h_sweep q33` 单 job
+    - `random q33` 的 `rep=1..3` array
+- 接手提示：
+  - 补跑缺失点时，务必先清理旧的 partial `.tsv`，否则 parser 会把中断行和新结果一起统计进去。

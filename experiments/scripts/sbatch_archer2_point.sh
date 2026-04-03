@@ -26,10 +26,17 @@ DEPLOYMENT="${DEPLOYMENT:-off}"
 SYNC_MODE="${SYNC_MODE:-benchmark}"
 REPS="${REPS:-3}"
 WARMUP="${WARMUP:-1}"
+if [ -n "${POINT_REPS:-}" ]; then
+    REPS="${POINT_REPS}"
+fi
+if [ -n "${POINT_WARMUP:-}" ]; then
+    WARMUP="${POINT_WARMUP}"
+fi
 SEED="${SEED:-20260402}"
 BENCH_LABEL="${BENCH_LABEL:-}"
 BENCH_PLATFORM="${BENCH_PLATFORM:-archer2}"
 RUN_RAW_DIR="$(current_raw_results_dir)"
+POINT_TAG="${POINT_TAG:-}"
 
 if [ -n "${BENCH_QUBIT:-}" ]; then
     QUBIT="${BENCH_QUBIT}"
@@ -55,7 +62,7 @@ fi
 
 case "${BENCHMARK}" in
     qft)
-        OUTPUT_PATH="${RUN_RAW_DIR}/qft_archer2_${BACKEND}_${DEPLOYMENT}_q${QUBIT}.tsv"
+        OUTPUT_PATH="${RUN_RAW_DIR}/qft_archer2_${BACKEND}_${DEPLOYMENT}_q${QUBIT}${POINT_TAG:+_${POINT_TAG}}.tsv"
         CMD=(
             "${EXE}"
             --qubits "${QUBIT}"
@@ -68,7 +75,7 @@ case "${BENCHMARK}" in
         )
         ;;
     h_sweep)
-        OUTPUT_PATH="${RUN_RAW_DIR}/h_sweep_archer2_${BACKEND}_${DEPLOYMENT}_q${QUBIT}.tsv"
+        OUTPUT_PATH="${RUN_RAW_DIR}/h_sweep_archer2_${BACKEND}_${DEPLOYMENT}_q${QUBIT}${POINT_TAG:+_${POINT_TAG}}.tsv"
         CMD=(
             "${EXE}"
             --qubits "${QUBIT}"
@@ -81,8 +88,11 @@ case "${BENCHMARK}" in
         )
         ;;
     random)
+        if [ -z "${POINT_TAG}" ] && [ "${RANDOM_SPLIT_BY_REP:-0}" = "1" ] && [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then
+            POINT_TAG="rep${SLURM_ARRAY_TASK_ID}"
+        fi
         DEPTH="${RANDOM_DEPTH:-$((2 * QUBIT))}"
-        OUTPUT_PATH="${RUN_RAW_DIR}/random_archer2_${BACKEND}_${DEPLOYMENT}_q${QUBIT}.tsv"
+        OUTPUT_PATH="${RUN_RAW_DIR}/random_archer2_${BACKEND}_${DEPLOYMENT}_q${QUBIT}${POINT_TAG:+_${POINT_TAG}}.tsv"
         CMD=(
             "${EXE}"
             --qubits "${QUBIT}"

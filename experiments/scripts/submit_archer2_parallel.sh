@@ -84,6 +84,62 @@ print(",".join(str(v) for v in values if base <= v <= maximum))
 PY
 }
 
+join_by_comma() {
+    local first=1
+    local value
+
+    for value in "$@"; do
+        if [ "${first}" -eq 1 ]; then
+            printf '%s' "${value}"
+            first=0
+        else
+            printf ',%s' "${value}"
+        fi
+    done
+}
+
+h_qos_for_qubit() {
+    local qubit="$1"
+    if [ "${qubit}" -ge 33 ]; then
+        printf 'standard'
+    else
+        printf 'short'
+    fi
+}
+
+h_time_limit_for_qubit() {
+    local qubit="$1"
+    if [ "${qubit}" -ge 33 ]; then
+        # Previous q=33 run wrote 66/132 rows before timing out at 00:10:15.
+        # Doubling that partial progress with a small buffer gives ~00:25:00.
+        printf '00:25:00'
+    else
+        printf '00:10:00'
+    fi
+}
+
+random_qos_for_qubit() {
+    local qubit="$1"
+    if [ "${qubit}" -ge 33 ]; then
+        printf 'standard'
+    else
+        printf 'standard'
+    fi
+}
+
+random_time_limit_for_qubit() {
+    local qubit="$1"
+    if [ "${qubit}" -ge 33 ]; then
+        # Previous q=33 run completed warmup + one measured rep in ~5.5h.
+        # Splitting by rep still keeps warmup, so budget ~7h for one task.
+        printf '07:00:00'
+    elif [ "${qubit}" -ge 29 ]; then
+        printf '01:00:00'
+    else
+        printf '00:20:00'
+    fi
+}
+
 submit_build_job() {
     sbatch --parsable \
         --account="${ARCHER2_ACCOUNT}" \
@@ -116,30 +172,55 @@ submit_qft_array() {
         "${SCRIPT_DIR}/sbatch_archer2_point.sh"
 }
 
-submit_h_array() {
+submit_h_jobs() {
     local points_csv="$1"
-    sbatch --parsable \
-        --account="${ARCHER2_ACCOUNT}" \
-        --partition=standard \
-        --qos=short \
-        --job-name=quest-h-cpu \
-        --time=00:10:00 \
-        --array="${points_csv}" \
-        --export="ALL,RAW_RESULTS_DIR_OVERRIDE=${RUN_RAW_DIR},BENCHMARK=h_sweep,BACKEND=${BACKEND},DEPLOYMENT=${DEPLOYMENT},REPS=${REPS},WARMUP=${WARMUP},SYNC_MODE=${SYNC_MODE},BENCH_PLATFORM=archer2" \
-        "${SCRIPT_DIR}/sbatch_archer2_point.sh"
+    local points=()
+    local job_ids=()
+    local qubit
+    local qos
+    local walltime
+
+    IFS=, read -r -a points <<< "${points_csv}"
+    for qubit in "${points[@]}"; do
+        qos="$(h_qos_for_qubit "${qubit}")"
+        walltime="$(h_time_limit_for_qubit "${qubit}")"
+        job_ids+=("$(normalize_job_id "$(sbatch --parsable \
+            --account="${ARCHER2_ACCOUNT}" \
+            --partition=standard \
+            --qos="${qos}" \
+            --job-name=quest-h-cpu \
+            --time="${walltime}" \
+            --export="ALL,RAW_RESULTS_DIR_OVERRIDE=${RUN_RAW_DIR},BENCHMARK=h_sweep,BACKEND=${BACKEND},DEPLOYMENT=${DEPLOYMENT},REPS=${REPS},WARMUP=${WARMUP},SYNC_MODE=${SYNC_MODE},BENCH_PLATFORM=archer2,BENCH_QUBIT=${qubit}" \
+            "${SCRIPT_DIR}/sbatch_archer2_point.sh")")")
+    done
+
+    join_by_comma "${job_ids[@]}"
 }
 
-submit_random_array() {
+submit_random_jobs() {
     local points_csv="$1"
-    sbatch --parsable \
-        --account="${ARCHER2_ACCOUNT}" \
-        --partition=standard \
-        --qos=standard \
-        --job-name=quest-random-cpu \
-        --time=06:00:00 \
-        --array="${points_csv}" \
-        --export="ALL,RAW_RESULTS_DIR_OVERRIDE=${RUN_RAW_DIR},BENCHMARK=random,BACKEND=${BACKEND},DEPLOYMENT=${DEPLOYMENT},REPS=${REPS},WARMUP=${WARMUP},SYNC_MODE=${SYNC_MODE},SEED=20260402,BENCH_PLATFORM=archer2" \
-        "${SCRIPT_DIR}/sbatch_archer2_point.sh"
+    local points=()
+    local job_ids=()
+    local qubit
+    local qos
+    local walltime
+
+    IFS=, read -r -a points <<< "${points_csv}"
+    for qubit in "${points[@]}"; do
+        qos="$(random_qos_for_qubit "${qubit}")"
+        walltime="$(random_time_limit_for_qubit "${qubit}")"
+        job_ids+=("$(normalize_job_id "$(sbatch --parsable \
+            --account="${ARCHER2_ACCOUNT}" \
+            --partition=standard \
+            --qos="${qos}" \
+            --job-name=quest-random-cpu \
+            --time="${walltime}" \
+            --array="1-${REPS}" \
+            --export="ALL,RAW_RESULTS_DIR_OVERRIDE=${RUN_RAW_DIR},BENCHMARK=random,BACKEND=${BACKEND},DEPLOYMENT=${DEPLOYMENT},REPS=${REPS},WARMUP=${WARMUP},POINT_REPS=1,POINT_WARMUP=1,RANDOM_SPLIT_BY_REP=1,SYNC_MODE=${SYNC_MODE},SEED=20260402,BENCH_PLATFORM=archer2,BENCH_QUBIT=${qubit}" \
+            "${SCRIPT_DIR}/sbatch_archer2_point.sh")")")
+    done
+
+    join_by_comma "${job_ids[@]}"
 }
 
 cancel_existing_jobs_if_requested() {
@@ -211,8 +292,8 @@ info "Probe maximum qubits: ${maximum}"
 info "Sample points: ${points_csv}"
 
 qft_job="$(normalize_job_id "$(submit_qft_array "${maximum}")")"
-h_job="$(normalize_job_id "$(submit_h_array "${points_csv}")")"
-random_job="$(normalize_job_id "$(submit_random_array "${points_csv}")")"
+h_job="$(submit_h_jobs "${points_csv}")"
+random_job="$(submit_random_jobs "${points_csv}")"
 
 write_meta "${build_job}" "${probe_job}" "${qft_job}" "${h_job}" "${random_job}" "${maximum}" "${points_csv}"
 
