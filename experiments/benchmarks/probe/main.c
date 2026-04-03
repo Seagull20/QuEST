@@ -127,7 +127,7 @@ static int find_max_allocatable_qubits(const BenchOptions* opts, int* attempts) 
 
 static void write_header(FILE* out) {
     fprintf(out,
-            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tmax_qubits\tprobe_attempts\tsearch_min\tsearch_max\talloc_time_s\tvalidation_time_s\n");
+            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tmax_qubits\tprobe_attempts\tsearch_min\tsearch_max\talloc_time_s\tvalidation_time_s\n");
 }
 
 static void write_row(FILE* out,
@@ -139,7 +139,7 @@ static void write_row(FILE* out,
                       double alloc_time_s,
                       double validation_time_s) {
     fprintf(out,
-            "%s\t%s\t%s\t%s\t%s\t%d\t0\t0\t%s\t%s\t%.12f\t%d\t%d\t%d\t%d\t%d\t%.9f\t%.9f\n",
+            "%s\t%s\t%s\t%s\t%s\t%d\t0\t0\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%.9f\t%.9f\n",
             bench_detect_platform(),
             bench_build_backend(),
             bench_distribution_string(opts->distribution),
@@ -150,6 +150,9 @@ static void write_row(FILE* out,
             bench_sync_mode_string(opts->sync_mode),
             (double) total_prob,
             bench_env_num_nodes(),
+            bench_env_num_threads(),
+            bench_preheat_mode_string(opts->preheat_mode),
+            bench_effective_preheat_qubits(opts),
             max_qubits,
             attempts,
             opts->search_min,

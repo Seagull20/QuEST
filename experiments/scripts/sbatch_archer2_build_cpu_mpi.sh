@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
-#SBATCH --time=00:40:00
+#SBATCH --time=00:20:00
 #SBATCH --output=experiments/results/raw/archer2_%x_%j.out
 #SBATCH --error=experiments/results/raw/archer2_%x_%j.err
 

@@ -5,7 +5,7 @@
 
 static void write_header(FILE* out) {
     fprintf(out,
-            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\ttarget_qubit\tgate_time_s\n");
+            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\ttarget_qubit\tgate_time_s\n");
 }
 
 static void write_row(FILE* out,
@@ -17,7 +17,7 @@ static void write_row(FILE* out,
                       int target_qubit,
                       double gate_time_s) {
     fprintf(out,
-            "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%.9f\n",
+            "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%.9f\n",
             bench_detect_platform(),
             bench_build_backend(),
             bench_distribution_string(opts->distribution),
@@ -30,8 +30,41 @@ static void write_row(FILE* out,
             bench_sync_mode_string(opts->sync_mode),
             (double) total_prob,
             bench_env_num_nodes(),
+            bench_env_num_threads(),
+            bench_preheat_mode_string(opts->preheat_mode),
+            bench_effective_preheat_qubits(opts),
             target_qubit,
             gate_time_s);
+}
+
+static void run_h_sweep_once(Qureg qureg, const BenchOptions* opts, int begin_target, int end_target) {
+    int target;
+
+    initZeroState(qureg);
+    syncQuESTEnv();
+
+    for (target = begin_target; target < end_target; target++) {
+        applyHadamard(qureg, target);
+        bench_sync_stage_if_needed(opts);
+
+        applyHadamard(qureg, target);
+        if (opts->sync_mode == BENCH_SYNC_BENCHMARK)
+            syncQuESTEnv();
+    }
+
+    bench_sync_finalize(opts);
+}
+
+static int run_h_sweep_light_preheat(const BenchOptions* opts) {
+    BenchOptions preheat_opts = *opts;
+    int preheat_qubits = bench_effective_preheat_qubits(opts);
+    Qureg preheat_qureg;
+
+    preheat_opts.num_qubits = preheat_qubits;
+    preheat_qureg = bench_create_state_qureg_with_qubits(opts, preheat_qubits);
+    run_h_sweep_once(preheat_qureg, &preheat_opts, 0, preheat_qubits);
+    destroyQureg(preheat_qureg);
+    return 1;
 }
 
 int main(int argc, char** argv) {
@@ -71,6 +104,13 @@ int main(int argc, char** argv) {
     end_target = (opts.target >= 0) ? (opts.target + 1) : opts.num_qubits;
 
     bench_init_environment();
+    if (opts.preheat_mode == BENCH_PREHEAT_LIGHT && !run_h_sweep_light_preheat(&opts)) {
+        fprintf(stderr, "ERROR: failed to run H sweep light preheat\n");
+        free(gate_times);
+        bench_close_output(out, should_close);
+        finalizeQuESTEnv();
+        return EXIT_FAILURE;
+    }
     qureg = bench_create_state_qureg(&opts);
 
     for (rep = 0; rep < opts.warmup + opts.reps; rep++) {

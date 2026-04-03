@@ -39,9 +39,29 @@ static double run_qft(Qureg qureg, const BenchOptions* opts, double* stage_times
     return bench_wall_time() - total_start;
 }
 
+static int run_qft_light_preheat(const BenchOptions* opts) {
+    BenchOptions preheat_opts = *opts;
+    int preheat_qubits = bench_effective_preheat_qubits(opts);
+    double* stage_times = NULL;
+    Qureg preheat_qureg;
+
+    preheat_opts.num_qubits = preheat_qubits;
+    stage_times = (double*) malloc((size_t) (preheat_qubits + 1) * sizeof(double));
+    if (stage_times == NULL)
+        return 0;
+
+    preheat_qureg = bench_create_state_qureg_with_qubits(opts, preheat_qubits);
+    initZeroState(preheat_qureg);
+    syncQuESTEnv();
+    (void) run_qft(preheat_qureg, &preheat_opts, stage_times);
+    destroyQureg(preheat_qureg);
+    free(stage_times);
+    return 1;
+}
+
 static void write_header(FILE* out) {
     fprintf(out,
-            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tstage\tstage_label\tstage_time_s\ttotal_time_s\n");
+            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tstage\tstage_label\tstage_time_s\ttotal_time_s\n");
 }
 
 static void write_stage_row(FILE* out,
@@ -55,7 +75,7 @@ static void write_stage_row(FILE* out,
                             double stage_time_s,
                             double total_time_s) {
     fprintf(out,
-            "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%s\t%.9f\t%.9f\n",
+            "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%s\t%.9f\t%.9f\n",
             bench_detect_platform(),
             bench_build_backend(),
             bench_distribution_string(opts->distribution),
@@ -68,6 +88,9 @@ static void write_stage_row(FILE* out,
             bench_sync_mode_string(opts->sync_mode),
             (double) total_prob,
             bench_env_num_nodes(),
+            bench_env_num_threads(),
+            bench_preheat_mode_string(opts->preheat_mode),
+            bench_effective_preheat_qubits(opts),
             stage,
             stage_label,
             stage_time_s,
@@ -106,6 +129,13 @@ int main(int argc, char** argv) {
     }
 
     bench_init_environment();
+    if (opts.preheat_mode == BENCH_PREHEAT_LIGHT && !run_qft_light_preheat(&opts)) {
+        fprintf(stderr, "ERROR: failed to run QFT light preheat\n");
+        free(stage_times);
+        bench_close_output(out, should_close);
+        finalizeQuESTEnv();
+        return EXIT_FAILURE;
+    }
     qureg = bench_create_state_qureg(&opts);
 
     for (rep = 0; rep < opts.warmup + opts.reps; rep++) {

@@ -136,9 +136,31 @@ static double run_random_circuit(Qureg qureg, const BenchOptions* opts, const Ra
     return bench_wall_time() - start;
 }
 
+static int run_random_light_preheat(const BenchOptions* opts) {
+    BenchOptions preheat_opts = *opts;
+    RandomGate* preheat_gates = NULL;
+    int preheat_gate_count = 0;
+    int preheat_qubits = bench_effective_preheat_qubits(opts);
+    Qureg preheat_qureg;
+
+    preheat_opts.num_qubits = preheat_qubits;
+    preheat_opts.depth = 2 * preheat_qubits;
+
+    if (!generate_random_circuit(&preheat_opts, &preheat_gates, &preheat_gate_count))
+        return 0;
+
+    preheat_qureg = bench_create_state_qureg_with_qubits(opts, preheat_qubits);
+    initZeroState(preheat_qureg);
+    syncQuESTEnv();
+    (void) run_random_circuit(preheat_qureg, &preheat_opts, preheat_gates, preheat_gate_count);
+    destroyQureg(preheat_qureg);
+    free(preheat_gates);
+    return 1;
+}
+
 static void write_header(FILE* out) {
     fprintf(out,
-            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tdepth\tseed\tgate_count\ttotal_time_s\n");
+            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tdepth\tseed\tgate_count\ttotal_time_s\n");
 }
 
 static void write_row(FILE* out,
@@ -150,7 +172,7 @@ static void write_row(FILE* out,
                       int gate_count,
                       double total_time_s) {
     fprintf(out,
-            "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%u\t%d\t%.9f\n",
+            "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%u\t%d\t%.9f\n",
             bench_detect_platform(),
             bench_build_backend(),
             bench_distribution_string(opts->distribution),
@@ -163,6 +185,9 @@ static void write_row(FILE* out,
             bench_sync_mode_string(opts->sync_mode),
             (double) total_prob,
             bench_env_num_nodes(),
+            bench_env_num_threads(),
+            bench_preheat_mode_string(opts->preheat_mode),
+            bench_effective_preheat_qubits(opts),
             opts->depth,
             opts->seed,
             gate_count,
@@ -203,6 +228,13 @@ int main(int argc, char** argv) {
     }
 
     bench_init_environment();
+    if (opts.preheat_mode == BENCH_PREHEAT_LIGHT && !run_random_light_preheat(&opts)) {
+        fprintf(stderr, "ERROR: failed to run random light preheat\n");
+        free(gates);
+        bench_close_output(out, should_close);
+        finalizeQuESTEnv();
+        return EXIT_FAILURE;
+    }
     qureg = bench_create_state_qureg(&opts);
 
     for (rep = 0; rep < opts.warmup + opts.reps; rep++) {

@@ -382,3 +382,148 @@
     - `random q33` 的 `rep=1..3` array
 - 接手提示：
   - 补跑缺失点时，务必先清理旧的 partial `.tsv`，否则 parser 会把中断行和新结果一起统计进去。
+
+## 2026-04-03 14:11 - 拼合 cluster 与 ARCHER2 的 one-node 矩阵
+
+- 模块：parser / remote
+- 目标：把 cluster 与 ARCHER2 的 one-node raw 结果拼到同一套 processed 矩阵里，生成可直接比较的平台级结果。
+- 已完成：
+  - 从 ARCHER2 同步完整 run 目录 `archer2_parallel_20260402_222927` 到本地 staging。
+  - 重建本地 `merged_raw/`，仅保留：
+    - `cluster_raw/*.tsv`
+    - `archer2_parallel_20260402_222927/*.tsv`
+  - 在本地运行 `parse_results.py`，输出完整矩阵到 staging。
+  - 将 staging 中的 processed 矩阵固化到正式目录：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/one_node_merged_20260403/`
+- 关键决定：
+  - 本次合并解析不直接在远端重跑 parser，而是统一拉回本地后解析，避免继续受 ARCHER2 登录态和远端 Python 环境影响。
+  - `merged_raw/` 每次重建，不复用旧缓存，避免把“只含 cluster 的旧结果”混进本轮合并。
+  - 正式保存的矩阵目录使用日期后缀 `one_node_merged_20260403`，便于后续补 MPI 或 profiler 结果时并行保留不同版本。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/cluster_raw`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_parallel_20260402_222927`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/merged_raw`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/one_node_merged_20260403/capacity_matrix.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/one_node_merged_20260403/perf_matrix.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/one_node_merged_20260403/degradation_matrix.tsv`
+- 验证结果：
+  - parser 成功加载 `3545` 条 raw rows 并输出全部六个矩阵文件。
+  - 合并后的 `capacity_matrix.tsv` 已包含：
+    - `archer2 / cpu_mpi / off / 33`
+    - `cluster / gpu / off / 31`
+    - `cluster / cuquantum / off / 31`
+  - 合并后的 `perf_matrix.tsv` 已同时包含：
+    - `archer2 cpu_mpi` 的 `QFT 26..33`
+    - `cluster gpu/cuquantum` 的 one-node `QFT/H/Random`
+- 未完成 / TODO：
+  - 还没把这批 merged 矩阵拷回任一远端结果目录。
+  - 还没基于这批矩阵做图或写摘要表。
+  - MPI 相关矩阵目前仍为空占位，仅保留 schema。
+- 下一步：
+  - 基于 `one_node_merged_20260403` 输出做平台间对比摘要。
+  - 如需对外展示，优先从 `capacity / perf / degradation` 三张表中提炼结论。
+- 接手提示：
+  - 后续如果补新的 raw 结果，先重建 `staging/merged_raw/` 再跑 parser，不要直接在现有 merged 目录上叠加文件。
+  - 对比 one-node 结果时，以 `experiments/results/processed/one_node_merged_20260403/` 为准，不要再引用 `staging/local_processed/`。
+
+## 2026-04-03 18:05 - 为 thread sweep 增加 light preheat、线程元数据和 thread-aware parser
+
+- 模块：qft / h_sweep / random / probe / parser
+- 目标：把 `ARCHER2` 线程 sweep 所需的 runtime/TSV 接口补齐，同时保证旧 one-node raw 仍可被 parser 正常读取。
+- 已完成：
+  - 在 `BenchOptions` 中新增：
+    - `preheat_mode`
+    - `preheat_qubits`
+  - 三个 benchmark 新增 `--preheat-mode off|light|identical` 与 `--preheat-qubits N` CLI。
+  - `qft / h_sweep / random` 均实现同一进程内的 `light preheat`：
+    - 使用 `min(preheat_qubits, measured_qubits)` 的小 `Qureg`
+    - `QFT` 预热一轮小规模 QFT
+    - `H sweep` 预热一轮完整小规模 H sweep
+    - `Random` 预热一轮 `depth = 2 * preheat_qubits` 的小随机电路
+  - 所有 benchmark raw TSV 新增列：
+    - `env_num_threads`
+    - `preheat_mode`
+    - `preheat_qubits`
+  - parser 改为 thread-aware：
+    - 现有 `capacity/perf/degradation/qft_stage/h_target/mpi_extension` 都按 `env_num_threads` 分组
+    - 新增：
+      - `thread_perf_matrix.tsv`
+      - `thread_speedup_matrix.tsv`
+      - `thread_qft_stage_matrix.tsv`
+- 关键决定：
+  - `light preheat` 只负责预热 runtime / environment，不写 TSV，也不占用 `warmup` 计数。
+  - 保留 `identical` 作为默认值，以避免影响旧脚本和旧调用方式。
+  - parser 对缺少 `env_num_threads` 的旧 raw 兼容处理为空值，而不是猜测旧 run 的线程数。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/common/bench.h`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/qft/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/h_sweep/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/random/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/probe/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/parse_results.py`
+- 验证结果：
+  - `python3 -m py_compile experiments/scripts/parse_results.py` 通过。
+  - 本地 `cpu` 构建 `probe / qft / h_sweep / random` 全部通过。
+  - 本地 smoke 成功写出包含：
+    - `env_num_threads=32`
+    - `preheat_mode=light`
+    - `preheat_qubits=4`
+  - 新 parser 能从 smoke raw 生成 `thread_perf_matrix.tsv` 与 `thread_speedup_matrix.tsv`。
+  - 新 parser 重新解析旧的 `merged_raw/` 也通过；旧 raw 中 `env_num_threads` 留空。
+- 未完成 / TODO：
+  - 还没在 `ARCHER2` 上完成真正的 `cpu_mpi` build 验证。
+  - 还没提交 `ARCHER2` thread sweep 作业。
+- 下一步：
+  - 补 thread sweep 的 `sbatch` 与 submitter。
+  - push 到 fork 并让 `ARCHER2 /work/.../QuEST` fast-forward。
+  - 先跑一次 `ARCHER2` 小规模 smoke，再提交全量 thread sweep。
+- 接手提示：
+  - 本地没有 MPI toolchain，因此 `cpu_mpi` 的真正 build 验证需要在 `ARCHER2` 上完成；本地 `cpu` build 这里只是编译级 smoke。
+
+## 2026-04-03 18:05 - 新增 ARCHER2 thread sweep 提交流程
+
+- 模块：scripts / remote
+- 目标：把 `ARCHER2 one-node` 的 thread sweep 从现有 one-node submitter 中独立出来，固定线程矩阵、QoS 和 walltime。
+- 已完成：
+  - 新增：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_thread_point.sh`
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_thread_sweep.sh`
+  - thread sweep 提交流程固定：
+    - `threads = 32 64 128`
+    - `QFT q = 26 29 31 33`
+    - `H sweep q = 26 33`
+    - `Random q = 26 29 33`
+    - `warmup = 0`
+    - `preheat_mode = light`
+    - `preheat_qubits = 24`
+  - 输出文件统一带线程后缀，例如：
+    - `qft_archer2_cpu_mpi_off_q33_t128.tsv`
+  - `short` 任务分两批：
+    - 先 `H sweep`
+    - 再 `Random q=26,29`
+  - `sbatch_archer2_build_cpu_mpi.sh` 的 walltime 从 `00:40:00` 下调到 `00:20:00`
+  - `scripts/README.md` 已补：
+    - thread sweep 的两个新脚本
+    - thread-aware parser 输出
+    - 线程 sweep 的 QoS/并发说明
+- 关键决定：
+  - 由于 `--cpus-per-task` 不能在同一个 array 内按 task 改变，线程 sweep 采用“每个线程数一组 array”的实现，而不是把 `32/64/128` 混在一个 array 里。
+  - `QFT` 与 `Random q33` 放在 `standard`；`H sweep` 和 `Random q=26,29` 放在 `short`。
+  - `short` 任务不与 `Random q=26,29` 同时提交，避免超过 `short` 的并发限额。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_thread_point.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_thread_sweep.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_build_cpu_mpi.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/README.md`
+- 验证结果：
+  - `bash -n` 检查三个相关脚本通过。
+  - 新脚本已赋予可执行权限。
+- 未完成 / TODO：
+  - 还没把新 submitter 真正推到 `ARCHER2` 并提交。
+  - 还没在远端产出 `archer2_threads_<timestamp>/` 目录。
+- 下一步：
+  - commit + push。
+  - `ARCHER2` fast-forward 后先跑一个 `q26 t32` smoke。
+  - smoke 成功后提交全量 thread sweep。
+- 接手提示：
+  - thread sweep 的 manifest 会在运行时写到新的 run raw 目录；不要手工复用旧 run 里的 manifest。

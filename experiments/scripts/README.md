@@ -18,6 +18,9 @@
     - `qft_stage_matrix.tsv`
     - `h_target_matrix.tsv`
     - `mpi_extension_matrix.tsv`
+    - `thread_perf_matrix.tsv`
+    - `thread_speedup_matrix.tsv`
+    - `thread_qft_stage_matrix.tsv`
 
 ## 集群提交脚本
 
@@ -44,6 +47,15 @@
     - probe
     - 根据 `max_qubits` 提交 `QFT` job array
     - 根据 sample points 提交 `H sweep` 和 `Random` job array
+- `sbatch_archer2_thread_point.sh`
+  - ARCHER2 的线程 sweep point job。
+  - 通过 manifest + `BENCH_THREADS` 运行固定 `(benchmark, qubit, threads)`。
+- `submit_archer2_thread_sweep.sh`
+  - ARCHER2 登录节点上的 thread sweep 提交流程。
+  - 固定提交：
+    - `QFT q=26,29,31,33 @ t=32,64,128`
+    - `H sweep q=26,33 @ t=32,64,128`
+    - `Random q=26,29,33 @ t=32,64,128`
 - `sbatch_archer2_qft_mpi.sh`
   - ARCHER2 的 `QFT` MPI 扩展路径。
   - 固定尝试 `2 -> 4 -> 8` 节点。
@@ -79,6 +91,10 @@ python3 experiments/scripts/parse_results.py
 bash experiments/scripts/submit_archer2_parallel.sh
 ```
 
+```bash
+bash experiments/scripts/submit_archer2_thread_sweep.sh
+```
+
 ## ARCHER2 QoS 选择
 
 - `build`
@@ -101,6 +117,19 @@ bash experiments/scripts/submit_archer2_parallel.sh
   - `partition=standard`
   - `qos=standard`
   - 原因：高 qubit sample point 很可能长于 `20 min`，不适合继续塞进 `short`。
+
+## ARCHER2 Thread Sweep
+
+- 线程序列固定为 `32, 64, 128`
+- 提交时统一使用：
+  - `--preheat-mode light`
+  - `--preheat-qubits 24`
+  - `--warmup 0`
+- 因为 `--cpus-per-task` 不能在同一个 Slurm array 内随 task 改变，线程 sweep 采用“每个线程数一组 array”的提交方式，而不是把 `32/64/128` 混在同一个 array 里。
+- `short` QoS 任务分两批：
+  - 先跑 `H sweep`
+  - 再跑 `Random q=26,29`
+  - 这样能把并发控制在 `short` 的限额内。
 
 ## 说明
 

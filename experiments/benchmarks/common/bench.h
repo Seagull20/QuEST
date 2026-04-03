@@ -53,6 +53,12 @@ typedef enum {
 } BenchSyncMode;
 
 typedef enum {
+    BENCH_PREHEAT_IDENTICAL = 0,
+    BENCH_PREHEAT_LIGHT = 1,
+    BENCH_PREHEAT_OFF = 2
+} BenchPreheatMode;
+
+typedef enum {
     BENCH_PARSE_OK = 0,
     BENCH_PARSE_HELP = 1,
     BENCH_PARSE_ERROR = 2
@@ -65,6 +71,7 @@ typedef struct {
     int warmup;
     BenchDistribution distribution;
     BenchSyncMode sync_mode;
+    BenchPreheatMode preheat_mode;
     const char* output_path;
     const char* label;
     int target;
@@ -72,6 +79,7 @@ typedef struct {
     int depth;
     int search_min;
     int search_max;
+    int preheat_qubits;
 } BenchOptions;
 
 static int bench_parse_positive_int(const char* text, int* out) {
@@ -119,6 +127,7 @@ static void bench_options_init(BenchOptions* opts, const char* benchmark_name) {
     opts->warmup = BENCH_DEFAULT_WARMUP;
     opts->distribution = BENCH_DISTRIBUTION_OFF;
     opts->sync_mode = BENCH_SYNC_BENCHMARK;
+    opts->preheat_mode = BENCH_PREHEAT_IDENTICAL;
     opts->output_path = NULL;
     opts->label = benchmark_name;
     opts->target = -1;
@@ -126,6 +135,7 @@ static void bench_options_init(BenchOptions* opts, const char* benchmark_name) {
     opts->depth = -1;
     opts->search_min = BENCH_DEFAULT_SEARCH_MIN;
     opts->search_max = BENCH_DEFAULT_SEARCH_MAX;
+    opts->preheat_qubits = 24;
 }
 
 static void bench_print_common_usage(FILE* out, const char* benchmark_name, const char* extra_usage) {
@@ -136,6 +146,8 @@ static void bench_print_common_usage(FILE* out, const char* benchmark_name, cons
     fprintf(out, "  --warmup N            Number of warm-up repetitions (default %d)\n", BENCH_DEFAULT_WARMUP);
     fprintf(out, "  --distribution MODE   off | on\n");
     fprintf(out, "  --sync-mode MODE      benchmark | profile\n");
+    fprintf(out, "  --preheat-mode MODE   identical | light | off\n");
+    fprintf(out, "  --preheat-qubits N    Qubit count for light preheat (default %d)\n", 24);
     fprintf(out, "  --output PATH         Append TSV rows to PATH\n");
     fprintf(out, "  --label TEXT          Series label written to TSV\n");
     fprintf(out, "  --target K            Optional target qubit for h_sweep\n");
@@ -186,6 +198,19 @@ static BenchParseResult bench_parse_options(BenchOptions* opts, int argc, char**
             else if (strcmp(mode, "profile") == 0)
                 opts->sync_mode = BENCH_SYNC_PROFILE;
             else
+                return BENCH_PARSE_ERROR;
+        } else if (strcmp(arg, "--preheat-mode") == 0) {
+            const char* mode = argv[++i];
+            if (strcmp(mode, "identical") == 0)
+                opts->preheat_mode = BENCH_PREHEAT_IDENTICAL;
+            else if (strcmp(mode, "light") == 0)
+                opts->preheat_mode = BENCH_PREHEAT_LIGHT;
+            else if (strcmp(mode, "off") == 0)
+                opts->preheat_mode = BENCH_PREHEAT_OFF;
+            else
+                return BENCH_PARSE_ERROR;
+        } else if (strcmp(arg, "--preheat-qubits") == 0) {
+            if (!bench_parse_positive_int(argv[++i], &opts->preheat_qubits))
                 return BENCH_PARSE_ERROR;
         } else if (strcmp(arg, "--output") == 0) {
             opts->output_path = argv[++i];
@@ -257,6 +282,18 @@ static const char* bench_sync_mode_string(BenchSyncMode sync_mode) {
     return (sync_mode == BENCH_SYNC_PROFILE) ? "profile" : "benchmark";
 }
 
+static const char* bench_preheat_mode_string(BenchPreheatMode preheat_mode) {
+    switch (preheat_mode) {
+        case BENCH_PREHEAT_LIGHT:
+            return "light";
+        case BENCH_PREHEAT_OFF:
+            return "off";
+        case BENCH_PREHEAT_IDENTICAL:
+        default:
+            return "identical";
+    }
+}
+
 static const char* bench_label_or_default(const BenchOptions* opts) {
     if (opts->label != NULL && opts->label[0] != '\0')
         return opts->label;
@@ -314,6 +351,11 @@ static int bench_validate_runtime_request(const BenchOptions* opts, FILE* err) {
         return 0;
     }
 
+    if (opts->preheat_qubits < 1) {
+        fprintf(err, "ERROR: preheat qubits must be positive\n");
+        return 0;
+    }
+
     return 1;
 }
 
@@ -325,6 +367,14 @@ static void bench_init_environment(void) {
 
 static Qureg bench_create_state_qureg(const BenchOptions* opts) {
     return createCustomQureg(opts->num_qubits,
+                             0,
+                             opts->distribution == BENCH_DISTRIBUTION_ON ? 1 : 0,
+                             BENCH_BUILD_SUPPORTS_GPU ? 1 : 0,
+                             1);
+}
+
+static Qureg bench_create_state_qureg_with_qubits(const BenchOptions* opts, int num_qubits) {
+    return createCustomQureg(num_qubits,
                              0,
                              opts->distribution == BENCH_DISTRIBUTION_ON ? 1 : 0,
                              BENCH_BUILD_SUPPORTS_GPU ? 1 : 0,
@@ -367,6 +417,20 @@ static int bench_prob_is_valid(qreal prob) {
 static int bench_env_num_nodes(void) {
     QuESTEnv env = getQuESTEnv();
     return env.numNodes;
+}
+
+static int bench_env_num_threads(void) {
+    const char* text = getenv("OMP_NUM_THREADS");
+    int threads = 1;
+    if (text != NULL && bench_parse_positive_int(text, &threads))
+        return threads;
+    return 1;
+}
+
+static int bench_effective_preheat_qubits(const BenchOptions* opts) {
+    if (opts->preheat_qubits < opts->num_qubits)
+        return opts->preheat_qubits;
+    return opts->num_qubits;
 }
 
 static qreal bench_discrete_angle_from_index(int idx) {
