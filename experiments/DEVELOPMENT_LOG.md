@@ -836,3 +836,38 @@
   - 做一次轻量 Slidev 构建级检查。
 - 接手提示：
   - 这轮 slides 里所有 distributed 大 qubit 数字都应该带 “projected / inferred” 语义，不要改回陈述式实测口吻。
+
+## 2026-04-07 19:37 - 补测 `2-node` distributed q26 calibration
+
+- 模块：remote / slides
+- 目标：在保留 `q=26` calibration 的前提下，再补一个 `2 nodes × 1 rank/node × 128 threads/rank` 点，用来把 distributed calibration 图改成更接近 strong-scaling 的样式。
+- 已完成：
+  - 在 ARCHER2 上提交并完成了一个额外的 distributed smoke：
+    - topology: `2 nodes × 1 rank/node × 128 threads/rank`
+    - circuit: `QFT q=26`
+    - `warmup=0`, `preheat=light`
+  - 结果已落盘并同步回本地 staging：
+    - remote raw:
+      `/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_distributed_2node_20260407/qft_archer2_cpu_mpi_on_n2_q26_t128_smoke.tsv`
+    - local staging:
+      `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_distributed_2node_20260407/qft_archer2_cpu_mpi_on_n2_q26_t128_smoke.tsv`
+  - 使用 `1 / 2 / 4 nodes` 三个点，把 calibration 页改成了 strong-scaling 风格的 runtime-vs-nodes 图。
+- 关键决定：
+  - strong scaling 页使用 runtime-vs-nodes + ideal line，而不是 speedup-vs-nodes。
+  - 原因是这组三个点都表现为 negative scaling；直接画 speedup 会把实际曲线压在坐标轴附近，不利于阅读。
+- 涉及数据：
+  - `1 node`: `1.754 s`（one-node thread sweep 的 `q26 @ 128 threads`）
+  - `2 nodes`: `36.177 s`
+  - `4 nodes`: `18.397 s`
+- 验证结果：
+  - `2 nodes` smoke job `13192952` 成功完成，`qft` step `00:00:47`，退出码 `0:0`。
+  - Slidev build 通过，说明新的 calibration 图和页面结构都可编译。
+- 未完成 / TODO：
+  - 若后续要继续 distributed 实测，建议先明确是否要看：
+    - communication overhead
+    - local-state shrink benefit
+    - 或者真正的 cross-node capacity extension
+- 下一步：
+  - 当前 distributed 部分已经足够支撑报告；如无新要求，不再扩展更多 distributed qubit 点。
+- 接手提示：
+  - 这页的核心结论不是“4 nodes 比 2 nodes 快”，而是“即便 4 nodes 优于 2 nodes，distributed 仍明显慢于 1 node baseline”。
