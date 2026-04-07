@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # shellcheck source=common.sh
 . "${SCRIPT_DIR}/common.sh"
 
-ARCHER2_ACCOUNT="${ARCHER2_ACCOUNT:-m25ext-s2866920}"
+ARCHER2_ACCOUNT="${ARCHER2_ACCOUNT:-m25ext}"
 BACKEND="${BACKEND:-cpu_mpi}"
 BENCH_PLATFORM="${BENCH_PLATFORM:-archer2}"
 SMOKE_QUBIT="${SMOKE_QUBIT:-26}"
@@ -33,8 +33,11 @@ normalize_job_id() {
 }
 
 wait_submit() {
+    local script_path="${!#}"
+    local prefix=("${@:1:$(($# - 1))}")
     local job_out=""
-    if ! job_out="$("$@" --wait --parsable)"; then
+
+    if ! job_out="$("${prefix[@]}" --wait --parsable "${script_path}")"; then
         return 1
     fi
     normalize_job_id "${job_out}"
