@@ -742,3 +742,32 @@
 - 接手提示：
   - 如果 distributed raw 又出现重复行，先确认远端是否真的用了修复后的 commit，不要先去改 parser。
   - `H sweep` 如果仍需更多时间，优先切到 `standard`，不要再次把 `short` 的 walltime 写到 20 分钟以上。
+
+## 2026-04-07 19:04 - 按实测 distributed 开销上调 suite walltime
+
+- 模块：scripts / remote
+- 目标：根据 `ARCHER2 distributed` 的前期实测，重新估算 `QFT / Random / H sweep` 的 walltime，避免继续沿用 one-node 级别的低估预算。
+- 已完成：
+  - 将 `submit_archer2_distributed.sh` 中 distributed suite 的 walltime 调整为：
+    - `QFT`: `08:00:00`
+    - `H sweep`: `01:00:00`
+    - `Random`: `18:00:00`
+  - 同时把 `H sweep` 从 `short` 切到 `standard`，避免 `q34` 接近容量边界时再次撞到 `short` 上限。
+- 关键决定：
+  - walltime 不再按 one-node 数据估算，而是按已观测到的 distributed 开销上调。
+  - 当前依据有两条：
+    - `QFT q26` distributed smoke 相对 one-node `128-thread` baseline 慢约 `10.7x`
+    - `H sweep q33` 的首个 measured rep 相对 one-node `128-thread` 平均 gate time 也慢约 `10x`
+  - 因此原先的 `QFT 03:00:00 / H 00:20:00 / Random 06:00:00` 对 `q33, q34` 明显偏小。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_distributed.sh`
+- 验证结果：
+  - 本轮改动尚未重新提交到远端；旧的 distributed suite arrays 仍在跑，但大概率会在原 walltime 下超时。
+- 未完成 / TODO：
+  - commit + push 当前 walltime 修正。
+  - `ARCHER2` fast-forward 到新 commit。
+  - 取消当前低估 walltime 的 suite arrays，并用新预算重提。
+- 下一步：
+  - 先推送脚本修正，再在 `ARCHER2` 上重跑 distributed suite。
+- 接手提示：
+  - 重提前保留现有 smoke 与第一轮有效 probe 结果；只需要重跑 suite，不必重做 cluster distributed。

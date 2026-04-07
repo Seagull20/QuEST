@@ -156,9 +156,9 @@ printf '%s\n%s\n' "${DIST_MINUS_ONE}" "${DIST_MAX}" > "${QUBIT_MANIFEST}"
     echo "suite_qubits=${DIST_MINUS_ONE},${DIST_MAX}"
 } >> "${META_FILE}"
 
-QFT_JOB="$(normalize_job_id "$(submit_array qft "${QUBIT_MANIFEST}" standard 03:00:00 "${QFT_REPS}")")"
-H_JOB="$(normalize_job_id "$(submit_array h_sweep "${QUBIT_MANIFEST}" short 00:20:00 "${H_REPS}")")"
-RANDOM_JOB="$(normalize_job_id "$(submit_array random "${QUBIT_MANIFEST}" standard 06:00:00 "${RANDOM_REPS}")")"
+QFT_JOB="$(normalize_job_id "$(submit_array qft "${QUBIT_MANIFEST}" standard 08:00:00 "${QFT_REPS}")")"
+H_JOB="$(normalize_job_id "$(submit_array h_sweep "${QUBIT_MANIFEST}" standard 01:00:00 "${H_REPS}")")"
+RANDOM_JOB="$(normalize_job_id "$(submit_array random "${QUBIT_MANIFEST}" standard 18:00:00 "${RANDOM_REPS}")")"
 
 {
     echo "qft_job=${QFT_JOB}"
