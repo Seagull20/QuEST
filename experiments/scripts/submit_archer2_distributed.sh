@@ -144,16 +144,15 @@ EOF
 [ -n "${DIST_MAX}" ] || die "Distributed probe did not return max_qubits."
 [ "${DIST_MAX}" -ge 2 ] || die "Distributed max qubits is unexpectedly small: ${DIST_MAX}"
 
-DIST_MINUS_ONE="$((DIST_MAX - 1))"
 QUBIT_MANIFEST="${RUN_RAW_DIR}/manifest_distributed_qubits.txt"
-printf '%s\n%s\n' "${DIST_MINUS_ONE}" "${DIST_MAX}" > "${QUBIT_MANIFEST}"
+printf '%s\n%s\n' "26" "${DIST_MAX}" > "${QUBIT_MANIFEST}"
 
 {
     echo "build_job=${BUILD_JOB}"
     echo "smoke_job=${SMOKE_JOB}"
     echo "probe_job=${PROBE_JOB}"
     echo "distributed_max=${DIST_MAX}"
-    echo "suite_qubits=${DIST_MINUS_ONE},${DIST_MAX}"
+    echo "suite_qubits=26,${DIST_MAX}"
 } >> "${META_FILE}"
 
 QFT_JOB="$(normalize_job_id "$(submit_array qft "${QUBIT_MANIFEST}" standard 08:00:00 "${QFT_REPS}")")"

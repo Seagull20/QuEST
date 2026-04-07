@@ -771,3 +771,28 @@
   - 先推送脚本修正，再在 `ARCHER2` 上重跑 distributed suite。
 - 接手提示：
   - 重提前保留现有 smoke 与第一轮有效 probe 结果；只需要重跑 suite，不必重做 cluster distributed。
+
+## 2026-04-07 19:08 - distributed suite 改为 `26q` 对比 `dist_max`
+
+- 模块：scripts / slides / remote
+- 目标：缩小 distributed suite 的点位集合，用一个稳定、可解释、且已经在 one-node/thread-sweep 中出现过的对比基线替代 `dist_max-1`。
+- 已完成：
+  - 将 `submit_archer2_distributed.sh` 的 suite manifest 从 `dist_max-1, dist_max` 改为固定 `26, dist_max`。
+  - `submission_meta.txt` 中的 `suite_qubits` 也同步改为 `26,<dist_max>`。
+- 关键决定：
+  - distributed slides 和结果讨论统一使用：
+    - `26q` 作为低负载对比点
+    - `dist_max` 作为接近 distributed 容量上限的高负载点
+  - 这样可以直接和现有 one-node / thread-sweep 里的 `26q` 基线对齐，同时减少一次昂贵的 distributed 中间点运行。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_distributed.sh`
+- 验证结果：
+  - 脚本层改动已完成，尚未重新提交到 ARCHER2。
+- 未完成 / TODO：
+  - commit + push 当前点位变更。
+  - 用 ARCHER2 远端的 `fork` remote fast-forward 到最新 commit。
+  - 重提 distributed workflow。
+- 下一步：
+  - 先推送，再在 ARCHER2 上取消旧 arrays 并用 `26q + dist_max` 重新跑 suite。
+- 接手提示：
+  - slides 中 distributed suite 的图不再需要展示中间点；用 `26q` 和 `dist_max` 两个 grouped bars 即可。
