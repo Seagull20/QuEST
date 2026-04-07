@@ -4,6 +4,8 @@
 #include <stdlib.h>
 
 static void write_header(FILE* out) {
+    if (out == NULL)
+        return;
     fprintf(out,
             "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\ttarget_qubit\tgate_time_s\n");
 }
@@ -16,6 +18,8 @@ static void write_row(FILE* out,
                       qreal total_prob,
                       int target_qubit,
                       double gate_time_s) {
+    if (out == NULL)
+        return;
     fprintf(out,
             "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%.9f\n",
             bench_detect_platform(),
@@ -88,15 +92,9 @@ int main(int argc, char** argv) {
     if (parse_result != BENCH_PARSE_OK || !bench_validate_runtime_request(&opts, stderr))
         return EXIT_FAILURE;
 
-    if (!bench_open_output(opts.output_path, &out, &should_close, &should_write_header))
-        return EXIT_FAILURE;
-    if (should_write_header)
-        write_header(out);
-
     gate_times = (double*) malloc((size_t) opts.num_qubits * sizeof(double));
     if (gate_times == NULL) {
         fprintf(stderr, "ERROR: failed to allocate h_sweep timing buffer\n");
-        bench_close_output(out, should_close);
         return EXIT_FAILURE;
     }
 
@@ -104,6 +102,13 @@ int main(int argc, char** argv) {
     end_target = (opts.target >= 0) ? (opts.target + 1) : opts.num_qubits;
 
     bench_init_environment();
+    if (!bench_open_output_for_rank(opts.output_path, &out, &should_close, &should_write_header)) {
+        free(gate_times);
+        finalizeQuESTEnv();
+        return EXIT_FAILURE;
+    }
+    if (should_write_header)
+        write_header(out);
     if (opts.preheat_mode == BENCH_PREHEAT_LIGHT && !run_h_sweep_light_preheat(&opts)) {
         fprintf(stderr, "ERROR: failed to run H sweep light preheat\n");
         free(gate_times);

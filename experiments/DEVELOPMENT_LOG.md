@@ -699,3 +699,46 @@
 - 接手提示：
   - 如果本地想复测 `cpu_mpi` build，不要先怀疑代码；先确认机器上有可被 CMake 发现的 MPI toolchain。
   - distributed suite 的 qubit 点位来自 probe 输出，不要手工写死。
+
+## 2026-04-07 18:40 - 修复 distributed 多 rank 重复写文件与 H sweep walltime
+
+- 模块：probe / qft / h_sweep / random / scripts / remote
+- 目标：修复 `ARCHER2 distributed` 第一轮实跑里暴露出的两个问题：
+  - 多个 MPI rank 同时向同一个 TSV 追加，导致 distributed raw 重复写入；
+  - `H sweep` 使用 `short` QoS 但 walltime 仍设成 `00:30:00`，超出上限。
+- 已完成：
+  - 在 `bench.h` 中新增 `bench_is_output_rank()` 与 `bench_open_output_for_rank()`。
+  - 将 `probe / qft / h_sweep / random` 四个 benchmark 改为：
+    - 先 `bench_init_environment()`
+    - 再判定是否为 root rank
+    - 仅 root rank 打开输出文件并写 header/rows
+  - 每个 benchmark 的 `write_*` 函数现在都会先判断 `out == NULL`，非 root rank 直接跳过写出。
+  - 将 `submit_archer2_distributed.sh` 中 `H sweep` array 的 walltime 改为 `00:20:00`，对齐 `short` QoS 上限。
+- 关键决定：
+  - distributed 运行仍然由所有 rank 参与计算；只屏蔽非 root rank 的文件写出，不改变 benchmark 语义。
+  - 不重跑已经通过的 `q=26` smoke；后续只需要用修复后的二进制重新做 probe 和 suite。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/common/bench.h`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/probe/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/qft/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/h_sweep/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/random/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_distributed.sh`
+- 验证结果：
+  - 第一轮 distributed `probe` 已证明 `dist_max = 34`，但同一行被 4 个 rank 重复写到了同一个 TSV。
+  - 第一轮 suite 提交中：
+    - `QFT` 和 `Random` arrays 已提交
+    - `H sweep` 提交被 `QOSMaxWallDurationPerJobLimit` 拦下
+  - 因此这轮修复后需要重跑 distributed `probe + suite`。
+- 未完成 / TODO：
+  - 还没把 root-only 写出修复重新编译到 `ARCHER2` 的 `cpu_mpi` binaries。
+  - 还没重跑 distributed `probe / QFT / Random / H sweep`。
+  - 还没把 distributed 结果回填到 `Sweep_slides.md`。
+- 下一步：
+  - commit + push 当前修复。
+  - `ARCHER2` fast-forward。
+  - 重编 `cpu_mpi`，重跑 distributed `probe + suite`。
+  - 本地重新 parse，并更新 slides 与图。
+- 接手提示：
+  - 如果 distributed raw 又出现重复行，先确认远端是否真的用了修复后的 commit，不要先去改 parser。
+  - `H sweep` 如果仍需更多时间，优先切到 `standard`，不要再次把 `short` 的 walltime 写到 20 分钟以上。

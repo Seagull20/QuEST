@@ -445,12 +445,27 @@ static int bench_env_num_nodes(void) {
     return env.numNodes;
 }
 
+static int bench_is_output_rank(void) {
+    QuESTEnv env = getQuESTEnv();
+    return env.rank == 0;
+}
+
 static int bench_env_num_threads(void) {
     const char* text = getenv("OMP_NUM_THREADS");
     int threads = 1;
     if (text != NULL && bench_parse_positive_int(text, &threads))
         return threads;
     return 1;
+}
+
+static int bench_open_output_for_rank(const char* path, FILE** out, int* should_close, int* should_write_header) {
+    if (!bench_is_output_rank()) {
+        *out = NULL;
+        *should_close = 0;
+        *should_write_header = 0;
+        return 1;
+    }
+    return bench_open_output(path, out, should_close, should_write_header);
 }
 
 static int bench_effective_preheat_qubits(const BenchOptions* opts) {

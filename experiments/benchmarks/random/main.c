@@ -159,6 +159,8 @@ static int run_random_light_preheat(const BenchOptions* opts) {
 }
 
 static void write_header(FILE* out) {
+    if (out == NULL)
+        return;
     fprintf(out,
             "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tdepth\tseed\tgate_count\ttotal_time_s\n");
 }
@@ -171,6 +173,8 @@ static void write_row(FILE* out,
                       qreal total_prob,
                       int gate_count,
                       double total_time_s) {
+    if (out == NULL)
+        return;
     fprintf(out,
             "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%u\t%d\t%.9f\n",
             bench_detect_platform(),
@@ -216,18 +220,19 @@ int main(int argc, char** argv) {
     if (parse_result != BENCH_PARSE_OK || !bench_validate_runtime_request(&opts, stderr))
         return EXIT_FAILURE;
 
-    if (!bench_open_output(opts.output_path, &out, &should_close, &should_write_header))
-        return EXIT_FAILURE;
-    if (should_write_header)
-        write_header(out);
-
     if (!generate_random_circuit(&opts, &gates, &gate_count)) {
         fprintf(stderr, "ERROR: failed to generate random circuit\n");
-        bench_close_output(out, should_close);
         return EXIT_FAILURE;
     }
 
     bench_init_environment();
+    if (!bench_open_output_for_rank(opts.output_path, &out, &should_close, &should_write_header)) {
+        free(gates);
+        finalizeQuESTEnv();
+        return EXIT_FAILURE;
+    }
+    if (should_write_header)
+        write_header(out);
     if (opts.preheat_mode == BENCH_PREHEAT_LIGHT && !run_random_light_preheat(&opts)) {
         fprintf(stderr, "ERROR: failed to run random light preheat\n");
         free(gates);

@@ -143,6 +143,8 @@ static int find_max_allocatable_qubits(const BenchOptions* opts, int* attempts) 
 }
 
 static void write_header(FILE* out) {
+    if (out == NULL)
+        return;
     fprintf(out,
             "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tvalidation_kind\tmax_qubits\tprobe_attempts\tsearch_min\tsearch_max\talloc_time_s\tvalidation_time_s\n");
 }
@@ -155,6 +157,8 @@ static void write_row(FILE* out,
                       int attempts,
                       double alloc_time_s,
                       double validation_time_s) {
+    if (out == NULL)
+        return;
     fprintf(out,
             "%s\t%s\t%s\t%s\t%s\t%d\t0\t0\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%s\t%d\t%d\t%d\t%d\t%.9f\t%.9f\n",
             bench_detect_platform(),
@@ -203,20 +207,23 @@ int main(int argc, char** argv) {
     if (parse_result != BENCH_PARSE_OK || !bench_validate_runtime_request(&opts, stderr))
         return EXIT_FAILURE;
 
-    if (!bench_open_output(opts.output_path, &out, &should_close, &should_write_header))
+    max_qubits = find_max_allocatable_qubits(&opts, &attempts);
+    bench_init_environment();
+    if (!bench_open_output_for_rank(opts.output_path, &out, &should_close, &should_write_header)) {
+        finalizeQuESTEnv();
         return EXIT_FAILURE;
+    }
     if (should_write_header)
         write_header(out);
 
-    max_qubits = find_max_allocatable_qubits(&opts, &attempts);
     if (max_qubits < 1) {
         write_row(out, &opts, BENCH_STATUS_FAILURE, (qreal) 0.0, 0, attempts, 0.0, 0.0);
         bench_close_output(out, should_close);
+        finalizeQuESTEnv();
         return EXIT_FAILURE;
     }
 
     opts.num_qubits = max_qubits;
-    bench_init_environment();
 
     alloc_start = bench_wall_time();
     qureg = bench_create_state_qureg(&opts);
