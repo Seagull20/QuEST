@@ -796,3 +796,43 @@
   - 先推送，再在 ARCHER2 上取消旧 arrays 并用 `26q + dist_max` 重新跑 suite。
 - 接手提示：
   - slides 中 distributed suite 的图不再需要展示中间点；用 `26q` 和 `dist_max` 两个 grouped bars 即可。
+
+## 2026-04-07 19:15 - distributed 路线收口为 `q=26` calibration
+
+- 模块：remote / parser / slides
+- 目标：停止 ARCHER2 上的大 qubit distributed 运行，只保留 `q=26` 的 calibrated smoke 结果，并把“大 qubit 很贵”的判断改为基于该 calibration 的推测写入 slides。
+- 已完成：
+  - 取消了正在运行的 distributed `probe`，不再继续 `q33/q34` 的 distributed `QFT / Random / H sweep`。
+  - 将新的 smoke raw 拉回本地 staging，并单独 parse 到：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/archer2_distributed_smoke_20260407`
+  - 新增 `distributed_q26_runtime.svg`，用于展示：
+    - one-node `QFT q26 @ 128 threads = 1.754 s`
+    - distributed `QFT q26 @ 4 nodes × 1 rank/node × 128 threads = 18.397 s`
+    - 相对 one-node 为 `10.49x` slowdown
+  - 更新 `Sweep_slides.md`：
+    - one-node capacity 页改为说明 distributed 只保留 calibration
+    - 新增 `ARCHER2 Distributed Calibration`
+    - 新增 `Projected Cost of Large Distributed QFT`
+    - `Takeaways` 改为写清 distributed 大 qubit 被 deferred 的原因
+- 关键决定：
+  - 不再把 distributed max 和 large-qubit distributed suite 当成这轮 deliverable。
+  - slides 中的大 qubit distributed 结论统一写成推测，不伪装成实测。
+  - 推测基于两步：
+    - 使用 `q26` 的 measured distributed penalty `18.397 / 1.754 ≈ 10.49x`
+    - 再结合 one-node `q33` 的 `128-thread` QFT 实测以及 near-capacity doubling 趋势
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_distributed_20260407_1911/qft_archer2_cpu_mpi_on_n4_q26_t128_smoke.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/archer2_distributed_smoke_20260407/perf_matrix.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/Qubit_Sweep_benchmark/distributed_q26_runtime.svg`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/Qubit_Sweep_benchmark/Sweep_slides.md`
+- 验证结果：
+  - 当前 ARCHER2 用户队列为空，说明 distributed probe/suite 已停止，没有遗留作业。
+  - 新的 `q26` smoke raw 可以被 parser 正常读取，产出 `perf_matrix.tsv`，其中：
+    - `archer2 cpu_mpi on qft q26 env_num_nodes=4 env_num_threads=128 mean_time_s=18.39676404`
+- 未完成 / TODO：
+  - 如果还需要 distributed 实测，应另外申请更长 walltime 后再单独跑，不与当前 deck 绑定。
+  - 可选：用 Slidev 真正预览一次新增两页是否需要再压缩文案。
+- 下一步：
+  - 做一次轻量 Slidev 构建级检查。
+- 接手提示：
+  - 这轮 slides 里所有 distributed 大 qubit 数字都应该带 “projected / inferred” 语义，不要改回陈述式实测口吻。
