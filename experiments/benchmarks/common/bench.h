@@ -59,6 +59,11 @@ typedef enum {
 } BenchPreheatMode;
 
 typedef enum {
+    BENCH_VALIDATION_DEFAULT = 0,
+    BENCH_VALIDATION_H_LAST = 1
+} BenchValidationKind;
+
+typedef enum {
     BENCH_PARSE_OK = 0,
     BENCH_PARSE_HELP = 1,
     BENCH_PARSE_ERROR = 2
@@ -80,6 +85,7 @@ typedef struct {
     int search_min;
     int search_max;
     int preheat_qubits;
+    BenchValidationKind validation_kind;
 } BenchOptions;
 
 static int bench_parse_positive_int(const char* text, int* out) {
@@ -136,6 +142,7 @@ static void bench_options_init(BenchOptions* opts, const char* benchmark_name) {
     opts->search_min = BENCH_DEFAULT_SEARCH_MIN;
     opts->search_max = BENCH_DEFAULT_SEARCH_MAX;
     opts->preheat_qubits = 24;
+    opts->validation_kind = BENCH_VALIDATION_DEFAULT;
 }
 
 static void bench_print_common_usage(FILE* out, const char* benchmark_name, const char* extra_usage) {
@@ -155,6 +162,7 @@ static void bench_print_common_usage(FILE* out, const char* benchmark_name, cons
     fprintf(out, "  --depth N             Circuit depth for random benchmark\n");
     fprintf(out, "  --search-min N        Probe lower bound\n");
     fprintf(out, "  --search-max N        Probe upper bound\n");
+    fprintf(out, "  --validation-kind K   default | h_last (probe only)\n");
     fprintf(out, "  --help                Show this message\n");
     if (extra_usage != NULL && extra_usage[0] != '\0')
         fprintf(out, "\n%s\n", extra_usage);
@@ -231,6 +239,14 @@ static BenchParseResult bench_parse_options(BenchOptions* opts, int argc, char**
         } else if (strcmp(arg, "--search-max") == 0) {
             if (!bench_parse_positive_int(argv[++i], &opts->search_max))
                 return BENCH_PARSE_ERROR;
+        } else if (strcmp(arg, "--validation-kind") == 0) {
+            const char* kind = argv[++i];
+            if (strcmp(kind, "default") == 0)
+                opts->validation_kind = BENCH_VALIDATION_DEFAULT;
+            else if (strcmp(kind, "h_last") == 0)
+                opts->validation_kind = BENCH_VALIDATION_H_LAST;
+            else
+                return BENCH_PARSE_ERROR;
         } else {
             fprintf(stderr, "ERROR: unknown option '%s'\n", arg);
             return BENCH_PARSE_ERROR;
@@ -291,6 +307,16 @@ static const char* bench_preheat_mode_string(BenchPreheatMode preheat_mode) {
         case BENCH_PREHEAT_IDENTICAL:
         default:
             return "identical";
+    }
+}
+
+static const char* bench_validation_kind_string(BenchValidationKind validation_kind) {
+    switch (validation_kind) {
+        case BENCH_VALIDATION_H_LAST:
+            return "h_last";
+        case BENCH_VALIDATION_DEFAULT:
+        default:
+            return "default";
     }
 }
 

@@ -34,7 +34,7 @@ static int wait_for_child_success(pid_t pid) {
     return WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS;
 }
 
-static void apply_validation_circuit(Qureg qureg, int num_qubits) {
+static void apply_default_validation_circuit(Qureg qureg, int num_qubits) {
     int limit = (num_qubits < 8) ? num_qubits : 8;
     int i;
 
@@ -48,6 +48,23 @@ static void apply_validation_circuit(Qureg qureg, int num_qubits) {
 
     for (i = 0; i < limit; i++)
         applyRotateZ(qureg, i, (qreal) (BENCH_PI / 4.0));
+}
+
+static void apply_h_last_validation_circuit(Qureg qureg, int num_qubits) {
+    initZeroState(qureg);
+    applyHadamard(qureg, num_qubits - 1);
+}
+
+static void apply_validation_circuit(const BenchOptions* opts, Qureg qureg, int num_qubits) {
+    switch (opts->validation_kind) {
+        case BENCH_VALIDATION_H_LAST:
+            apply_h_last_validation_circuit(qureg, num_qubits);
+            break;
+        case BENCH_VALIDATION_DEFAULT:
+        default:
+            apply_default_validation_circuit(qureg, num_qubits);
+            break;
+    }
 }
 
 static int probe_single_allocation(const BenchOptions* opts, int num_qubits) {
@@ -127,7 +144,7 @@ static int find_max_allocatable_qubits(const BenchOptions* opts, int* attempts) 
 
 static void write_header(FILE* out) {
     fprintf(out,
-            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tmax_qubits\tprobe_attempts\tsearch_min\tsearch_max\talloc_time_s\tvalidation_time_s\n");
+            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tvalidation_kind\tmax_qubits\tprobe_attempts\tsearch_min\tsearch_max\talloc_time_s\tvalidation_time_s\n");
 }
 
 static void write_row(FILE* out,
@@ -139,7 +156,7 @@ static void write_row(FILE* out,
                       double alloc_time_s,
                       double validation_time_s) {
     fprintf(out,
-            "%s\t%s\t%s\t%s\t%s\t%d\t0\t0\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%.9f\t%.9f\n",
+            "%s\t%s\t%s\t%s\t%s\t%d\t0\t0\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%s\t%d\t%d\t%d\t%d\t%.9f\t%.9f\n",
             bench_detect_platform(),
             bench_build_backend(),
             bench_distribution_string(opts->distribution),
@@ -153,6 +170,7 @@ static void write_row(FILE* out,
             bench_env_num_threads(),
             bench_preheat_mode_string(opts->preheat_mode),
             bench_effective_preheat_qubits(opts),
+            bench_validation_kind_string(opts->validation_kind),
             max_qubits,
             attempts,
             opts->search_min,
@@ -205,7 +223,7 @@ int main(int argc, char** argv) {
     alloc_time_s = bench_wall_time() - alloc_start;
 
     validation_start = bench_wall_time();
-    apply_validation_circuit(qureg, opts.num_qubits);
+    apply_validation_circuit(&opts, qureg, opts.num_qubits);
     syncQuESTEnv();
     validation_time_s = bench_wall_time() - validation_start;
 

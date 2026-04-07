@@ -592,3 +592,110 @@
   - ARCHER2 fast-forward 后重新执行 `submit_archer2_thread_sweep.sh`。
 - 接手提示：
   - 如果提交器再次提前退出，优先跑 `bash -n`，不要先去怀疑 Slurm 队列本身。
+
+## 2026-04-04 10:35 - ARCHER2 thread sweep 完成并生成线程矩阵
+
+- 模块：remote / parser
+- 目标：确认 `ARCHER2` 的 thread sweep 全部完成，并把 raw 结果同步回本地生成可分析的线程矩阵。
+- 已完成：
+  - 通过 `sacct` 确认 `archer2_threads_20260403_182610` 下的所有 build / QFT / H sweep / Random 作业均为 `COMPLETED`。
+  - 将远端 raw 目录同步到本地：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_threads_20260403_182610`
+  - 在本地运行 parser，生成处理结果：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/archer2_thread_sweep_20260404`
+  - 核对 `thread_speedup_matrix.tsv` 后，确认三个 benchmark 在 `32 -> 64 -> 128 threads` 上都表现出稳定加速。
+- 关键决定：
+  - thread sweep 的正式分析以 `thread_perf_matrix.tsv`、`thread_speedup_matrix.tsv`、`thread_qft_stage_matrix.tsv` 为主，不再直接引用 `sacct` 的作业耗时做结论。
+  - 这一轮只使用新协议数据：
+    - `warmup=0`
+    - `preheat_mode=light`
+    - `preheat_qubits=24`
+    避免与旧的 identical warmup 数据混用。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_threads_20260403_182610`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/archer2_thread_sweep_20260404/thread_perf_matrix.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/archer2_thread_sweep_20260404/thread_speedup_matrix.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/processed/archer2_thread_sweep_20260404/thread_qft_stage_matrix.tsv`
+- 验证结果：
+  - `QFT q33`：
+    - `32t = 1180.88 s`
+    - `64t = 635.58 s`
+    - `128t = 350.26 s`
+    - `128t` 相对 `32t` 加速约 `3.37x`
+  - `Random q33`：
+    - `32t = 10044.69 s`
+    - `64t = 5440.04 s`
+    - `128t = 2934.71 s`
+    - `128t` 相对 `32t` 加速约 `3.42x`
+  - `H sweep q33`：
+    - `32t = 3.441 s/gate`
+    - `64t = 1.902 s/gate`
+    - `128t = 1.043 s/gate`
+    - `128t` 相对 `32t` 加速约 `3.30x`
+- 未完成 / TODO：
+  - 还没有把 thread sweep 的结论整合回 one-node 总结里。
+  - 还没有结合 `thread_qft_stage_matrix.tsv` 做 stage-level 的线程扩展分析。
+  - 还没有决定下一步是否进入 profiler 或 MPI。
+- 下一步：
+  - 基于 `thread_speedup_matrix.tsv` 写一版简明分析，回答 `32/64/128` 的 scaling 是否接近线性。
+  - 如需要，再把 ARCHER2 thread sweep 与 cluster 的 one-node GPU/cuQuantum 结果做横向对照。
+- 接手提示：
+  - 分析线程扩展时优先读取 `thread_speedup_matrix.tsv`，不要从 raw 重新手算。
+  - 如果要追查 `QFT` 的具体 stage 行为，直接看 `thread_qft_stage_matrix.tsv`，不要先回到 `sacct`。
+
+## 2026-04-07 15:05 - 补齐 distributed probe/parser 与 ARCHER2 distributed submitter
+
+- 模块：probe / parser / scripts
+- 目标：为 `ARCHER2 distributed max + distributed suite` 补齐最小实现路径，包括 `H-last probe`、按 `env_num_nodes` 分组的 parser，以及可直接提交到 `ARCHER2` 的 distributed workflow。
+- 已完成：
+  - 在 `bench.h` 中新增了 `--validation-kind default|h_last` 的通用 CLI 解析与字符串化逻辑。
+  - 在 `probe/main.c` 中实现了：
+    - `default` 验证电路（保持现状）
+    - `h_last` 验证电路：`H` 作用在最高位 qubit
+  - `probe` raw 新增 `validation_kind` 列，便于后续区分 local probe 与 distributed H-last probe。
+  - `parse_results.py` 现已把 `env_num_nodes` 纳入：
+    - `capacity_matrix.tsv`
+    - `perf_matrix.tsv`
+    - `degradation_matrix.tsv`
+    - `qft_stage_matrix.tsv`
+    - `h_target_matrix.tsv`
+    - `thread_*` matrices
+  - 新增 `distributed_capacity_matrix.tsv`，用于直接比较：
+    - `local_max_qubits`
+    - `distributed_max_qubits`
+    - `delta_vs_local`
+  - 新增 `ARCHER2 distributed` 提交脚本：
+    - `sbatch_archer2_distributed_smoke.sh`
+    - `sbatch_archer2_distributed_probe.sh`
+    - `sbatch_archer2_distributed_point.sh`
+    - `submit_archer2_distributed.sh`
+  - 新 submitter 采用：
+    - `build -> q26 smoke -> distributed probe` 顺序等待
+    - probe 成功后，再并行提交 `QFT / Random / H sweep` arrays
+- 关键决定：
+  - distributed 主线不复用 `run_suite.py` 的旧 `mpi-qft` 分支，而是单独走一条最短路径 submitter，避免污染 one-node 与旧 MPI extension 逻辑。
+  - parser 现在必须显式区分 `env_num_nodes`，否则 distributed 结果会和 one-node/thread-sweep 结果混组。
+  - `QFT q=26` smoke 只承担“路径通不通”的职责，不再重复做 `max-1/max/max+1`。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/common/bench.h`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/benchmarks/probe/main.c`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/parse_results.py`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_distributed_smoke.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_distributed_probe.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_distributed_point.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_distributed.sh`
+- 验证结果：
+  - `bash -n` 已通过所有新增 distributed shell scripts。
+  - `python3 -m py_compile parse_results.py` 已通过。
+  - 本地 `cpu_mpi` build 因缺少 MPI toolchain 而失败；这不是代码回归，而是当前 macOS 环境没有 `FindMPI` 可用实现。
+- 未完成 / TODO：
+  - 还没在 `ARCHER2` 上实际执行 distributed smoke/probe/suite。
+  - 还没把 distributed 结果回填到 `Sweep_slides.md`。
+- 下一步：
+  - commit + push 当前改动。
+  - `ARCHER2` fast-forward 后执行 `submit_archer2_distributed.sh`。
+  - 监控 `q26` smoke、probe 和 suite arrays。
+  - 结果落盘后本地重新 parse，并更新 slides。
+- 接手提示：
+  - 如果本地想复测 `cpu_mpi` build，不要先怀疑代码；先确认机器上有可被 CMake 发现的 MPI toolchain。
+  - distributed suite 的 qubit 点位来自 probe 输出，不要手工写死。
