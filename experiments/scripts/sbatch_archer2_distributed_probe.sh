@@ -25,20 +25,35 @@ BACKEND="${BACKEND:-cpu_mpi}"
 BENCH_PLATFORM="${BENCH_PLATFORM:-archer2}"
 SEARCH_MIN="${SEARCH_MIN:-32}"
 SEARCH_MAX="${SEARCH_MAX:-35}"
+BENCH_QUBIT="${BENCH_QUBIT:-}"
+VALIDATION_KIND="${VALIDATION_KIND:-h_last}"
+PROBE_LABEL="${PROBE_LABEL:-probe_${VALIDATION_KIND}}"
 RUN_RAW_DIR="$(current_raw_results_dir)"
-OUTPUT_PATH="${RUN_RAW_DIR}/probe_archer2_${BACKEND}_on_n${SLURM_JOB_NUM_NODES:-4}_t${SLURM_CPUS_PER_TASK:-128}.tsv"
+NODES="${SLURM_JOB_NUM_NODES:-4}"
+THREADS="${SLURM_CPUS_PER_TASK:-128}"
+if [ -n "${BENCH_QUBIT}" ]; then
+    SEARCH_MIN="${BENCH_QUBIT}"
+    SEARCH_MAX="${BENCH_QUBIT}"
+    OUTPUT_PATH="${RUN_RAW_DIR}/probe_archer2_${BACKEND}_on_n${NODES}_q${BENCH_QUBIT}_t${THREADS}_${VALIDATION_KIND}.tsv"
+else
+    OUTPUT_PATH="${RUN_RAW_DIR}/probe_archer2_${BACKEND}_on_n${NODES}_t${THREADS}_${VALIDATION_KIND}.tsv"
+fi
 EXE="${REPO_ROOT}/experiments/build/probe/${BACKEND}/probe"
 
 [ -x "${EXE}" ] || die "Missing executable: ${EXE}"
 
-export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-128}"
+export OMP_NUM_THREADS="${THREADS}"
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
 export BENCH_PLATFORM
 
-info "ARCHER2 distributed H-last probe"
-info "Node count: ${SLURM_JOB_NUM_NODES:-unknown}"
+info "ARCHER2 distributed probe"
+info "Node count: ${NODES}"
 info "OMP_NUM_THREADS=${OMP_NUM_THREADS}"
+info "Validation kind: ${VALIDATION_KIND}"
+if [ -n "${BENCH_QUBIT}" ]; then
+    info "Exact probe qubit: ${BENCH_QUBIT}"
+fi
 info "Search range: ${SEARCH_MIN}..${SEARCH_MAX}"
 info "Output: ${OUTPUT_PATH}"
 
@@ -49,6 +64,6 @@ srun --hint=nomultithread --cpu-bind=cores \
     --preheat-mode off \
     --search-min "${SEARCH_MIN}" \
     --search-max "${SEARCH_MAX}" \
-    --validation-kind h_last \
-    --label "probe_h_last" \
+    --validation-kind "${VALIDATION_KIND}" \
+    --label "${PROBE_LABEL}" \
     --output "${OUTPUT_PATH}"

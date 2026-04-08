@@ -477,6 +477,80 @@ def build_thread_qft_stage_matrix(qft_stage_rows: List[Dict[str, object]]) -> Li
     return out
 
 
+def build_distributed_strong_scaling_perf(perf_rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    out: List[Dict[str, object]] = []
+    for row in perf_rows:
+        if row.get("benchmark") != "qft":
+            continue
+        env_num_nodes = row.get("env_num_nodes")
+        env_num_threads = row.get("env_num_threads")
+        if env_num_nodes is None or env_num_threads is None:
+            continue
+        if row.get("deployment") == "off" and env_num_nodes == 1:
+            out.append(dict(row))
+        elif row.get("deployment") == "on" and env_num_nodes >= 2:
+            out.append(dict(row))
+    return out
+
+
+def build_distributed_strong_scaling_speedup(perf_rows: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    baseline: Dict[Tuple[str, str, str, int, int], float] = {}
+    out: List[Dict[str, object]] = []
+
+    for row in perf_rows:
+        if row.get("benchmark") != "qft":
+            continue
+        env_num_nodes = row.get("env_num_nodes")
+        env_num_threads = row.get("env_num_threads")
+        if env_num_nodes != 1 or row.get("deployment") != "off" or env_num_threads is None:
+            continue
+        key = (
+            str(row["platform"]),
+            str(row["backend"]),
+            str(row["benchmark"]),
+            int(row["num_qubits"]),
+            int(env_num_threads),
+        )
+        baseline[key] = float(row["mean_time_s"])
+
+    for row in perf_rows:
+        if row.get("benchmark") != "qft":
+            continue
+        env_num_nodes = row.get("env_num_nodes")
+        env_num_threads = row.get("env_num_threads")
+        if env_num_nodes is None or env_num_threads is None:
+            continue
+        key = (
+            str(row["platform"]),
+            str(row["backend"]),
+            str(row["benchmark"]),
+            int(row["num_qubits"]),
+            int(env_num_threads),
+        )
+        if key not in baseline or float(row["mean_time_s"]) == 0.0:
+            continue
+        speedup = baseline[key] / float(row["mean_time_s"])
+        efficiency = speedup / float(env_num_nodes)
+        out.append(
+            {
+                "platform": row["platform"],
+                "backend": row["backend"],
+                "benchmark": row["benchmark"],
+                "num_qubits": row["num_qubits"],
+                "deployment": row["deployment"],
+                "env_num_nodes": env_num_nodes,
+                "env_num_threads": env_num_threads,
+                "baseline_mean_time_s": baseline[key],
+                "mean_time_s": row["mean_time_s"],
+                "std_time_s": row["std_time_s"],
+                "samples": row["samples"],
+                "speedup_vs_1node": speedup,
+                "efficiency_vs_1node": efficiency,
+            }
+        )
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Aggregate raw benchmark TSV files")
     parser.add_argument("--raw-dir", default=str(DEFAULT_RAW_DIR))
@@ -498,6 +572,8 @@ def main() -> int:
     thread_perf_rows = build_thread_perf_matrix(perf_rows)
     thread_speedup_rows = build_thread_speedup_matrix(perf_rows)
     thread_qft_stage_rows = build_thread_qft_stage_matrix(qft_stage_rows)
+    distributed_strong_scaling_perf_rows = build_distributed_strong_scaling_perf(perf_rows)
+    distributed_strong_scaling_speedup_rows = build_distributed_strong_scaling_speedup(perf_rows)
 
     write_tsv(
         out_dir / "capacity_matrix.tsv",
@@ -548,6 +624,16 @@ def main() -> int:
         out_dir / "thread_qft_stage_matrix.tsv",
         ["platform", "backend", "deployment", "num_qubits", "env_num_nodes", "env_num_threads", "stage", "stage_label", "mean_stage_time_s", "std_stage_time_s", "samples"],
         thread_qft_stage_rows,
+    )
+    write_tsv(
+        out_dir / "distributed_strong_scaling_perf.tsv",
+        ["platform", "backend", "deployment", "benchmark", "num_qubits", "env_num_nodes", "env_num_threads", "mean_time_s", "std_time_s", "samples"],
+        distributed_strong_scaling_perf_rows,
+    )
+    write_tsv(
+        out_dir / "distributed_strong_scaling_speedup.tsv",
+        ["platform", "backend", "benchmark", "num_qubits", "deployment", "env_num_nodes", "env_num_threads", "baseline_mean_time_s", "mean_time_s", "std_time_s", "samples", "speedup_vs_1node", "efficiency_vs_1node"],
+        distributed_strong_scaling_speedup_rows,
     )
 
     info(f"Wrote processed matrices to {out_dir}")

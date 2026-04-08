@@ -36,6 +36,7 @@ ensure_minimum_cmake 3.21
 
 BENCHMARK="${BENCHMARK:-}"
 BACKEND="${BACKEND:-cpu_mpi}"
+DISTRIBUTION_MODE="${DISTRIBUTION_MODE:-on}"
 SYNC_MODE="${SYNC_MODE:-benchmark}"
 PREHEAT_MODE="${PREHEAT_MODE:-light}"
 PREHEAT_QUBITS="${PREHEAT_QUBITS:-24}"
@@ -43,6 +44,8 @@ REPS="${REPS:-1}"
 WARMUP="${WARMUP:-0}"
 SEED="${SEED:-20260402}"
 BENCH_LABEL="${BENCH_LABEL:-}"
+REP_INDEX="${REP_INDEX:-}"
+OUTPUT_SUFFIX="${OUTPUT_SUFFIX:-}"
 BENCH_PLATFORM="${BENCH_PLATFORM:-archer2}"
 RUN_RAW_DIR="$(current_raw_results_dir)"
 QUBIT="$(resolve_qubit)"
@@ -50,6 +53,7 @@ NODES="${SLURM_JOB_NUM_NODES:-4}"
 THREADS="${SLURM_CPUS_PER_TASK:-128}"
 
 [ -n "${BENCHMARK}" ] || die "BENCHMARK must be set."
+[ "${DISTRIBUTION_MODE}" = "on" ] || [ "${DISTRIBUTION_MODE}" = "off" ] || die "DISTRIBUTION_MODE must be on or off."
 
 export OMP_NUM_THREADS="${THREADS}"
 export OMP_PLACES=cores
@@ -60,18 +64,27 @@ EXE="${REPO_ROOT}/experiments/build/${BENCHMARK}/${BACKEND}/${BENCHMARK}"
 [ -x "${EXE}" ] || die "Missing executable: ${EXE}"
 
 if [ -z "${BENCH_LABEL}" ]; then
-    BENCH_LABEL="${BENCHMARK}_dist"
+    BENCH_LABEL="${BENCHMARK}_${DISTRIBUTION_MODE}"
+fi
+
+OUTPUT_SUFFIX_PART=""
+REP_SUFFIX_PART=""
+if [ -n "${OUTPUT_SUFFIX}" ]; then
+    OUTPUT_SUFFIX_PART="_${OUTPUT_SUFFIX}"
+fi
+if [ -n "${REP_INDEX}" ]; then
+    REP_SUFFIX_PART="_rep${REP_INDEX}"
 fi
 
 case "${BENCHMARK}" in
     qft)
-        OUTPUT_PATH="${RUN_RAW_DIR}/qft_archer2_${BACKEND}_on_n${NODES}_q${QUBIT}_t${THREADS}.tsv"
+        OUTPUT_PATH="${RUN_RAW_DIR}/qft_archer2_${BACKEND}_${DISTRIBUTION_MODE}_n${NODES}_q${QUBIT}_t${THREADS}${REP_SUFFIX_PART}${OUTPUT_SUFFIX_PART}.tsv"
         CMD=(
             "${EXE}"
             --qubits "${QUBIT}"
             --reps "${REPS}"
             --warmup "${WARMUP}"
-            --distribution on
+            --distribution "${DISTRIBUTION_MODE}"
             --sync-mode "${SYNC_MODE}"
             --preheat-mode "${PREHEAT_MODE}"
             --preheat-qubits "${PREHEAT_QUBITS}"
@@ -80,13 +93,13 @@ case "${BENCHMARK}" in
         )
         ;;
     h_sweep)
-        OUTPUT_PATH="${RUN_RAW_DIR}/h_sweep_archer2_${BACKEND}_on_n${NODES}_q${QUBIT}_t${THREADS}.tsv"
+        OUTPUT_PATH="${RUN_RAW_DIR}/h_sweep_archer2_${BACKEND}_${DISTRIBUTION_MODE}_n${NODES}_q${QUBIT}_t${THREADS}${REP_SUFFIX_PART}${OUTPUT_SUFFIX_PART}.tsv"
         CMD=(
             "${EXE}"
             --qubits "${QUBIT}"
             --reps "${REPS}"
             --warmup "${WARMUP}"
-            --distribution on
+            --distribution "${DISTRIBUTION_MODE}"
             --sync-mode "${SYNC_MODE}"
             --preheat-mode "${PREHEAT_MODE}"
             --preheat-qubits "${PREHEAT_QUBITS}"
@@ -96,7 +109,7 @@ case "${BENCHMARK}" in
         ;;
     random)
         DEPTH="${RANDOM_DEPTH:-$((2 * QUBIT))}"
-        OUTPUT_PATH="${RUN_RAW_DIR}/random_archer2_${BACKEND}_on_n${NODES}_q${QUBIT}_t${THREADS}.tsv"
+        OUTPUT_PATH="${RUN_RAW_DIR}/random_archer2_${BACKEND}_${DISTRIBUTION_MODE}_n${NODES}_q${QUBIT}_t${THREADS}${REP_SUFFIX_PART}${OUTPUT_SUFFIX_PART}.tsv"
         CMD=(
             "${EXE}"
             --qubits "${QUBIT}"
@@ -104,7 +117,7 @@ case "${BENCHMARK}" in
             --seed "${SEED}"
             --reps "${REPS}"
             --warmup "${WARMUP}"
-            --distribution on
+            --distribution "${DISTRIBUTION_MODE}"
             --sync-mode "${SYNC_MODE}"
             --preheat-mode "${PREHEAT_MODE}"
             --preheat-qubits "${PREHEAT_QUBITS}"
@@ -121,6 +134,7 @@ info "ARCHER2 distributed suite point"
 info "Benchmark: ${BENCHMARK}"
 info "Qubit: ${QUBIT}"
 info "Nodes: ${NODES}"
+info "Distribution mode: ${DISTRIBUTION_MODE}"
 info "OMP_NUM_THREADS=${THREADS}"
 info "Output: ${OUTPUT_PATH}"
 

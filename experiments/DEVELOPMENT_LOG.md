@@ -871,3 +871,58 @@
   - 当前 distributed 部分已经足够支撑报告；如无新要求，不再扩展更多 distributed qubit 点。
 - 接手提示：
   - 这页的核心结论不是“4 nodes 比 2 nodes 快”，而是“即便 4 nodes 优于 2 nodes，distributed 仍明显慢于 1 node baseline”。
+
+## 2026-04-08 10:35 - 为 ARCHER2 distributed strong scaling 参数化 distributed 脚本
+
+- 模块：scripts / parser / remote
+- 目标：把现有 `q26` distributed calibration 流程改造成可复用的 strong-scaling 流程，同时保留现有脚本的兼容性。
+- 已完成：
+  - `sbatch_archer2_distributed_probe.sh` 现在支持：
+    - `VALIDATION_KIND`
+    - `BENCH_QUBIT`
+    - exact-point `alloc_only` probe
+  - `sbatch_archer2_distributed_point.sh` 现在支持：
+    - `DISTRIBUTION_MODE=on|off`
+    - `REP_INDEX`
+    - `OUTPUT_SUFFIX`
+    - 从而能同时跑 `1 node, deployment=off` baseline 和 `2+ nodes, deployment=on` distributed points
+  - 新增 `submit_archer2_distributed_strong_scaling.sh`：
+    - build
+    - `2-node alloc_only` 递减搜索
+    - `2-node` 双 pilot
+    - deviation 判定
+    - `{1,2,4,8,16}` + 可选 `{32,64,128}` 提交
+  - `parse_results.py` 新增：
+    - `distributed_strong_scaling_perf.tsv`
+    - `distributed_strong_scaling_speedup.tsv`
+- 关键决定：
+  - fixed-size strong scaling 不直接写死 `33q`，而是：
+    - 先求 `Q_alloc_max`
+    - 再用 runtime pilot 得到真正的 `Q_fixed`
+  - 若 pilot 相对 deviation `<= 2%`，正式 sweep 只跑 `1 rep`
+  - 若 deviation `> 2%`，正式 sweep 改为 `3` 个外层并行 single-rep jobs，而不是程序内串行 `--reps 3`
+  - 高节点数提交策略固定为：
+    - core `{1,2,4,8,16}` 必提
+    - extended `{32,64,128}` 一旦被 scheduler/account 拒绝就整体截断
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_distributed_probe.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_distributed_point.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/submit_archer2_distributed_strong_scaling.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/parse_results.py`
+- 验证结果：
+  - `bash -n` 通过：
+    - `sbatch_archer2_distributed_probe.sh`
+    - `sbatch_archer2_distributed_point.sh`
+    - `submit_archer2_distributed_strong_scaling.sh`
+  - `parse_results.py` 在现有 thread-sweep raw 上成功生成新的 distributed strong-scaling TSV，不破坏旧输出集合。
+- 未完成 / TODO：
+  - 还没在 ARCHER2 上实际提交新的 strong-scaling 流程。
+  - 还没把测得的 `Q_alloc_max / Q_fixed / measured node set` 写回 `slides.md`。
+- 下一步：
+  - push 当前补丁。
+  - 打通这条会话的 ARCHER2 SSH 认证。
+  - 提交 `submit_archer2_distributed_strong_scaling.sh`，等待 early-phase 结果。
+  - 根据结果更新 presentation。
+- 接手提示：
+  - 如果 `2-node alloc_only` 已经失败到 `26q`，先不要继续扩展脚本；应先检查 `cpu_mpi + deployment=on` 的环境是否退化。
+  - 如果 pilot 过慢，优先下调 `Q_fixed`，不要先扩大 walltime。
