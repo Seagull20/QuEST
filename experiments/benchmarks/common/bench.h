@@ -60,7 +60,8 @@ typedef enum {
 
 typedef enum {
     BENCH_VALIDATION_DEFAULT = 0,
-    BENCH_VALIDATION_H_LAST = 1
+    BENCH_VALIDATION_H_LAST = 1,
+    BENCH_VALIDATION_ALLOC_ONLY = 2
 } BenchValidationKind;
 
 typedef enum {
@@ -162,7 +163,7 @@ static void bench_print_common_usage(FILE* out, const char* benchmark_name, cons
     fprintf(out, "  --depth N             Circuit depth for random benchmark\n");
     fprintf(out, "  --search-min N        Probe lower bound\n");
     fprintf(out, "  --search-max N        Probe upper bound\n");
-    fprintf(out, "  --validation-kind K   default | h_last (probe only)\n");
+    fprintf(out, "  --validation-kind K   default | h_last | alloc_only (probe only)\n");
     fprintf(out, "  --help                Show this message\n");
     if (extra_usage != NULL && extra_usage[0] != '\0')
         fprintf(out, "\n%s\n", extra_usage);
@@ -245,6 +246,8 @@ static BenchParseResult bench_parse_options(BenchOptions* opts, int argc, char**
                 opts->validation_kind = BENCH_VALIDATION_DEFAULT;
             else if (strcmp(kind, "h_last") == 0)
                 opts->validation_kind = BENCH_VALIDATION_H_LAST;
+            else if (strcmp(kind, "alloc_only") == 0)
+                opts->validation_kind = BENCH_VALIDATION_ALLOC_ONLY;
             else
                 return BENCH_PARSE_ERROR;
         } else {
@@ -314,6 +317,8 @@ static const char* bench_validation_kind_string(BenchValidationKind validation_k
     switch (validation_kind) {
         case BENCH_VALIDATION_H_LAST:
             return "h_last";
+        case BENCH_VALIDATION_ALLOC_ONLY:
+            return "alloc_only";
         case BENCH_VALIDATION_DEFAULT:
         default:
             return "default";

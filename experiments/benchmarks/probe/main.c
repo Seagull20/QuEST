@@ -60,6 +60,8 @@ static void apply_validation_circuit(const BenchOptions* opts, Qureg qureg, int 
         case BENCH_VALIDATION_H_LAST:
             apply_h_last_validation_circuit(qureg, num_qubits);
             break;
+        case BENCH_VALIDATION_ALLOC_ONLY:
+            break;
         case BENCH_VALIDATION_DEFAULT:
         default:
             apply_default_validation_circuit(qureg, num_qubits);
@@ -229,24 +231,40 @@ int main(int argc, char** argv) {
     qureg = bench_create_state_qureg(&opts);
     alloc_time_s = bench_wall_time() - alloc_start;
 
-    validation_start = bench_wall_time();
-    apply_validation_circuit(&opts, qureg, opts.num_qubits);
-    syncQuESTEnv();
-    validation_time_s = bench_wall_time() - validation_start;
+    if (opts.validation_kind == BENCH_VALIDATION_ALLOC_ONLY) {
+        total_prob = (qreal) 1.0;
+        validation_time_s = 0.0;
+        write_row(out,
+                  &opts,
+                  BENCH_STATUS_PASS,
+                  total_prob,
+                  max_qubits,
+                  attempts,
+                  alloc_time_s,
+                  validation_time_s);
+    } else {
+        validation_start = bench_wall_time();
+        apply_validation_circuit(&opts, qureg, opts.num_qubits);
+        syncQuESTEnv();
+        validation_time_s = bench_wall_time() - validation_start;
 
-    total_prob = calcTotalProb(qureg);
-    write_row(out,
-              &opts,
-              bench_prob_is_valid(total_prob) ? BENCH_STATUS_PASS : BENCH_STATUS_FAILURE,
-              total_prob,
-              max_qubits,
-              attempts,
-              alloc_time_s,
-              validation_time_s);
+        total_prob = calcTotalProb(qureg);
+        write_row(out,
+                  &opts,
+                  bench_prob_is_valid(total_prob) ? BENCH_STATUS_PASS : BENCH_STATUS_FAILURE,
+                  total_prob,
+                  max_qubits,
+                  attempts,
+                  alloc_time_s,
+                  validation_time_s);
+    }
 
     destroyQureg(qureg);
     finalizeQuESTEnv();
     bench_close_output(out, should_close);
+
+    if (opts.validation_kind == BENCH_VALIDATION_ALLOC_ONLY)
+        return EXIT_SUCCESS;
 
     return bench_prob_is_valid(total_prob) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
