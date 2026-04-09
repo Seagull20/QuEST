@@ -46,10 +46,8 @@ info "Building qft/gpu_mpi..."
 QFT_EXE="${BUILD_ROOT}/qft/gpu_mpi/qft"
 OUT_TSV="${RAW_RESULTS_DIR}/qft_gpu_mpi_a40_r${NUM_RANKS}_q${Q_MAX}_${SLURM_JOB_ID}.tsv"
 
-info "Launching QFT (srun, ${NUM_RANKS} rank)..."
-srun \
-    --ntasks="${NUM_RANKS}" \
-    --ntasks-per-node="${NUM_RANKS}" \
+info "Launching QFT (mpirun, ${NUM_RANKS} rank)..."
+mpirun -np "${NUM_RANKS}" \
     "${QFT_EXE}" \
         --distribution on \
         --qubits "${Q_MAX}" \

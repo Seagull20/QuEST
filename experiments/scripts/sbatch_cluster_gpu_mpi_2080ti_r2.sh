@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=2
 #SBATCH --ntasks-per-node=2
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=1
 #SBATCH --time=00:45:00
 #SBATCH --output=experiments/results/raw/qft_gpu_mpi_2080ti_r2_%j.out
 #SBATCH --error=experiments/results/raw/qft_gpu_mpi_2080ti_r2_%j.err
@@ -46,10 +46,8 @@ info "Building qft/gpu_mpi..."
 QFT_EXE="${BUILD_ROOT}/qft/gpu_mpi/qft"
 OUT_TSV="${RAW_RESULTS_DIR}/qft_gpu_mpi_2080ti_r${NUM_RANKS}_q${Q_MAX}_${SLURM_JOB_ID}.tsv"
 
-info "Launching QFT (srun, ${NUM_RANKS} ranks)..."
-srun \
-    --ntasks="${NUM_RANKS}" \
-    --ntasks-per-node="${NUM_RANKS}" \
+info "Launching QFT (mpirun, ${NUM_RANKS} ranks)..."
+mpirun -np "${NUM_RANKS}" \
     "${QFT_EXE}" \
         --distribution on \
         --qubits "${Q_MAX}" \
