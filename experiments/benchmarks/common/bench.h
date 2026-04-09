@@ -352,11 +352,6 @@ static void bench_sync_finalize(const BenchOptions* opts) {
 }
 
 static int bench_validate_runtime_request(const BenchOptions* opts, FILE* err) {
-    if (strcmp(BENCH_BUILD_BACKEND_STR, "gpu_mpi") == 0) {
-        fprintf(err, "TODO: gpu_mpi runtime path reserved for future implementation\n");
-        return 0;
-    }
-
     if (opts->distribution == BENCH_DISTRIBUTION_ON && !BENCH_BUILD_SUPPORTS_DISTRIBUTION) {
         fprintf(err, "ERROR: build backend '%s' does not support distribution\n", BENCH_BUILD_BACKEND_STR);
         return 0;

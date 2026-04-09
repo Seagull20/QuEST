@@ -93,12 +93,6 @@ build_suite_targets() {
     local backend="$1"
     local benchmark
 
-    case "${backend}" in
-        gpu_mpi)
-            die "TODO: gpu_mpi build path reserved for future implementation"
-            ;;
-    esac
-
     for benchmark in probe qft h_sweep random; do
         info "Building ${benchmark} (${backend})"
         "${EXPERIMENTS_DIR}/build.sh" "${benchmark}" "${backend}"

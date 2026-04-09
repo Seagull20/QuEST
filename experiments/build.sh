@@ -101,7 +101,9 @@ configure_backend_defines() {
             supports_cuquantum=1
             ;;
         gpu_mpi)
-            die "TODO: gpu_mpi build path reserved for future implementation"
+            supports_distribution=1
+            supports_gpu=1
+            supports_cuquantum=0
             ;;
         *)
             die "Unsupported backend '${backend}'."
@@ -132,7 +134,6 @@ build_common_args() {
         -DCMAKE_BUILD_TYPE="${build_type}"
         -DBUILD_EXAMPLES=OFF
         -DENABLE_TESTING=OFF
-        -DENABLE_DISTRIBUTION=OFF
         "-DUSER_SOURCE=${user_sources}"
         "-DOUTPUT_EXE=${output_exe}"
     )
@@ -214,7 +215,15 @@ configure_backend_args() {
             BACKEND_ARGS+=("-DCMAKE_CUDA_ARCHITECTURES=${cuda_arch}")
             ;;
         gpu_mpi)
-            die "TODO: gpu_mpi build path reserved for future implementation"
+            has_cmd nvcc || die "nvcc not found. Cannot build gpu_mpi backend."
+            BACKEND_ARGS+=(-DENABLE_DISTRIBUTION=ON -DENABLE_CUDA=ON)
+            if cuda_arch="$(detect_cuda_arch)"; then
+                info "Detected CUDA architecture: ${cuda_arch}"
+            else
+                cuda_arch="86"
+                warn "Could not auto-detect GPU arch. Defaulting to ${cuda_arch} (A40)."
+            fi
+            BACKEND_ARGS+=("-DCMAKE_CUDA_ARCHITECTURES=${cuda_arch}")
             ;;
         *)
             die "Unsupported backend '${backend}'."
