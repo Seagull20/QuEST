@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 EXPERIMENTS_DIR="${REPO_ROOT}/experiments"
+BUILD_ROOT="${EXPERIMENTS_DIR}/build"
 RAW_RESULTS_DIR="${EXPERIMENTS_DIR}/results/raw"
 PROCESSED_RESULTS_DIR="${EXPERIMENTS_DIR}/results/processed"
 find_toolchain_env() {

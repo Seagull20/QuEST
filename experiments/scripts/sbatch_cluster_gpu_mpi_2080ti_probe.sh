@@ -36,7 +36,7 @@ info "Running probe (search range 18–32 qubits)..."
     --distribution off \
     --search-min 18 \
     --search-max 32 \
-    --validation alloc_only \
+    --validation-kind alloc_only \
     --output "${PROBE_OUT}"
 
 Q_MAX=$(awk -F'\t' '

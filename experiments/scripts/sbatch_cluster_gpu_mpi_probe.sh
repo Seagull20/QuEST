@@ -37,7 +37,7 @@ info "Running probe (search range 20–34 qubits)..."
     --distribution off \
     --search-min 20 \
     --search-max 34 \
-    --validation alloc_only \
+    --validation-kind alloc_only \
     --output "${PROBE_OUT}"
 
 # Extract max_qubits from the TSV (header row identifies the column)
