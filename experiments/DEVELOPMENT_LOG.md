@@ -926,3 +926,384 @@
 - 接手提示：
   - 如果 `2-node alloc_only` 已经失败到 `26q`，先不要继续扩展脚本；应先检查 `cpu_mpi + deployment=on` 的环境是否退化。
   - 如果 pilot 过慢，优先下调 `Q_fixed`，不要先扩大 walltime。
+
+## 2026-04-09 11:58 - 补提 1-node baseline 并覆盖 slides 为 ARCHER2 distributed strong scaling
+
+- 模块：remote / slides
+- 目标：补齐 distributed strong-scaling 中缺失的 `1 node, q33, 128 threads` baseline，并把现有 `rtx2080ti_probe/slides.md` 覆盖成 ARCHER2 distributed strong-scaling 结果页。
+- 已完成：
+  - 读回了 distributed `2..128 nodes` 的 `QFT q33` raw 结果。
+  - 发现首个 `1-node` baseline 作业 `13207103` 因 `00:30:00` walltime 超时，且 TSV 为空。
+  - 依据 `2-node q33 = 7063 s` 且各 distributed 点近似理想缩放，判断 `1-node` 需要远大于 `30 min`。
+  - 取消了过短的 retry1，并以更保守的 `05:00:00` 重新提交：
+    - `13211673`
+  - 覆盖更新：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/slides.md`
+  - slides 现已改写为 `ARCHER2 Distributed Strong Scaling`，包含：
+    - `Q_alloc_max = 33`
+    - `Q_fixed = 33`
+    - `rep_mode = one`
+    - distributed `2..128 nodes` 的 measured runtime / speedup
+- 关键决定：
+  - 当前结果页的 `1-node` baseline 先使用已存在的 one-node thread-sweep 数据：
+    - `q33 @ 128 threads = 350.26 s`
+  - 原因是 direct strong-scaling baseline 的第一个 walltime 明显低估，而 `05:00:00` retry 仍在运行。
+  - 图中必须明确这是 reused one-node baseline，并把 direct retry 作为 consistency check 说明，而不是伪装成已完成的 strong-scaling 点。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/slides.md`
+- 验证结果：
+  - `slidev build` 通过。
+  - distributed measured runtimes 已确认：
+    - `2 nodes = 7063.30 s`
+    - `4 nodes = 3557.18 s`
+    - `8 nodes = 1792.60 s`
+    - `16 nodes = 895.42 s`
+    - `32 nodes = 450.65 s`
+    - `64 nodes = 228.05 s`
+    - `128 nodes = 115.93 s`
+- 未完成 / TODO：
+  - 等待 `13211673` 完成，确认 direct `1-node` baseline 是否与 reused baseline 一致。
+  - direct baseline 若明显偏离，再回头修正 slides 中的 baseline 来源与图值。
+- 下一步：
+  - 继续盯 `13211673`。
+  - 若完成，重新 parse 并决定是否替换图中的 baseline 值。
+- 接手提示：
+  - 这一版 slides 的主结论已经成立，因为 distributed `2..128 nodes` 是实测的；唯一 pending 的是 direct `1-node` consistency rerun。
+
+## 2026-04-10 00:05 - 尝试补齐 `q26` distributed strong-scaling 的高节点点位但被 account policy 阻塞
+
+- 模块：remote
+- 目标：在保留 `q26` 既有 `1/2/4 nodes` 结果的基础上，再补齐 `8/16/32/64/128 nodes`，用于观察较小负载下 distributed CPU 的 strong-scaling 行为。
+- 已完成：
+  - 复核了 `q26` calibration 的 setup，确认它使用的就是当前 `qft` benchmark：
+    - naive `QFT`
+    - `deployment=on`
+    - `1 rank/node`
+    - `128 threads/rank`
+    - `warmup=0`
+    - `preheat_mode=light`
+  - 在 ARCHER2 上新建了 raw 目录：
+    - `/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/q26_distributed_strong_scaling_20260409_235752`
+  - 依次尝试提交了以下单点 jobs：
+    - `8 nodes @ 20 min`
+    - `8 nodes @ 5 min`
+    - `8 nodes @ 3 min`
+    - `8 nodes @ 1 min`
+    - `16 nodes @ 5 min`
+    - `16 nodes @ 1 min`
+    - `32 nodes @ 3 min`
+    - `32 nodes @ 1 min`
+    - `64 nodes @ 2 min`
+    - `128 nodes @ 1 min`
+- 关键决定：
+  - 不改 benchmark 拓扑，保持：
+    - `1 rank/node`
+    - `128 threads/rank`
+  - 不新建 submitter，直接复用：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_distributed_point.sh`
+  - 即使把 walltime 压到 `1 min`，`8 nodes` 仍然在 `sbatch` 层被拒绝，因此这不是 runtime 太长，而是 account/QOS policy 直接阻止了高节点作业提交。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_distributed_point.sh`
+  - `/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/q26_distributed_strong_scaling_20260409_235752/submission_meta.txt`
+- 验证结果：
+  - `8 nodes × 1 min` 仍返回：
+    - `AssocMaxCpuMinutesPerJobLimit`
+  - 说明当前 account policy 下，`q26` 的高节点 distributed 补测无法按既定拓扑直接提交。
+- 未完成 / TODO：
+  - `q26` 目前仍只有：
+    - `1 node` one-node baseline（thread-sweep 中的 `q26 @ 128t`）
+    - `2 nodes` distributed smoke
+    - `4 nodes` distributed smoke
+  - `8+ nodes` 在当前 policy 下未能补齐。
+- 下一步：
+  - 若必须继续探索 `q26` 的高节点 distributed 行为，只能在以下路径中选择其一：
+    - 申请或使用更高的 account / QoS budget
+    - 放宽固定拓扑，降低每 rank 线程数
+- 接手提示：
+  - 这次阻塞点不是脚本 bug，不要优先改 submit 脚本。
+  - 先确认是否接受修改 `128 threads/rank` 这一约束；若不接受，就只能把当前 `q26` 结果收口为 `1/2/4 nodes`。
+
+## 2026-04-10 00:35 - 改用 `m25ext` account 补齐 `q26` distributed strong-scaling 到 `128 nodes`
+
+- 模块：remote / slides
+- 目标：在不改变 `QFT + 1 rank/node + 128 threads/rank` 拓扑的前提下，把 `q26` 的 distributed strong-scaling 从 `1/2/4 nodes` 补齐到 `1..128 nodes`，用于和 `q33` 做负载对照。
+- 已完成：
+  - 使用 `--account=m25ext` 重新提交 `q26` 的高节点 distributed 点。
+  - 成功完成：
+    - `8 nodes`：`13218204`
+    - `16 nodes`：`13218206`
+    - `32 nodes`：`13218207`
+    - `64 nodes`：`13218222`
+    - `128 nodes`：`13218223`
+  - 将远端 raw 拉回本地 staging：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/q26_distributed_strong_scaling_20260409_235752`
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_distributed_strong_scaling_20260408_230804`
+  - 新增本地汇总与绘图脚本：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+  - 生成：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_summary.tsv`
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_runtime_speedup.svg`
+  - 更新：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/slides.md`
+- 关键决定：
+  - `m25ext-s2866920` 的额度不足以继续提 `8+ nodes`，但切到 group account `m25ext` 后可继续执行。
+  - `64/128 nodes` 需要使用 `standard` QoS；在 `short` 下会遇到 `QOSMaxNodePerUserLimit`。
+  - 对照图使用双面板：
+    - 左：absolute runtime（log scale）
+    - 右：speedup vs 1 node
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_summary.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_runtime_speedup.svg`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/slides.md`
+- 验证结果：
+  - `q26` runtimes 现已完整：
+    - `1 node = 1.7545 s`
+    - `2 nodes = 36.1772 s`
+    - `4 nodes = 18.3968 s`
+    - `8 nodes = 9.5552 s`
+    - `16 nodes = 5.0811 s`
+    - `32 nodes = 2.7996 s`
+    - `64 nodes = 1.5998 s`
+    - `128 nodes = 0.9546 s`
+  - 对比 `q33` 后可明确观察到：
+    - `q26` 在 `1 -> 2 nodes` 严重退化，但随后逐步恢复
+    - `q33` 从 `2 nodes` 起就接近理想强扩展
+- 未完成 / TODO：
+  - 如需把这组数据并入更正式的 processed TSV，需要再补一个 parser 分支或单独汇总目录。
+- 下一步：
+  - 若报告需要，可进一步在 slides 里补一句解释：小负载时 distributed fixed overhead 主导，大负载时计算开始摊薄通信成本。
+- 接手提示：
+  - 如果要重画图，直接运行：
+    - `python3 /Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+
+## 2026-04-15 01:20 - 为 `q33_hprefix32` 打通 ARCHER2 distributed point 路径并提交 smoke
+
+- 模块：scripts / parser / remote / slides
+- 目标：在不新建 benchmark 的前提下，复用 `h_sweep(target=32)` 落地一个 communication-heavy distributed probe，并把现有对比图从 `QFT-only` 扩成通用 series。
+- 已完成：
+  - 扩展 `sbatch_archer2_distributed_point.sh`，支持通过环境变量 `H_TARGET` 给 `h_sweep` 透传 `--target`。
+  - 重写本地对比绘图脚本，使 summary TSV 从两列 `QFT` 对照扩成通用 series schema：
+    - `series`
+    - `benchmark`
+    - `num_qubits`
+    - `target_qubit`
+    - `nodes`
+    - `runtime_s`
+    - `speedup_vs_1node`
+  - 保留原输出路径：
+    - `archer2_q26_q33_summary.tsv`
+    - `archer2_q26_q33_runtime_speedup.svg`
+  - 更新当前 deck 的标题、目标和 setup framing，使其不再错误地写成 `QFT-only`。
+  - 已将修改后的 point script 同步到 ARCHER2 `/work/m25ext/m25ext/s2866920/quest_project/QuEST` clone。
+  - 已提交 smoke：
+    - job id: `13280964`
+    - raw dir: `experiments/results/raw/archer2_hprefix_q33_20260415_011421`
+- 关键决定：
+  - 新系列固定命名为 `q33_hprefix32`，语义是 `h_sweep(target=32)`，不是 `QFT` 的延长线。
+  - smoke 只做：
+    - `ARCHER2`
+    - `h_sweep`
+    - `q=33`
+    - `target=32`
+    - `nodes=128`
+    - `deployment=on`
+    - `reps=1`
+    - `warmup=0`
+    - `preheat_mode=light`
+  - 只有 smoke 通过，才提交主批次：
+    - `1 node` (`deployment=off`)
+    - `128 nodes` (`deployment=on`)
+    - `256 nodes` (`deployment=on`)
+  - 图例采用三条 series：
+    - `q26_qft`
+    - `q33_qft`
+    - `q33_hprefix32`
+  - `q33_hprefix32` 在 plotting 层使用 `target_qubit=32` 那一行的 `gate_time_s`，而不是 `QFT total_time_s`。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_archer2_distributed_point.sh`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/slides.md`
+- 验证结果：
+  - 本地绘图脚本已可在无 `q33_hprefix32` raw 的情况下成功重画现有 `q26_qft + q33_qft` 图。
+  - 远端 point script 已同步完成，后续不需要 rebuild benchmark binary。
+- 未完成 / TODO：
+  - 等待 smoke `13280964` 完成。
+  - 若 smoke 通过，提交 `1/128/256` 主批次。
+  - 将主批次 raw 拉回本地 staging，重画三线对比图并更新结论页。
+- 下一步：
+  - 监控 smoke；通过后自动发主批次并等待结果。
+  - 完成后运行：
+    - `python3 /Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+  - 最后执行 `slidev build` 做 layout review。
+- 接手提示：
+  - 当前远端 gatekeeping 依赖 raw dir：
+    - `experiments/results/raw/archer2_hprefix_q33_20260415_011421`
+  - 若需要手动续跑，优先检查 smoke 输出文件是否生成：
+    - `h_sweep_archer2_cpu_mpi_on_n128_q33_t128*_smoke_hprefix32.tsv`
+  - 若 smoke 未通过，不要直接提交 `1/128/256`，先检查 `status`、`target_qubit` 和 `env_num_nodes` 是否符合预期。
+
+## 2026-04-15 01:35 - 完成 `q33_hprefix32` 主批次并更新 strong-scaling deck
+
+- 模块：remote / parser / slides
+- 目标：完成 `q33_hprefix32` 的 `1/128/256 nodes` 主批次，拉回 raw，重画三线对照图，并确认 deck 在 16:9 下无明显 overflow。
+- 已完成：
+  - smoke `13280964` 成功，通过后提交主批次：
+    - `13281006`：`1 node`, `deployment=off`
+    - `13281007`：`128 nodes`, `deployment=on`
+    - `13281008`：`256 nodes`, `deployment=on`
+  - 三个主任务全部 `COMPLETED`。
+  - 将远端 raw 拉回本地 staging：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_hprefix_q33_20260415_011421`
+  - 用更新后的 plotting 脚本重写：
+    - `archer2_q26_q33_summary.tsv`
+    - `archer2_q26_q33_runtime_speedup.svg`
+  - 更新：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/slides.md`
+  - 执行 `slidev build slides.md` 成功。
+  - 使用 Playwright 对关键页做截图 spot-check：
+    - `Benchmark Setup`
+    - `QFT and H-Prefix Scaling`
+    - `Takeaway`
+- 关键决定：
+  - `q33_hprefix32` 保持固定定义：
+    - `h_sweep(target=32)`
+    - `q=33`
+    - `1 rank/node`
+    - `128 threads/rank`
+    - `reps=1`
+    - `warmup=0`
+    - `preheat_mode=light`
+  - 对 `q33_hprefix32` 的解释以 speedup panel 为主，因为它的 `1-node` baseline 是冷单目标测量，左图更偏 workload shape，不适合作为和 `QFT` 的公平算法成本对比。
+  - deck 的 comparison 页最终保留三条线：
+    - `q26_qft`
+    - `q33_qft`
+    - `q33_hprefix32`
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_off_n1_q33_t128_hprefix32.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n128_q33_t128_hprefix32.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n256_q33_t128_hprefix32.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_summary.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_runtime_speedup.svg`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/slides.md`
+- 验证结果：
+  - `q33_hprefix32` raw：
+    - `1 node`: `42.696852922 s`
+    - `128 nodes`: `0.569138050 s`
+    - `256 nodes`: `0.294925928 s`
+  - 对应 speedup：
+    - `75.02x @128`
+    - `144.77x @256`
+  - 对照 `q33_qft`：
+    - `121.15x @128`
+    - `240.64x @256`
+    - `467.61x @512`
+  - `slidev build` 成功。
+  - Playwright 截图显示：
+    - `Benchmark Setup` 无溢出
+    - `Takeaway` 无溢出
+    - comparison 页经压缩 bullets 和缩小图高度后无明显底部裁切
+- 未完成 / TODO：
+  - 若后续要正式写 methodology，需要单独解释为什么 `q33_hprefix32` 的 `1-node` baseline 明显高于旧 thread-sweep 中的 `target=32` 单点值；当前 slides 里只把它作为 cold single-target baseline 做定性说明。
+- 下一步：
+  - 若 supervisor 需要，可继续补一个小注释页，专门解释 `cold single-target` 与先前 `full h_sweep` one-node 数据的差异来源。
+- 接手提示：
+  - 重画图命令固定为：
+    - `python3 /Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+  - deck 构建命令固定为：
+    - `cd /Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe && slidev build slides.md`
+  - 若要复查 layout，可直接查看本地截图：
+    - `/Users/linzeyu/Documents/Degree_Project/output/playwright/archer2_setup_slide.png`
+    - `/Users/linzeyu/Documents/Degree_Project/output/playwright/archer2_comparison_slide.png`
+    - `/Users/linzeyu/Documents/Degree_Project/output/playwright/archer2_takeaway_slide.png`
+
+## 2026-04-15 01:55 - 补 `q33_hprefix32 @ 64 nodes` 并把 comparison 图截到 `256 nodes`
+
+- 模块：remote / parser / slides
+- 目标：给 `q33_hprefix32` 增加一个中间点 `64 nodes`，同时把对比图的横轴从 `512` 收口到 `256`，提高三条线在同一页里的可读性。
+- 已完成：
+  - 在 ARCHER2 上提交并完成：
+    - `13281126`：`q33_hprefix32 @ 64 nodes`
+  - 将新增 raw 同步回本地 staging：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_hprefix_q33_20260415_011421`
+  - 更新 plotting 脚本：
+    - `q33_hprefix32` 现在读取 `1, 64, 128, 256 nodes`
+    - comparison SVG 只画 `<=256 nodes`
+    - summary TSV 继续保留完整 `q33_qft @ 512` 数据
+  - 更新：
+    - `archer2_q26_q33_summary.tsv`
+    - `archer2_q26_q33_runtime_speedup.svg`
+    - `slides.md`
+  - 再次执行 `slidev build slides.md` 成功。
+- 关键决定：
+  - 图层和数据层分开处理：
+    - summary TSV 保留全量数据
+    - comparison figure 仅展示 `<=256 nodes`
+  - 原因是 `q33_qft @ 512` 会把横轴拉得过稀，不利于 `q33_hprefix32` 的 `64/128/256` 观察。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_summary.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_runtime_speedup.svg`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/slides.md`
+- 验证结果：
+  - `q33_hprefix32 @ 64 nodes = 1.125241995 s`
+  - speedup:
+    - `37.94x @64`
+    - `75.02x @128`
+    - `144.77x @256`
+  - `slidev build` 成功，说明 deck 在截断到 `256` 后仍可正常打包。
+- 未完成 / TODO：
+  - 若后续要展示 `q33_qft @ 512` 与 `q33_hprefix32` 的关系，需要单独补一张 wider-axis 图；当前 comparison 页已明确选择不这样做。
+- 下一步：
+  - 现阶段无需继续补点；可以直接基于 `64/128/256` 的 `H-prefix` 中间趋势做讨论。
+- 接手提示：
+  - 如果要恢复 `512-node` 横轴，只需要改：
+    - `PLOT_MAX_NODE`
+  - 位置：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+
+## 2026-04-18 13:05 - 补齐 `q33_hprefix32` 在 `64 nodes` 以下的剩余点位并刷新 SVG
+
+- 模块：remote / parser
+- 目标：补齐 `q33_hprefix32 = h_sweep(target=32)` 在 `64 nodes` 以下的剩余 distributed 点位，并仅刷新对应 SVG，不改 slides。
+- 已完成：
+  - 在 ARCHER2 上提交并完成：
+    - `13331754`：`2 nodes`
+    - `13331755`：`4 nodes`
+    - `13331756`：`8 nodes`
+    - `13331757`：`16 nodes`
+    - `13331758`：`32 nodes`
+  - 所有 job 均 `COMPLETED`。
+  - 将同一 raw 目录再次同步回本地 staging：
+    - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/results/staging/archer2_hprefix_q33_20260415_011421`
+  - 扩展 plotting 脚本的 `q33_hprefix32` loader，使其读取：
+    - `1, 2, 4, 8, 16, 32, 64, 128, 256 nodes`
+  - 重写：
+    - `archer2_q26_q33_summary.tsv`
+    - `archer2_q26_q33_runtime_speedup.svg`
+- 关键决定：
+  - 按用户要求，本轮不更新 `slides.md`，只更新数据文件和 SVG。
+  - 继续复用现有 raw dir，不新开 run 目录，避免把同一 series 拆散。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_summary.tsv`
+  - `/Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/archer2_q26_q33_runtime_speedup.svg`
+- 验证结果：
+  - `q33_hprefix32` 现有 runtimes：
+    - `1`: `42.696852922 s`
+    - `2`: `40.283810854 s`
+    - `4`: `16.828274012 s`
+    - `8`: `7.373064995 s`
+    - `16`: `3.816747904 s`
+    - `32`: `2.222568989 s`
+    - `64`: `1.125241995 s`
+    - `128`: `0.569138050 s`
+    - `256`: `0.294925928 s`
+- 未完成 / TODO：
+  - 若要把这些新增低节点点位体现在汇报文案中，需要后续再手动更新 `slides.md`。
+- 下一步：
+  - 现阶段可以直接基于更新后的 SVG 观察 `q33_hprefix32` 在低节点区间的 scaling 曲线形状。
+- 接手提示：
+  - 重新画图命令固定为：
+    - `python3 /Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`

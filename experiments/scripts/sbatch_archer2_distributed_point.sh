@@ -40,6 +40,7 @@ DISTRIBUTION_MODE="${DISTRIBUTION_MODE:-on}"
 SYNC_MODE="${SYNC_MODE:-benchmark}"
 PREHEAT_MODE="${PREHEAT_MODE:-light}"
 PREHEAT_QUBITS="${PREHEAT_QUBITS:-24}"
+H_TARGET="${H_TARGET:-}"
 REPS="${REPS:-1}"
 WARMUP="${WARMUP:-0}"
 SEED="${SEED:-20260402}"
@@ -106,6 +107,9 @@ case "${BENCHMARK}" in
             --label "${BENCH_LABEL}"
             --output "${OUTPUT_PATH}"
         )
+        if [ -n "${H_TARGET}" ]; then
+            CMD+=(--target "${H_TARGET}")
+        fi
         ;;
     random)
         DEPTH="${RANDOM_DEPTH:-$((2 * QUBIT))}"
@@ -136,6 +140,9 @@ info "Qubit: ${QUBIT}"
 info "Nodes: ${NODES}"
 info "Distribution mode: ${DISTRIBUTION_MODE}"
 info "OMP_NUM_THREADS=${THREADS}"
+if [ -n "${H_TARGET}" ]; then
+    info "H target: ${H_TARGET}"
+fi
 info "Output: ${OUTPUT_PATH}"
 
 srun --hint=nomultithread --cpu-bind=cores "${CMD[@]}"
