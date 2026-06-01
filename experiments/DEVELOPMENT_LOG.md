@@ -1430,4 +1430,53 @@
     - stderr: `>>> ERROR: nsys not found in allocated job environment.`
     - benchmark points were not run in profile mode, so no Nsight Systems report was produced.
 - 未完成 / TODO：
-  - Nsight Systems profiling remains blocked until `nsys` is installed or made available through a cluster module/environment.
+  - 后续更大规模 sweep 尚未展开。
+
+## 2026-06-01 16:46 - 修复 `nsys` module 环境并完成 4-GPU proposal profile
+
+- 模块：cluster gpu_mpi / profiling
+- 目标：解决 profile 作业 `2547` 中 `nsys not found` 的问题，并重新完成 proposal suite 的 4-GPU Nsight Systems profile。
+- 已完成：
+  - 在 GPU allocation 中确认 Teaching compute node 暴露 CUDA modules：
+    - `cuda/12.8.0`
+    - `cuda/13.1.1`
+    - `cuda/13.2.1`
+  - 确认 `nsys` 可由 CUDA module 提供：
+    - `/opt/cuda-13.2.1/bin/nsys`
+  - 更新脚本，使 profile payload 在 build/profile 前：
+    - source `/etc/profile`
+    - 保留 conda CUDA toolchain 优先级
+    - 自动尝试 CUDA module 暴露 `nsys`
+  - 默认尝试顺序：
+    - `cuda/13.2.1 cuda/13.1.1 cuda/12.8.0 cuda`
+  - 新增覆盖变量：
+    - `QUEST_GPU_MPI_NSYS_MODULES`
+- 同步状态：
+  - code fix commit: `fdb7e878a168f35524245751494585909e674da6`
+  - local/GitHub/cluster 已同步到该提交后重新提交 profile。
+- MLS cluster 4-GPU profile 作业通过：
+  - command: `bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile`
+  - job: `2667`
+  - node/GPU: `damnii07`, `2080ti`, 4 ranks/GPUs
+  - Slurm result: `COMPLETED`, exit `0:0`, elapsed `00:16:46`
+  - raw dir: `experiments/results/raw/gpu_mpi_proposal_profile_2080ti_r4_2667/`
+  - profile dir: `experiments/results/raw/gpu_mpi_proposal_profile_2080ti_r4_2667/profiles/`
+  - generated reports:
+    - `gate_micro_h.nsys-rep`
+    - `gate_micro_cnot.nsys-rep`
+    - `gate_micro_cphase.nsys-rep`
+    - `gate_micro_hn.nsys-rep`
+    - `qft.nsys-rep`
+    - `random_tqr0p25.nsys-rep`
+    - `random_tqr0p50.nsys-rep`
+  - TSV:
+    - `gate_micro_cluster_gpu_mpi_on_2080ti_r4_q24_2667.tsv`
+    - `qft_cluster_gpu_mpi_on_2080ti_r4_q24_2667.tsv`
+    - `random_cluster_gpu_mpi_on_2080ti_r4_q24_2667.tsv`
+  - result check:
+    - all rows: `backend=gpu_mpi`, `deployment=on`, `env_num_nodes=4`, `sync_mode=profile`, `status=PASS`
+    - QFT rows include `api_full_qft` and `total`
+    - random rows include requested/actual ratios `0.250000` and `0.500000`
+- 注意：
+  - Nsight Systems 报告成功生成。
+  - Cluster kernel/config 禁用了 CPU IP/backtrace sampling 和 CPU context switch tracing；stderr 中有 warning，但 CUDA/System profile report 文件仍正常产出。
