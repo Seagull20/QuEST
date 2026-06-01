@@ -1404,5 +1404,30 @@
     - `random` ratios: `0 / 0.5 / 1`。
     - `qft q=4`。
   - `run_suite.py proposal` 可生成 raw TSV，`parse_results.py` 可生成 `gate_micro_matrix.tsv` 与 `random_ratio_matrix.tsv`。
+  - 已提交并同步实现提交：
+    - local/GitHub/cluster: `2cc25e1b9f503c53eef36201af93575f853ead35`
+    - cluster 通过 bundle 同步，因为当时 cluster 不能解析 `github.com`。
+  - MLS cluster 4-GPU validate 作业通过：
+    - command: `bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 validate`
+    - job: `2546`
+    - node/GPU: `damnii07`, `2080ti`, 4 ranks/GPUs
+    - Slurm result: `COMPLETED`, exit `0:0`, elapsed `00:14:44`
+    - raw dir: `experiments/results/raw/gpu_mpi_proposal_validate_2080ti_r4_2546/`
+    - TSV:
+      - `gate_micro_cluster_gpu_mpi_on_2080ti_r4_q24_2546.tsv`
+      - `qft_cluster_gpu_mpi_on_2080ti_r4_q24_2546.tsv`
+      - `random_cluster_gpu_mpi_on_2080ti_r4_q24_2546.tsv`
+    - result check:
+      - all rows: `backend=gpu_mpi`, `deployment=on`, `env_num_nodes=4`, `status=PASS`
+      - QFT rows include `api_full_qft` and `total`
+      - random rows include requested/actual ratios `0.250000` and `0.500000`
+  - MLS cluster 4-GPU profile 作业按预检查失败：
+    - command: `bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile`
+    - job: `2547`
+    - node/GPU: `damnii07`, `2080ti`, 4 ranks/GPUs
+    - Slurm result: `FAILED`, exit `1:0`, elapsed `00:00:01`
+    - reason: allocated job environment did not have `nsys` on `PATH`
+    - stderr: `>>> ERROR: nsys not found in allocated job environment.`
+    - benchmark points were not run in profile mode, so no Nsight Systems report was produced.
 - 未完成 / TODO：
-  - 尚未提交、同步、在 MLS cluster 上提交 4-GPU validation/profile job。
+  - Nsight Systems profiling remains blocked until `nsys` is installed or made available through a cluster module/environment.
