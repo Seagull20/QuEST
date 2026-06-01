@@ -49,7 +49,21 @@ Backends:
 
 Build type:
   Release (default), Debug, RelWithDebInfo, MinSizeRel
+
+Environment:
+  QUEST_BENCH_BUILD_PARALLEL=<N>  Override CMake build parallelism.
 EOF
+}
+
+is_positive_int() {
+    case "$1" in
+        ''|*[!0-9]*|0)
+            return 1
+            ;;
+        *)
+            return 0
+            ;;
+    esac
 }
 
 list_benchmarks() {
@@ -245,16 +259,50 @@ configure_backend_args() {
     fi
 }
 
+resolve_parallel_jobs() {
+    local cpus_per_task="${SLURM_CPUS_PER_TASK:-}"
+    local ntasks="${SLURM_NTASKS:-}"
+    local cpus_on_node="${SLURM_CPUS_ON_NODE:-}"
+    local detected=""
+
+    if [ -n "${QUEST_BENCH_BUILD_PARALLEL:-}" ]; then
+        is_positive_int "${QUEST_BENCH_BUILD_PARALLEL}" || die "QUEST_BENCH_BUILD_PARALLEL must be a positive integer."
+        printf '%s' "${QUEST_BENCH_BUILD_PARALLEL}"
+        return 0
+    fi
+
+    if is_positive_int "${cpus_per_task}" && is_positive_int "${ntasks}"; then
+        printf '%s' "$((cpus_per_task * ntasks))"
+        return 0
+    fi
+
+    if is_positive_int "${cpus_on_node}"; then
+        printf '%s' "${cpus_on_node}"
+        return 0
+    fi
+
+    if has_cmd getconf; then
+        detected="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+        if is_positive_int "${detected}"; then
+            printf '%s' "${detected}"
+            return 0
+        fi
+    fi
+
+    printf '1'
+}
+
 build_target() {
     local benchmark="$1"
     local backend="$2"
     local build_type="$3"
-    local build_dir output_exe
+    local build_dir output_exe parallel_jobs
 
     resolve_source "${benchmark}"
 
     output_exe="${benchmark}"
     build_dir="${BUILD_ROOT}/${benchmark}/${backend}"
+    parallel_jobs="$(resolve_parallel_jobs)"
 
     local toolchain_env=""
 
@@ -277,7 +325,8 @@ build_target() {
     cmake "${CMAKE_ARGS[@]}"
 
     info "Building executable ${output_exe}"
-    cmake --build "${build_dir}" --target "${output_exe}"
+    info "Build parallel jobs: ${parallel_jobs}"
+    cmake --build "${build_dir}" --config "${build_type}" --parallel "${parallel_jobs}" --target "${output_exe}"
 
     info "Build complete: ${build_dir}/${output_exe}"
 }

@@ -23,6 +23,12 @@ This avoids stale CMake cache issues when switching between:
 - different source programs
 - CPU vs CUDA vs cuQuantum builds
 
+The build stage invokes `cmake --build` with `--config <build_type>` and `--parallel <jobs>`. By default, `<jobs>` follows the Slurm allocation when present, otherwise the local online CPU count. Override with:
+
+```bash
+QUEST_BENCH_BUILD_PARALLEL=4 ./experiments/build.sh qft gpu_mpi
+```
+
 ## Current benchmark slots
 
 - `probe`: single-node capacity probe
