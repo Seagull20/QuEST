@@ -9,6 +9,7 @@
 - `run_suite.py`
   - 统一的 sweep runner。
   - `one-node` 子命令执行 `probe + qft + h_sweep + random`。
+  - `proposal` 子命令执行 proposal 非 optional suite：`gate_micro + qft + random`。
   - `mpi-qft` 子命令执行 `ARCHER2 + cpu_mpi + QFT` 的超单节点扩展。
 - `parse_results.py`
   - 将 `experiments/results/raw/*.tsv` 聚合为：
@@ -21,6 +22,8 @@
     - `thread_perf_matrix.tsv`
     - `thread_speedup_matrix.tsv`
     - `thread_qft_stage_matrix.tsv`
+    - `gate_micro_matrix.tsv`
+    - `random_ratio_matrix.tsv`
 
 ## 集群提交脚本
 
@@ -66,6 +69,13 @@
 - `sbatch_cluster_gpu_mpi_qft_point.sh`
   - 上述入口提交的实际 Slurm payload。
   - 作业内构建 `qft/gpu_mpi`，再运行一个 QFT smoke 点。
+- `sbatch_cluster_gpu_mpi_proposal_suite.sh`
+  - MLS cluster 的 4-GPU proposal suite 提交入口。
+  - 用法：`bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh [auto|a6000|a40|2080ti] 4 [validate|profile]`。
+  - `validate` 直接运行 suite；`profile` 使用 Nsight Systems 包装每个 suite point。
+- `sbatch_cluster_gpu_mpi_proposal_suite_point.sh`
+  - 上述 proposal suite 的实际 Slurm payload。
+  - 作业内构建 `gate_micro / qft / random` 的 `gpu_mpi` binary，避免复用错误 CUDA architecture 的旧构建。
 
 ## Profiler 包装
 
@@ -88,6 +98,20 @@ python3 experiments/scripts/run_suite.py one-node \
 ```
 
 ```bash
+python3 experiments/scripts/run_suite.py proposal \
+  --platform local \
+  --backend cpu \
+  --deployment off \
+  --base-qubits 4 \
+  --reps 1 \
+  --warmup 0 \
+  --preheat-mode off \
+  --gate-repeats 3 \
+  --random-depth 4 \
+  --random-two-qubit-ratios 0 0.5 1
+```
+
+```bash
 python3 experiments/scripts/parse_results.py
 ```
 
@@ -102,6 +126,11 @@ bash experiments/scripts/submit_archer2_thread_sweep.sh
 ```bash
 QUEST_GPU_MPI_QUBITS=24 QUEST_GPU_MPI_REPS=1 QUEST_GPU_MPI_WARMUP=0 \
   bash experiments/scripts/sbatch_cluster_gpu_mpi.sh auto 2
+```
+
+```bash
+bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 validate
+bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile
 ```
 
 ## Cluster GPU+MPI QFT Smoke
@@ -127,6 +156,26 @@ QUEST_GPU_MPI_QUBITS=24 QUEST_GPU_MPI_REPS=1 QUEST_GPU_MPI_WARMUP=0 \
   - `status=PASS`
   - `env_num_nodes=<ranks>`
 - QFT benchmark 只让 root rank 写 TSV；非 root rank 不写结果文件。
+
+## Cluster GPU+MPI Proposal Suite
+
+- 当前 proposal suite 明确排除 optional QAOA，只覆盖：
+  - `gate_micro`: `h / cnot / cphase / hn`
+  - `qft`: QuEST `applyFullQuantumFourierTransform()`
+  - `random`: fixed-depth random circuit with two-qubit ratios
+- 默认参数：
+  - `QUEST_GPU_MPI_SUITE_QUBITS=24`
+  - `QUEST_GPU_MPI_SUITE_REPS=1`
+  - `QUEST_GPU_MPI_SUITE_WARMUP=0`
+  - `QUEST_GPU_MPI_SUITE_GATE_REPEATS=64`
+  - `QUEST_GPU_MPI_SUITE_RANDOM_DEPTH=48`
+  - `QUEST_GPU_MPI_SUITE_RANDOM_RATIOS="0.25 0.50"`
+  - `QUEST_GPU_MPI_PREHEAT_MODE=off`
+- `auto` 会读取 Teaching partition 的 `sinfo`，优先按节点状态选择可用 GPU；状态相同时按 `A6000 -> A40 -> 2080 Ti` 排序。
+- `profile` 模式要求 allocated job 环境中存在 `nsys`；若不可用，会在运行 benchmark 前失败。
+- 输出写入：
+  - `experiments/results/raw/gpu_mpi_proposal_<mode>_<gpu>_r<ranks>_<jobid>/`
+  - profile 报告写入该目录下的 `profiles/`。
 
 ## ARCHER2 QoS 选择
 
@@ -168,6 +217,6 @@ QUEST_GPU_MPI_QUBITS=24 QUEST_GPU_MPI_REPS=1 QUEST_GPU_MPI_WARMUP=0 \
 
 ## 说明
 
-- `gpu_mpi` 当前已具备 MLS cluster 的 QFT smoke 路径；完整 GPU+MPI suite sweep 仍未展开。
+- `gpu_mpi` 当前已具备 MLS cluster 的 QFT smoke 路径和 proposal suite validation/profile 路径；更大规模 sweep 仍未展开。
 - 远端路径均以 repo root 为基准，不硬编码 clone 绝对路径。
 - 并行提交流程默认把一次 run 的 raw TSV 写到 `results/raw/<run_tag>/`，避免和旧的 ARCHER2 结果互相污染。

@@ -94,7 +94,7 @@ build_suite_targets() {
     local backend="$1"
     local benchmark
 
-    for benchmark in probe qft h_sweep random; do
+    for benchmark in probe qft gate_micro random; do
         info "Building ${benchmark} (${backend})"
         "${EXPERIMENTS_DIR}/build.sh" "${benchmark}" "${backend}"
     done

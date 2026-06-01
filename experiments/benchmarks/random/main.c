@@ -22,20 +22,75 @@ typedef struct {
     qreal angle;
 } RandomGate;
 
-static int generate_random_circuit(const BenchOptions* opts, RandomGate** out_gates, int* out_gate_count) {
+typedef struct {
+    int gate_count;
+    int single_qubit_gate_count;
+    int two_qubit_gate_count;
+} RandomCircuitStats;
+
+static int random_distinct_qubit(BenchRng* rng, int num_qubits, int q0) {
+    int q1 = bench_rng_next_int(rng, num_qubits - 1);
+    if (q1 >= q0)
+        q1++;
+    return q1;
+}
+
+static void set_random_single_gate(BenchRng* rng, RandomGate* gate, int qubit) {
+    int gate_pick = bench_rng_next_int(rng, 5);
+
+    gate->q0 = qubit;
+    gate->q1 = -1;
+    gate->angle = 0;
+
+    if (gate_pick == 0)
+        gate->type = RAND_GATE_H;
+    else if (gate_pick == 1)
+        gate->type = RAND_GATE_X;
+    else if (gate_pick == 2) {
+        gate->type = RAND_GATE_RZ;
+        gate->angle = bench_discrete_angle_from_index(bench_rng_next_int(rng, 6));
+    } else if (gate_pick == 3) {
+        gate->type = RAND_GATE_RX;
+        gate->angle = bench_discrete_angle_from_index(bench_rng_next_int(rng, 6));
+    } else {
+        gate->type = RAND_GATE_RY;
+        gate->angle = bench_discrete_angle_from_index(bench_rng_next_int(rng, 6));
+    }
+}
+
+static void set_random_two_qubit_gate(BenchRng* rng, RandomGate* gate, int num_qubits) {
+    int gate_pick = bench_rng_next_int(rng, 3);
+
+    gate->q0 = bench_rng_next_int(rng, num_qubits);
+    gate->q1 = random_distinct_qubit(rng, num_qubits, gate->q0);
+    gate->angle = 0;
+
+    if (gate_pick == 0)
+        gate->type = RAND_GATE_CNOT;
+    else if (gate_pick == 1)
+        gate->type = RAND_GATE_CZ;
+    else
+        gate->type = RAND_GATE_SWAP;
+}
+
+static int generate_random_circuit(const BenchOptions* opts, RandomGate** out_gates, RandomCircuitStats* out_stats) {
     int layer;
     int gate_index = 0;
-    int pair_count = opts->num_qubits / 2;
-    int max_gates = opts->depth * (opts->num_qubits + pair_count);
-    int* permutation = NULL;
+    int max_gates = opts->depth * opts->num_qubits;
+    int two_qubit_per_layer = (int) (opts->two_qubit_ratio * (double) opts->num_qubits + 0.5);
+    int single_qubit_per_layer;
     RandomGate* gates = NULL;
     BenchRng rng;
 
+    if (two_qubit_per_layer < 0)
+        two_qubit_per_layer = 0;
+    if (two_qubit_per_layer > opts->num_qubits)
+        two_qubit_per_layer = opts->num_qubits;
+    single_qubit_per_layer = opts->num_qubits - two_qubit_per_layer;
+
     gates = (RandomGate*) malloc((size_t) max_gates * sizeof(RandomGate));
-    permutation = (int*) malloc((size_t) opts->num_qubits * sizeof(int));
-    if (gates == NULL || permutation == NULL) {
+    if (gates == NULL) {
         free(gates);
-        free(permutation);
         return 0;
     }
 
@@ -44,54 +99,21 @@ static int generate_random_circuit(const BenchOptions* opts, RandomGate** out_ga
     for (layer = 0; layer < opts->depth; layer++) {
         int i;
 
-        for (i = 0; i < opts->num_qubits; i++) {
-            int gate_pick = bench_rng_next_int(&rng, 5);
-
-            gates[gate_index].q0 = i;
-            gates[gate_index].q1 = -1;
-            gates[gate_index].angle = 0;
-
-            if (gate_pick == 0)
-                gates[gate_index].type = RAND_GATE_H;
-            else if (gate_pick == 1)
-                gates[gate_index].type = RAND_GATE_X;
-            else if (gate_pick == 2) {
-                gates[gate_index].type = RAND_GATE_RZ;
-                gates[gate_index].angle = bench_discrete_angle_from_index(bench_rng_next_int(&rng, 6));
-            } else if (gate_pick == 3) {
-                gates[gate_index].type = RAND_GATE_RX;
-                gates[gate_index].angle = bench_discrete_angle_from_index(bench_rng_next_int(&rng, 6));
-            } else {
-                gates[gate_index].type = RAND_GATE_RY;
-                gates[gate_index].angle = bench_discrete_angle_from_index(bench_rng_next_int(&rng, 6));
-            }
-
+        for (i = 0; i < single_qubit_per_layer; i++) {
+            set_random_single_gate(&rng, &gates[gate_index], bench_rng_next_int(&rng, opts->num_qubits));
             gate_index++;
-            permutation[i] = i;
         }
 
-        bench_rng_shuffle_ints(&rng, permutation, opts->num_qubits);
-        for (i = 0; i + 1 < opts->num_qubits; i += 2) {
-            int gate_pick = bench_rng_next_int(&rng, 3);
-
-            gates[gate_index].q0 = permutation[i];
-            gates[gate_index].q1 = permutation[i + 1];
-            gates[gate_index].angle = 0;
-
-            if (gate_pick == 0)
-                gates[gate_index].type = RAND_GATE_CNOT;
-            else if (gate_pick == 1)
-                gates[gate_index].type = RAND_GATE_CZ;
-            else
-                gates[gate_index].type = RAND_GATE_SWAP;
-
+        for (i = 0; i < two_qubit_per_layer; i++) {
+            set_random_two_qubit_gate(&rng, &gates[gate_index], opts->num_qubits);
             gate_index++;
         }
     }
 
-    free(permutation);
     *out_gates = gates;
-    *out_gate_count = gate_index;
+    out_stats->gate_count = gate_index;
+    out_stats->single_qubit_gate_count = single_qubit_per_layer * opts->depth;
+    out_stats->two_qubit_gate_count = two_qubit_per_layer * opts->depth;
     return 1;
 }
 
@@ -139,20 +161,22 @@ static double run_random_circuit(Qureg qureg, const BenchOptions* opts, const Ra
 static int run_random_light_preheat(const BenchOptions* opts) {
     BenchOptions preheat_opts = *opts;
     RandomGate* preheat_gates = NULL;
-    int preheat_gate_count = 0;
+    RandomCircuitStats preheat_stats;
     int preheat_qubits = bench_effective_preheat_qubits(opts);
     Qureg preheat_qureg;
 
     preheat_opts.num_qubits = preheat_qubits;
     preheat_opts.depth = 2 * preheat_qubits;
+    if (preheat_qubits < 2)
+        preheat_opts.two_qubit_ratio = 0.0;
 
-    if (!generate_random_circuit(&preheat_opts, &preheat_gates, &preheat_gate_count))
+    if (!generate_random_circuit(&preheat_opts, &preheat_gates, &preheat_stats))
         return 0;
 
     preheat_qureg = bench_create_state_qureg_with_qubits(opts, preheat_qubits);
     initZeroState(preheat_qureg);
     syncQuESTEnv();
-    (void) run_random_circuit(preheat_qureg, &preheat_opts, preheat_gates, preheat_gate_count);
+    (void) run_random_circuit(preheat_qureg, &preheat_opts, preheat_gates, preheat_stats.gate_count);
     destroyQureg(preheat_qureg);
     free(preheat_gates);
     return 1;
@@ -162,7 +186,7 @@ static void write_header(FILE* out) {
     if (out == NULL)
         return;
     fprintf(out,
-            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tdepth\tseed\tgate_count\ttotal_time_s\n");
+            "platform\tbackend\tdeployment\tbenchmark\tlabel\tnum_qubits\trep\twarmup\tstatus\tsync_mode\ttotal_prob\tenv_num_nodes\tenv_num_threads\tpreheat_mode\tpreheat_qubits\tdepth\tseed\ttwo_qubit_ratio\tactual_two_qubit_ratio\tsingle_qubit_gate_count\ttwo_qubit_gate_count\tgate_count\ttotal_time_s\n");
 }
 
 static void write_row(FILE* out,
@@ -171,12 +195,15 @@ static void write_row(FILE* out,
                       int is_warmup,
                       const char* status,
                       qreal total_prob,
-                      int gate_count,
+                      const RandomCircuitStats* stats,
                       double total_time_s) {
+    double actual_two_qubit_ratio;
+
     if (out == NULL)
         return;
+    actual_two_qubit_ratio = (stats->gate_count > 0) ? ((double) stats->two_qubit_gate_count / (double) stats->gate_count) : 0.0;
     fprintf(out,
-            "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%u\t%d\t%.9f\n",
+            "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%.12f\t%d\t%d\t%s\t%d\t%d\t%u\t%.6f\t%.6f\t%d\t%d\t%d\t%.9f\n",
             bench_detect_platform(),
             bench_build_backend(),
             bench_distribution_string(opts->distribution),
@@ -194,7 +221,11 @@ static void write_row(FILE* out,
             bench_effective_preheat_qubits(opts),
             opts->depth,
             opts->seed,
-            gate_count,
+            opts->two_qubit_ratio,
+            actual_two_qubit_ratio,
+            stats->single_qubit_gate_count,
+            stats->two_qubit_gate_count,
+            stats->gate_count,
             total_time_s);
 }
 
@@ -205,7 +236,7 @@ int main(int argc, char** argv) {
     int should_close = 0;
     int should_write_header = 0;
     RandomGate* gates = NULL;
-    int gate_count = 0;
+    RandomCircuitStats stats;
     Qureg qureg;
     int rep;
 
@@ -219,8 +250,12 @@ int main(int argc, char** argv) {
         opts.depth = 2 * opts.num_qubits;
     if (parse_result != BENCH_PARSE_OK || !bench_validate_runtime_request(&opts, stderr))
         return EXIT_FAILURE;
+    if (opts.num_qubits < 2 && opts.two_qubit_ratio > 0.0) {
+        fprintf(stderr, "ERROR: two-qubit ratio requires at least 2 qubits\n");
+        return EXIT_FAILURE;
+    }
 
-    if (!generate_random_circuit(&opts, &gates, &gate_count)) {
+    if (!generate_random_circuit(&opts, &gates, &stats)) {
         fprintf(stderr, "ERROR: failed to generate random circuit\n");
         return EXIT_FAILURE;
     }
@@ -251,11 +286,11 @@ int main(int argc, char** argv) {
         initZeroState(qureg);
         syncQuESTEnv();
 
-        total_time_s = run_random_circuit(qureg, &opts, gates, gate_count);
+        total_time_s = run_random_circuit(qureg, &opts, gates, stats.gate_count);
         total_prob = calcTotalProb(qureg);
         status = bench_prob_is_valid(total_prob) ? BENCH_STATUS_PASS : BENCH_STATUS_FAILURE;
 
-        write_row(out, &opts, rep, is_warmup, status, total_prob, gate_count, total_time_s);
+        write_row(out, &opts, rep, is_warmup, status, total_prob, &stats, total_time_s);
         fflush(out);
     }
 

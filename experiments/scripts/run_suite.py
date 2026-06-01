@@ -78,6 +78,31 @@ H_HEADER = [
     "gate_time_s",
 ]
 
+GATE_MICRO_HEADER = [
+    "platform",
+    "backend",
+    "deployment",
+    "benchmark",
+    "label",
+    "num_qubits",
+    "rep",
+    "warmup",
+    "status",
+    "sync_mode",
+    "total_prob",
+    "env_num_nodes",
+    "env_num_threads",
+    "preheat_mode",
+    "preheat_qubits",
+    "gate_kind",
+    "control_qubit",
+    "target_qubit",
+    "gate_repeats",
+    "gate_count",
+    "total_time_s",
+    "time_per_gate_s",
+]
+
 RANDOM_HEADER = [
     "platform",
     "backend",
@@ -91,8 +116,15 @@ RANDOM_HEADER = [
     "sync_mode",
     "total_prob",
     "env_num_nodes",
+    "env_num_threads",
+    "preheat_mode",
+    "preheat_qubits",
     "depth",
     "seed",
+    "two_qubit_ratio",
+    "actual_two_qubit_ratio",
+    "single_qubit_gate_count",
+    "two_qubit_gate_count",
     "gate_count",
     "total_time_s",
 ]
@@ -233,7 +265,38 @@ def append_h_failure(path: Path, platform: str, backend: str, deployment: str, q
     )
 
 
-def append_random_failure(path: Path, platform: str, backend: str, deployment: str, qubits: int, sync_mode: str, env_num_nodes: int, label: str, depth: int, seed: int) -> None:
+def append_gate_micro_failure(path: Path, platform: str, backend: str, deployment: str, qubits: int, sync_mode: str, env_num_nodes: int, label: str, gate_kind: str, gate_repeats: int) -> None:
+    append_row(
+        path,
+        GATE_MICRO_HEADER,
+        {
+            "platform": platform,
+            "backend": backend,
+            "deployment": deployment,
+            "benchmark": "gate_micro",
+            "label": label,
+            "num_qubits": qubits,
+            "rep": -1,
+            "warmup": 0,
+            "status": "FAILURE",
+            "sync_mode": sync_mode,
+            "total_prob": "nan",
+            "env_num_nodes": env_num_nodes,
+            "env_num_threads": "",
+            "preheat_mode": "",
+            "preheat_qubits": "",
+            "gate_kind": gate_kind,
+            "control_qubit": -1,
+            "target_qubit": -1,
+            "gate_repeats": gate_repeats,
+            "gate_count": -1,
+            "total_time_s": "nan",
+            "time_per_gate_s": "nan",
+        },
+    )
+
+
+def append_random_failure(path: Path, platform: str, backend: str, deployment: str, qubits: int, sync_mode: str, env_num_nodes: int, label: str, depth: int, seed: int, two_qubit_ratio: float) -> None:
     append_row(
         path,
         RANDOM_HEADER,
@@ -250,8 +313,15 @@ def append_random_failure(path: Path, platform: str, backend: str, deployment: s
             "sync_mode": sync_mode,
             "total_prob": "nan",
             "env_num_nodes": env_num_nodes,
+            "env_num_threads": "",
+            "preheat_mode": "",
+            "preheat_qubits": "",
             "depth": depth,
             "seed": seed,
+            "two_qubit_ratio": two_qubit_ratio,
+            "actual_two_qubit_ratio": "nan",
+            "single_qubit_gate_count": -1,
+            "two_qubit_gate_count": -1,
             "gate_count": -1,
             "total_time_s": "nan",
         },
@@ -368,6 +438,8 @@ def run_one_node_sweep(args: argparse.Namespace) -> int:
                 str(depth),
                 "--seed",
                 str(args.random_seed),
+                "--two-qubit-ratio",
+                str(args.random_two_qubit_ratio),
                 "--reps",
                 str(args.reps),
                 "--warmup",
@@ -382,9 +454,121 @@ def run_one_node_sweep(args: argparse.Namespace) -> int:
             make_env(args.platform),
         )
         if rc != 0:
-            append_random_failure(random_path, args.platform, args.backend, args.deployment, qubits, args.sync_mode, 1, "random", depth, args.random_seed)
+            append_random_failure(random_path, args.platform, args.backend, args.deployment, qubits, args.sync_mode, 1, "random", depth, args.random_seed, args.random_two_qubit_ratio)
             info(f"Fail-fast stop on random qubits={qubits}")
             break
+
+    return 0
+
+
+def run_proposal_suite(args: argparse.Namespace) -> int:
+    raw_dir = Path(args.raw_dir).resolve()
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    qubits = args.base_qubits
+
+    gate_path = raw_file(raw_dir, "gate_micro", args.platform, args.backend, args.deployment)
+    gate_exe = benchmark_executable("gate_micro", args.backend)
+    for gate_kind in args.gate_kinds:
+        label = f"gate_micro_{gate_kind}"
+        cmd = [
+            str(gate_exe),
+            "--qubits",
+            str(qubits),
+            "--gate-kind",
+            gate_kind,
+            "--gate-repeats",
+            str(args.gate_repeats),
+            "--reps",
+            str(args.reps),
+            "--warmup",
+            str(args.warmup),
+            "--distribution",
+            args.deployment,
+            "--sync-mode",
+            args.sync_mode,
+            "--preheat-mode",
+            args.preheat_mode,
+            "--preheat-qubits",
+            str(args.preheat_qubits),
+            "--label",
+            label,
+            "--output",
+            str(gate_path),
+        ]
+        rc = run_command(cmd, make_env(args.platform))
+        if rc != 0:
+            append_gate_micro_failure(gate_path, args.platform, args.backend, args.deployment, qubits, args.sync_mode, 1, label, gate_kind, args.gate_repeats)
+            return fail(f"gate_micro failed for gate_kind={gate_kind}")
+
+    qft_path = raw_file(raw_dir, "qft", args.platform, args.backend, args.deployment)
+    qft_exe = benchmark_executable("qft", args.backend)
+    rc = run_command(
+        [
+            str(qft_exe),
+            "--qubits",
+            str(qubits),
+            "--reps",
+            str(args.reps),
+            "--warmup",
+            str(args.warmup),
+            "--distribution",
+            args.deployment,
+            "--sync-mode",
+            args.sync_mode,
+            "--preheat-mode",
+            args.preheat_mode,
+            "--preheat-qubits",
+            str(args.preheat_qubits),
+            "--label",
+            "qft",
+            "--output",
+            str(qft_path),
+        ],
+        make_env(args.platform),
+    )
+    if rc != 0:
+        append_qft_failure(qft_path, args.platform, args.backend, args.deployment, qubits, args.sync_mode, 1, "qft", "FAILURE")
+        return fail("qft failed in proposal suite")
+
+    random_path = raw_file(raw_dir, "random", args.platform, args.backend, args.deployment)
+    random_exe = benchmark_executable("random", args.backend)
+    depth = args.random_depth if args.random_depth > 0 else 2 * qubits
+    for ratio in args.random_two_qubit_ratios:
+        label = f"random_tqr{ratio:g}"
+        rc = run_command(
+            [
+                str(random_exe),
+                "--qubits",
+                str(qubits),
+                "--depth",
+                str(depth),
+                "--seed",
+                str(args.random_seed),
+                "--two-qubit-ratio",
+                str(ratio),
+                "--reps",
+                str(args.reps),
+                "--warmup",
+                str(args.warmup),
+                "--distribution",
+                args.deployment,
+                "--sync-mode",
+                args.sync_mode,
+                "--preheat-mode",
+                args.preheat_mode,
+                "--preheat-qubits",
+                str(args.preheat_qubits),
+                "--label",
+                label,
+                "--output",
+                str(random_path),
+            ],
+            make_env(args.platform),
+        )
+        if rc != 0:
+            append_random_failure(random_path, args.platform, args.backend, args.deployment, qubits, args.sync_mode, 1, label, depth, args.random_seed, ratio)
+            return fail(f"random failed for two_qubit_ratio={ratio}")
 
     return 0
 
@@ -483,9 +667,18 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--search-max", type=int, default=62)
     common.add_argument("--random-seed", type=int, default=20260402)
     common.add_argument("--random-depth", type=int, default=-1)
+    common.add_argument("--random-two-qubit-ratio", type=float, default=0.5)
+    common.add_argument("--preheat-mode", default="identical", choices=["identical", "light", "off"])
+    common.add_argument("--preheat-qubits", type=int, default=24)
 
     one_node = subparsers.add_parser("one-node", parents=[common], help="Run probe + one-node sweeps")
     one_node.set_defaults(handler=run_one_node_sweep)
+
+    proposal = subparsers.add_parser("proposal", parents=[common], help="Run proposal suite: gate_micro + qft + random")
+    proposal.add_argument("--gate-kinds", nargs="+", default=["h", "cnot", "cphase", "hn"])
+    proposal.add_argument("--gate-repeats", type=int, default=64)
+    proposal.add_argument("--random-two-qubit-ratios", type=float, nargs="+", default=[0.25, 0.5])
+    proposal.set_defaults(handler=run_proposal_suite)
 
     mpi = subparsers.add_parser("mpi-qft", parents=[common], help="Run ARCHER2 QFT MPI extension")
     mpi.add_argument("--probe-file")

@@ -1347,3 +1347,62 @@
 - 未完成 / TODO：
   - 尚未在 MLS cluster 上提交真实 Slurm smoke job。
   - 尚未把 `gpu_mpi` 纳入完整 benchmark suite sweep。
+
+## 2026-06-01 06:22 - 补齐 proposal 非 optional benchmark suite 与 4-GPU profile 路径
+
+- 模块：benchmark suite / parser / cluster gpu_mpi / profiling
+- 目标：对齐 proposal 中的非 optional benchmark suite：`gate-level microbenchmarks + QFT + fixed-depth random circuits`，并补齐 4-GPU `gpu_mpi` validation/profile 入口。
+- 已完成：
+  - 新增 `gate_micro` benchmark，覆盖：
+    - `h`
+    - `cnot`
+    - `cphase`
+    - `hn`
+  - `gate_micro` 使用 `initPlusState()` 后计时，输出：
+    - `gate_kind`
+    - `control_qubit`
+    - `target_qubit`
+    - `gate_repeats`
+    - `gate_count`
+    - `total_time_s`
+    - `time_per_gate_s`
+  - 扩展公共 CLI：
+    - `--gate-kind`
+    - `--control`
+    - `--gate-repeats`
+    - `--two-qubit-ratio`
+  - 重构 `random` benchmark：
+    - 支持固定 `--two-qubit-ratio`
+    - TSV 增加 requested/actual ratio 与 single/two-qubit gate count。
+  - 扩展 `run_suite.py`：
+    - 新增 `proposal` 子命令。
+    - proposal suite 只运行 `gate_micro / qft / random`，明确不包含 optional QAOA。
+  - 扩展 `parse_results.py`：
+    - 新增 `gate_micro_matrix.tsv`
+    - 新增 `random_ratio_matrix.tsv`
+  - 新增 4-GPU cluster 脚本：
+    - `sbatch_cluster_gpu_mpi_proposal_suite.sh`
+    - `sbatch_cluster_gpu_mpi_proposal_suite_point.sh`
+  - proposal suite 支持：
+    - `validate`
+    - `profile`
+    - `auto|a6000|a40|2080ti`
+    - profile 模式用 Nsight Systems；若 allocated job 内没有 `nsys`，先失败，不浪费 GPU 时间继续跑 benchmark。
+- 关键决定：
+  - 保留 `h_sweep` 作为 legacy stride/communication diagnostic，不把它改名为 proposal 的 gate-level benchmark。
+  - `gpu_mpi` rank 到 GPU 的绑定继续交由 QuEST/MPI runtime，不在脚本里设置 `CUDA_VISIBLE_DEVICES`。
+  - GPU binary 在 allocated job 内构建，避免 A6000/2080Ti/A40 之间复用错误 CUDA architecture 的 build。
+- 验证结果：
+  - 本地 `bash -n` 检查新增/相关 shell 脚本通过。
+  - `python3 -m py_compile experiments/scripts/run_suite.py experiments/scripts/parse_results.py` 通过。
+  - 本地 `cpu` build 通过：
+    - `gate_micro`
+    - `random`
+    - `qft`
+  - 本地 CPU smoke 通过：
+    - `gate_micro` 四种 gate kind。
+    - `random` ratios: `0 / 0.5 / 1`。
+    - `qft q=4`。
+  - `run_suite.py proposal` 可生成 raw TSV，`parse_results.py` 可生成 `gate_micro_matrix.tsv` 与 `random_ratio_matrix.tsv`。
+- 未完成 / TODO：
+  - 尚未提交、同步、在 MLS cluster 上提交 4-GPU validation/profile job。

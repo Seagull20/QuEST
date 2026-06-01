@@ -35,6 +35,7 @@ Usage:
 
 Benchmarks:
   probe
+  gate_micro
   h_sweep
   qft
   random

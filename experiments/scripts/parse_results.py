@@ -66,6 +66,10 @@ def grouped_stats(values: List[float]) -> Tuple[float, float, int]:
     return statistics.fmean(values), statistics.stdev(values), len(values)
 
 
+def sortable_key(values: Tuple[object, ...]) -> Tuple[str, ...]:
+    return tuple("" if value is None else str(value) for value in values)
+
+
 def write_tsv(path: Path, header: List[str], rows: List[Dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -312,6 +316,119 @@ def build_h_target_matrix(rows: List[Dict[str, str]]) -> List[Dict[str, object]]
                 "target_qubit": target,
                 "mean_gate_time_s": mean_value,
                 "std_gate_time_s": std_value,
+                "samples": sample_count,
+            }
+        )
+    return out
+
+
+def build_gate_micro_matrix(rows: List[Dict[str, str]]) -> List[Dict[str, object]]:
+    grouped_total: Dict[Tuple[str, str, str, int, Optional[int], Optional[int], str, Optional[int], Optional[int], Optional[int]], List[float]] = defaultdict(list)
+    grouped_per_gate: Dict[Tuple[str, str, str, int, Optional[int], Optional[int], str, Optional[int], Optional[int], Optional[int]], List[float]] = defaultdict(list)
+    gate_counts: Dict[Tuple[str, str, str, int, Optional[int], Optional[int], str, Optional[int], Optional[int], Optional[int]], Optional[int]] = {}
+
+    for row in rows:
+        if row.get("benchmark") != "gate_micro" or row.get("warmup") != "0" or row.get("status") != "PASS":
+            continue
+        qubits = int_or_none(row.get("num_qubits"))
+        gate_kind = row.get("gate_kind")
+        gate_repeats = int_or_none(row.get("gate_repeats"))
+        control = int_or_none(row.get("control_qubit"))
+        target = int_or_none(row.get("target_qubit"))
+        env_num_nodes = row_env_num_nodes(row)
+        env_num_threads = row_env_num_threads(row)
+        total_time = float_or_none(row.get("total_time_s"))
+        time_per_gate = float_or_none(row.get("time_per_gate_s"))
+        if qubits is None or not gate_kind or gate_repeats is None:
+            continue
+        key = (row["platform"], row["backend"], row["deployment"], qubits, env_num_nodes, env_num_threads, gate_kind, control, target, gate_repeats)
+        if total_time is not None:
+            grouped_total[key].append(total_time)
+        if time_per_gate is not None:
+            grouped_per_gate[key].append(time_per_gate)
+        gate_counts[key] = int_or_none(row.get("gate_count"))
+
+    out: List[Dict[str, object]] = []
+    for key in sorted(set(grouped_total) | set(grouped_per_gate) | set(gate_counts), key=sortable_key):
+        platform, backend, deployment, qubits, env_num_nodes, env_num_threads, gate_kind, control, target, gate_repeats = key
+        mean_total, std_total, sample_count = grouped_stats(grouped_total.get(key, []))
+        mean_per_gate, std_per_gate, _ = grouped_stats(grouped_per_gate.get(key, []))
+        out.append(
+            {
+                "platform": platform,
+                "backend": backend,
+                "deployment": deployment,
+                "num_qubits": qubits,
+                "env_num_nodes": env_num_nodes,
+                "env_num_threads": env_num_threads,
+                "gate_kind": gate_kind,
+                "control_qubit": control,
+                "target_qubit": target,
+                "gate_repeats": gate_repeats,
+                "gate_count": gate_counts.get(key),
+                "mean_total_time_s": mean_total,
+                "std_total_time_s": std_total,
+                "mean_time_per_gate_s": mean_per_gate,
+                "std_time_per_gate_s": std_per_gate,
+                "samples": sample_count,
+            }
+        )
+    return out
+
+
+def build_random_ratio_matrix(rows: List[Dict[str, str]]) -> List[Dict[str, object]]:
+    grouped_total: Dict[Tuple[str, str, str, int, Optional[int], Optional[int], int, Optional[int], Optional[float]], List[float]] = defaultdict(list)
+    grouped_actual_ratio: Dict[Tuple[str, str, str, int, Optional[int], Optional[int], int, Optional[int], Optional[float]], List[float]] = defaultdict(list)
+    gate_counts: Dict[Tuple[str, str, str, int, Optional[int], Optional[int], int, Optional[int], Optional[float]], Tuple[Optional[int], Optional[int], Optional[int]]] = {}
+
+    for row in rows:
+        if row.get("benchmark") != "random" or row.get("warmup") != "0" or row.get("status") != "PASS":
+            continue
+        qubits = int_or_none(row.get("num_qubits"))
+        depth = int_or_none(row.get("depth"))
+        seed = int_or_none(row.get("seed"))
+        requested_ratio = float_or_none(row.get("two_qubit_ratio"))
+        total_time = float_or_none(row.get("total_time_s"))
+        actual_ratio = float_or_none(row.get("actual_two_qubit_ratio"))
+        env_num_nodes = row_env_num_nodes(row)
+        env_num_threads = row_env_num_threads(row)
+        if qubits is None or depth is None:
+            continue
+        key = (row["platform"], row["backend"], row["deployment"], qubits, env_num_nodes, env_num_threads, depth, seed, requested_ratio)
+        if total_time is not None:
+            grouped_total[key].append(total_time)
+        if actual_ratio is not None:
+            grouped_actual_ratio[key].append(actual_ratio)
+        gate_counts[key] = (
+            int_or_none(row.get("single_qubit_gate_count")),
+            int_or_none(row.get("two_qubit_gate_count")),
+            int_or_none(row.get("gate_count")),
+        )
+
+    out: List[Dict[str, object]] = []
+    for key in sorted(set(grouped_total) | set(grouped_actual_ratio) | set(gate_counts), key=sortable_key):
+        platform, backend, deployment, qubits, env_num_nodes, env_num_threads, depth, seed, requested_ratio = key
+        mean_total, std_total, sample_count = grouped_stats(grouped_total.get(key, []))
+        mean_actual_ratio, std_actual_ratio, _ = grouped_stats(grouped_actual_ratio.get(key, []))
+        single_count, two_count, gate_count = gate_counts.get(key, (None, None, None))
+        out.append(
+            {
+                "platform": platform,
+                "backend": backend,
+                "deployment": deployment,
+                "num_qubits": qubits,
+                "env_num_nodes": env_num_nodes,
+                "env_num_threads": env_num_threads,
+                "depth": depth,
+                "seed": seed,
+                "two_qubit_ratio": requested_ratio,
+                "mean_actual_two_qubit_ratio": mean_actual_ratio,
+                "std_actual_two_qubit_ratio": std_actual_ratio,
+                "single_qubit_gate_count": single_count,
+                "two_qubit_gate_count": two_count,
+                "gate_count": gate_count,
+                "mean_total_time_s": mean_total,
+                "std_total_time_s": std_total,
                 "samples": sample_count,
             }
         )
@@ -567,6 +684,8 @@ def main() -> int:
     degradation_rows = build_degradation_matrix(perf_rows)
     qft_stage_rows = build_qft_stage_matrix(rows)
     h_target_rows = build_h_target_matrix(rows)
+    gate_micro_rows = build_gate_micro_matrix(rows)
+    random_ratio_rows = build_random_ratio_matrix(rows)
     mpi_rows = build_mpi_extension_matrix(rows)
     distributed_capacity_rows = build_distributed_capacity_matrix(capacity_rows)
     thread_perf_rows = build_thread_perf_matrix(perf_rows)
@@ -599,6 +718,16 @@ def main() -> int:
         out_dir / "h_target_matrix.tsv",
         ["platform", "backend", "deployment", "num_qubits", "env_num_nodes", "env_num_threads", "target_qubit", "mean_gate_time_s", "std_gate_time_s", "samples"],
         h_target_rows,
+    )
+    write_tsv(
+        out_dir / "gate_micro_matrix.tsv",
+        ["platform", "backend", "deployment", "num_qubits", "env_num_nodes", "env_num_threads", "gate_kind", "control_qubit", "target_qubit", "gate_repeats", "gate_count", "mean_total_time_s", "std_total_time_s", "mean_time_per_gate_s", "std_time_per_gate_s", "samples"],
+        gate_micro_rows,
+    )
+    write_tsv(
+        out_dir / "random_ratio_matrix.tsv",
+        ["platform", "backend", "deployment", "num_qubits", "env_num_nodes", "env_num_threads", "depth", "seed", "two_qubit_ratio", "mean_actual_two_qubit_ratio", "std_actual_two_qubit_ratio", "single_qubit_gate_count", "two_qubit_gate_count", "gate_count", "mean_total_time_s", "std_total_time_s", "samples"],
+        random_ratio_rows,
     )
     write_tsv(
         out_dir / "distributed_capacity_matrix.tsv",

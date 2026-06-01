@@ -26,9 +26,10 @@ This avoids stale CMake cache issues when switching between:
 ## Current benchmark slots
 
 - `probe`: single-node capacity probe
+- `gate_micro`: proposal-aligned gate-level microbenchmark over `h`, `cnot`, `cphase`, and `hn`
 - `h_sweep`: single-qubit stride sensitivity benchmark
 - `qft`: structured long-range circuit benchmark
-- `random`: general-purpose random layered circuit benchmark
+- `random`: fixed-depth random layered circuit benchmark with controllable two-qubit gate ratio
 
 ## Current backend slots
 
@@ -43,6 +44,7 @@ This avoids stale CMake cache issues when switching between:
 ```bash
 ./experiments/build.sh list
 ./experiments/build.sh probe cpu
+./experiments/build.sh gate_micro cpu
 ./experiments/build.sh qft cpu
 ./experiments/build.sh qft cpu_mpi
 ./experiments/build.sh qft gpu_mpi
@@ -55,5 +57,6 @@ This avoids stale CMake cache issues when switching between:
 
 - The cluster GPU+MPI smoke path is submitted with `bash experiments/scripts/sbatch_cluster_gpu_mpi.sh [auto|a40|2080ti] [ranks]`.
 - The smoke path builds `qft/gpu_mpi` inside the Slurm job, runs `--distribution on`, and leaves rank-to-GPU binding to QuEST.
+- The proposal-aligned 4-GPU suite is submitted with `bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh [auto|a6000|a40|2080ti] 4 [validate|profile]`.
 - Generated results under `results/raw/` and `results/processed/` are ignored by git.
 - The benchmark programs append TSV rows when `--output` points to an existing file.
