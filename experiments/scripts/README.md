@@ -172,7 +172,10 @@ bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile
   - `QUEST_GPU_MPI_SUITE_RANDOM_RATIOS="0.25 0.50"`
   - `QUEST_GPU_MPI_PREHEAT_MODE=off`
 - `auto` 会读取 Teaching partition 的 `sinfo`，优先按节点状态选择可用 GPU；状态相同时按 `A6000 -> A40 -> 2080 Ti` 排序。
-- `profile` 模式要求 allocated job 环境中存在 `nsys`；若不可用，会在运行 benchmark 前失败。
+- `profile` 模式会在 allocated job 内先 source `/etc/profile`，再尝试通过 CUDA module 暴露 `nsys`。
+  - 默认尝试顺序：`cuda/13.2.1 cuda/13.1.1 cuda/12.8.0 cuda`
+  - 可用 `QUEST_GPU_MPI_NSYS_MODULES="..."` 覆盖。
+  - 若仍不可用，会在运行 benchmark 前失败。
 - 输出写入：
   - `experiments/results/raw/gpu_mpi_proposal_<mode>_<gpu>_r<ranks>_<jobid>/`
   - profile 报告写入该目录下的 `profiles/`。

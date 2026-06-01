@@ -49,6 +49,15 @@ current_processed_results_dir() {
     printf '%s' "${PROCESSED_RESULTS_DIR_OVERRIDE:-${PROCESSED_RESULTS_DIR}}"
 }
 
+source_system_profile_if_present() {
+    if [ -f /etc/profile ]; then
+        set +u
+        # shellcheck disable=SC1091
+        . /etc/profile >/dev/null 2>&1 || true
+        set -u
+    fi
+}
+
 source_toolchain_env_if_present() {
     local toolchain_env=""
 
@@ -73,11 +82,8 @@ ensure_minimum_cmake() {
     fi
 
     if ! type module >/dev/null 2>&1; then
-        if [ -f /etc/profile ]; then
-            # Ensure the module function is available inside non-login batch shells.
-            # shellcheck disable=SC1091
-            . /etc/profile
-        fi
+        # Ensure the module function is available inside non-login batch shells.
+        source_system_profile_if_present
     fi
 
     type module >/dev/null 2>&1 || die "module command unavailable; cannot load newer cmake."
@@ -88,6 +94,37 @@ ensure_minimum_cmake() {
     current_version="$(cmake --version 2>/dev/null | awk 'NR==1 {print $3}')"
     [ -n "${current_version}" ] || die "cmake not found after loading cmake/3.29.4"
     version_ge "${current_version}" "${required_version}" || die "cmake ${current_version} is still below required ${required_version}"
+}
+
+ensure_nsys_available() {
+    local module_name
+    local nsys_modules="${QUEST_GPU_MPI_NSYS_MODULES:-cuda/13.2.1 cuda/13.1.1 cuda/12.8.0 cuda}"
+
+    if command -v nsys >/dev/null 2>&1; then
+        info "Using nsys: $(command -v nsys)"
+        return 0
+    fi
+
+    if ! type module >/dev/null 2>&1; then
+        source_system_profile_if_present
+    fi
+
+    if command -v nsys >/dev/null 2>&1; then
+        info "Using nsys: $(command -v nsys)"
+        return 0
+    fi
+
+    type module >/dev/null 2>&1 || die "module command unavailable; cannot load CUDA module for nsys."
+
+    for module_name in ${nsys_modules}; do
+        module load "${module_name}" >/dev/null 2>&1 || true
+        if command -v nsys >/dev/null 2>&1; then
+            info "Loaded ${module_name} for nsys: $(command -v nsys)"
+            return 0
+        fi
+    done
+
+    die "nsys not found after trying CUDA modules: ${nsys_modules}"
 }
 
 build_suite_targets() {

@@ -96,11 +96,12 @@ main() {
 
     cd "${REPO_ROOT}"
     ensure_results_dirs
+    source_system_profile_if_present
     source_toolchain_env_if_present
     ensure_minimum_cmake 3.21
 
     if [ "${mode}" = "profile" ]; then
-        command -v nsys >/dev/null 2>&1 || die "nsys not found in allocated job environment."
+        ensure_nsys_available
     fi
 
     run_tag="${QUEST_GPU_MPI_SUITE_RUN_TAG:-gpu_mpi_proposal_${mode}_${gpu_type}_r${ranks}_${job_id}}"
