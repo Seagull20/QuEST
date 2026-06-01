@@ -36,7 +36,7 @@ This avoids stale CMake cache issues when switching between:
 - `cpu_mpi`
 - `gpu`
 - `cuquantum`
-- `gpu_mpi` reserved placeholder, intentionally `TODO`
+- `gpu_mpi` available for the MLS-cluster QFT smoke path; full-suite GPU+MPI sweeps are not yet wired.
 
 ## Examples
 
@@ -45,6 +45,7 @@ This avoids stale CMake cache issues when switching between:
 ./experiments/build.sh probe cpu
 ./experiments/build.sh qft cpu
 ./experiments/build.sh qft cpu_mpi
+./experiments/build.sh qft gpu_mpi
 ./experiments/build.sh random gpu
 ./experiments/build.sh h_sweep cuquantum
 ./experiments/build.sh clean
@@ -52,6 +53,7 @@ This avoids stale CMake cache issues when switching between:
 
 ## Notes
 
-- `gpu_mpi` is intentionally a placeholder in this round.
+- The cluster GPU+MPI smoke path is submitted with `bash experiments/scripts/sbatch_cluster_gpu_mpi.sh [auto|a40|2080ti] [ranks]`.
+- The smoke path builds `qft/gpu_mpi` inside the Slurm job, runs `--distribution on`, and leaves rank-to-GPU binding to QuEST.
 - Generated results under `results/raw/` and `results/processed/` are ignored by git.
 - The benchmark programs append TSV rows when `--output` points to an existing file.

@@ -1307,3 +1307,43 @@
 - 接手提示：
   - 重新画图命令固定为：
     - `python3 /Users/linzeyu/Documents/Degree_Project/03_degree_project/presentations/rtx2080ti_probe/plot_archer2_q26_q33_comparison.py`
+
+## 2026-06-01 01:29 - 实现 MLS cluster `gpu_mpi` QFT smoke 路径
+
+- 模块：benchmark scripts / cluster / gpu_mpi
+- 目标：打通最小 `gpu_mpi + QFT` smoke 路径，用于在 MLS cluster 上确认 `qft/gpu_mpi` build、`--distribution on` 运行和 TSV schema。
+- 已完成：
+  - 重写 `experiments/scripts/sbatch_cluster_gpu_mpi.sh` 为提交入口：
+    - 用法：`bash experiments/scripts/sbatch_cluster_gpu_mpi.sh [auto|a40|2080ti] [ranks]`
+    - 默认 `auto 2`
+    - `auto` 通过 Teaching partition 的 `sinfo` 比较 A40 与 2080 Ti 的可用状态，状态相同时优先 A40。
+  - 新增 `experiments/scripts/sbatch_cluster_gpu_mpi_qft_point.sh`：
+    - 作业内执行 `./experiments/build.sh qft gpu_mpi`
+    - 运行 `qft/gpu_mpi --distribution on`
+    - 默认 `QUEST_GPU_MPI_QUBITS=24`
+    - 默认 `QUEST_GPU_MPI_REPS=1`
+    - 默认 `QUEST_GPU_MPI_WARMUP=0`
+    - 默认 `QUEST_GPU_MPI_SYNC_MODE=benchmark`
+    - 默认 `QUEST_GPU_MPI_PREHEAT_MODE=off`
+  - 保留 QuEST 负责 rank-to-GPU 绑定；脚本不设置 `CUDA_VISIBLE_DEVICES`，也不做 rank/GPU ID 映射。
+  - 更新 `experiments/README.md` 与 `experiments/scripts/README.md`，说明 `gpu_mpi` 当前是 QFT smoke 路径，不是完整 suite sweep。
+  - 将 `sbatch_cluster_one_node.sh gpu_mpi` 的错误信息改为指向新的 GPU+MPI QFT smoke 入口。
+- 关键决定：
+  - 本轮只实现 QFT smoke，不扩展 `run_suite.py` 的完整 GPU+MPI sweep。
+  - 提交脚本负责资源选择；batch payload 只负责构建和执行一个 QFT point。
+  - root rank 写 TSV 的行为继续由 benchmark 公共输出逻辑负责。
+- 涉及文件：
+  - `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_cluster_gpu_mpi.sh`
+  - `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_cluster_gpu_mpi_qft_point.sh`
+  - `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/QuEST/experiments/scripts/sbatch_cluster_one_node.sh`
+  - `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/QuEST/experiments/README.md`
+  - `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/QuEST/experiments/scripts/README.md`
+- 验证结果：
+  - `bash -n experiments/scripts/sbatch_cluster_gpu_mpi.sh`
+  - `bash -n experiments/scripts/sbatch_cluster_gpu_mpi_qft_point.sh`
+  - `bash -n experiments/scripts/sbatch_cluster_one_node.sh`
+  - `git diff --check`
+  - 对新增 `sbatch_cluster_gpu_mpi_qft_point.sh` 单独检查行尾 whitespace，无输出。
+- 未完成 / TODO：
+  - 尚未在 MLS cluster 上提交真实 Slurm smoke job。
+  - 尚未把 `gpu_mpi` 纳入完整 benchmark suite sweep。

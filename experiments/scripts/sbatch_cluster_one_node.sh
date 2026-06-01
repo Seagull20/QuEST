@@ -26,7 +26,7 @@ case "${BACKEND}" in
     gpu|cuquantum)
         ;;
     gpu_mpi)
-        die "TODO: gpu_mpi submit path reserved for future implementation"
+        die "Use experiments/scripts/sbatch_cluster_gpu_mpi.sh for the gpu_mpi QFT smoke path."
         ;;
     *)
         die "Unsupported cluster backend '${BACKEND}'. Use gpu or cuquantum."

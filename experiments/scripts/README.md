@@ -60,8 +60,12 @@
   - ARCHER2 的 `QFT` MPI 扩展路径。
   - 固定尝试 `2 -> 4 -> 8` 节点。
 - `sbatch_cluster_gpu_mpi.sh`
-  - 仅占位。
-  - 本轮会直接报 `TODO`。
+  - MLS cluster 的 `gpu_mpi + QFT` smoke 提交入口。
+  - 用法：`bash experiments/scripts/sbatch_cluster_gpu_mpi.sh [auto|a40|2080ti] [ranks]`。
+  - 默认 `auto 2`，运行时使用 `--distribution on`，并由 QuEST 负责 rank 到 GPU 的绑定。
+- `sbatch_cluster_gpu_mpi_qft_point.sh`
+  - 上述入口提交的实际 Slurm payload。
+  - 作业内构建 `qft/gpu_mpi`，再运行一个 QFT smoke 点。
 
 ## Profiler 包装
 
@@ -94,6 +98,35 @@ bash experiments/scripts/submit_archer2_parallel.sh
 ```bash
 bash experiments/scripts/submit_archer2_thread_sweep.sh
 ```
+
+```bash
+QUEST_GPU_MPI_QUBITS=24 QUEST_GPU_MPI_REPS=1 QUEST_GPU_MPI_WARMUP=0 \
+  bash experiments/scripts/sbatch_cluster_gpu_mpi.sh auto 2
+```
+
+## Cluster GPU+MPI QFT Smoke
+
+- 当前只实现 QFT smoke，不代表完整 GPU+MPI benchmark suite 已经全部打通。
+- 默认参数：
+  - `QUEST_GPU_MPI_QUBITS=24`
+  - `QUEST_GPU_MPI_REPS=1`
+  - `QUEST_GPU_MPI_WARMUP=0`
+  - `QUEST_GPU_MPI_SYNC_MODE=benchmark`
+  - `QUEST_GPU_MPI_PREHEAT_MODE=off`
+  - `QUEST_GPU_MPI_PREHEAT_QUBITS=24`
+- `auto` 会读取 Teaching partition 的 `sinfo`，比较 A40 与 2080 Ti 的可用状态；状态相同时优先 A40。
+- 支持的 rank 范围：
+  - A40：`1..4`
+  - 2080 Ti：`1..8`
+- 输出 TSV 路径形如：
+  - `experiments/results/raw/qft_cluster_gpu_mpi_on_<gpu>_r<ranks>_q<qubits>_<jobid>.tsv`
+- 预期 TSV 关键列：
+  - `backend=gpu_mpi`
+  - `deployment=on`
+  - `benchmark=qft`
+  - `status=PASS`
+  - `env_num_nodes=<ranks>`
+- QFT benchmark 只让 root rank 写 TSV；非 root rank 不写结果文件。
 
 ## ARCHER2 QoS 选择
 
@@ -135,6 +168,6 @@ bash experiments/scripts/submit_archer2_thread_sweep.sh
 
 ## 说明
 
-- `gpu_mpi` 本轮只保留接口，不提供实际构建或提交能力。
+- `gpu_mpi` 当前已具备 MLS cluster 的 QFT smoke 路径；完整 GPU+MPI suite sweep 仍未展开。
 - 远端路径均以 repo root 为基准，不硬编码 clone 绝对路径。
 - 并行提交流程默认把一次 run 的 raw TSV 写到 `results/raw/<run_tag>/`，避免和旧的 ARCHER2 结果互相污染。
