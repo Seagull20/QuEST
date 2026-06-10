@@ -162,6 +162,13 @@ option(
 )
 message(STATUS "Profiling markers are turned ${ENABLE_PROFILING_MARKERS}. Set ENABLE_PROFILING_MARKERS to modify.")
 
+set(
+  QUEST_NVTX_INCLUDE_DIR
+  ""
+  CACHE PATH
+  "Optional NVTX include directory used when the selected CUDA toolkit omits NVTX headers."
+)
+
 option(
   ENABLE_CUQUANTUM
   "Whether QuEST will be built with support for NVIDIA cuQuantum. Turned OFF by default."
@@ -417,6 +424,9 @@ if (ENABLE_CUDA)
 
   if (ENABLE_PROFILING_MARKERS)
     find_package(CUDAToolkit REQUIRED)
+    if (QUEST_NVTX_INCLUDE_DIR)
+      target_include_directories(QuEST PRIVATE "${QUEST_NVTX_INCLUDE_DIR}")
+    endif()
     if (TARGET CUDA::nvtx3)
       target_link_libraries(QuEST PRIVATE CUDA::nvtx3)
     elseif (TARGET CUDA::nvToolsExt)

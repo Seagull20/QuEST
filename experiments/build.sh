@@ -160,6 +160,11 @@ build_common_args() {
             ;;
         1|ON|on|true|TRUE)
             CMAKE_ARGS+=(-DENABLE_PROFILING_MARKERS=ON)
+            if [ -n "${QUEST_NVTX_INCLUDE_DIR:-}" ]; then
+                [ -f "${QUEST_NVTX_INCLUDE_DIR}/nvtx3/nvToolsExt.h" ] || \
+                    die "QUEST_NVTX_INCLUDE_DIR does not contain nvtx3/nvToolsExt.h: ${QUEST_NVTX_INCLUDE_DIR}"
+                CMAKE_ARGS+=("-DQUEST_NVTX_INCLUDE_DIR=${QUEST_NVTX_INCLUDE_DIR}")
+            fi
             ;;
         *)
             die "QUEST_BENCH_ENABLE_PROFILING_MARKERS must be boolean (0/1 or OFF/ON)."

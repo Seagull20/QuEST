@@ -96,12 +96,44 @@ ensure_minimum_cmake() {
     version_ge "${current_version}" "${required_version}" || die "cmake ${current_version} is still below required ${required_version}"
 }
 
+find_nvtx_include_dir() {
+    local cuda_root="$1"
+    local candidate
+
+    for candidate in \
+        "${cuda_root}/targets/x86_64-linux/include" \
+        "${cuda_root}/include" \
+        "${cuda_root}"/nsight-systems-*/target-linux-x64/nvtx/include; do
+        if [ -f "${candidate}/nvtx3/nvToolsExt.h" ]; then
+            printf '%s' "${candidate}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+configure_nsys_environment() {
+    local nsys_bin
+    local cuda_root
+    local nvtx_include
+
+    nsys_bin="$(command -v nsys 2>/dev/null || true)"
+    [ -n "${nsys_bin}" ] || return 1
+    cuda_root="$(cd "$(dirname "${nsys_bin}")/.." && pwd)"
+    nvtx_include="$(find_nvtx_include_dir "${cuda_root}" || true)"
+    [ -n "${nvtx_include}" ] || return 1
+
+    export QUEST_NVTX_INCLUDE_DIR="${nvtx_include}"
+    info "Using nsys: ${nsys_bin}"
+    info "Using NVTX headers: ${QUEST_NVTX_INCLUDE_DIR}"
+}
+
 ensure_nsys_available() {
     local module_name
     local nsys_modules="${QUEST_GPU_MPI_NSYS_MODULES:-cuda/13.2.1 cuda/13.1.1 cuda/12.8.0 cuda}"
 
-    if command -v nsys >/dev/null 2>&1; then
-        info "Using nsys: $(command -v nsys)"
+    if configure_nsys_environment; then
         return 0
     fi
 
@@ -109,8 +141,7 @@ ensure_nsys_available() {
         source_system_profile_if_present
     fi
 
-    if command -v nsys >/dev/null 2>&1; then
-        info "Using nsys: $(command -v nsys)"
+    if configure_nsys_environment; then
         return 0
     fi
 
@@ -118,13 +149,13 @@ ensure_nsys_available() {
 
     for module_name in ${nsys_modules}; do
         module load "${module_name}" >/dev/null 2>&1 || true
-        if command -v nsys >/dev/null 2>&1; then
-            info "Loaded ${module_name} for nsys: $(command -v nsys)"
+        if configure_nsys_environment; then
+            info "Loaded ${module_name} for Nsight profiling."
             return 0
         fi
     done
 
-    die "nsys not found after trying CUDA modules: ${nsys_modules}"
+    die "nsys or its NVTX headers were not found after trying CUDA modules: ${nsys_modules}"
 }
 
 build_suite_targets() {
