@@ -215,9 +215,7 @@ main() {
                 "${launcher[@]}" "${cmd[@]}"
             profile_report_exists "${profile_base}" || die "No Nsight report detected for ${profile_base}"
             sqlite_path="${profile_base}.sqlite"
-            rm -f "${sqlite_path}"
-            nsys export --type sqlite "${profile_base}.nsys-rep"
-            [ -s "${sqlite_path}" ] || die "Nsight SQLite export missing: ${sqlite_path}"
+            export_nsys_sqlite "${profile_base}.nsys-rep" "${sqlite_path}"
             python3 "${SCRIPT_DIR}/profile_breakdown.py" \
                 --sqlite "${sqlite_path}" \
                 --point "${point}" \

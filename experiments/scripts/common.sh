@@ -129,6 +129,19 @@ configure_nsys_environment() {
     info "Using NVTX headers: ${QUEST_NVTX_INCLUDE_DIR}"
 }
 
+export_nsys_sqlite() {
+    local report_path="$1"
+    local output_path="$2"
+
+    rm -f "${output_path}"
+    nsys export \
+        --type sqlite \
+        --force-overwrite=true \
+        --output "${output_path}" \
+        "${report_path}"
+    [ -s "${output_path}" ] || die "Nsight SQLite export missing: ${output_path}"
+}
+
 ensure_nsys_available() {
     local module_name
     local nsys_modules="${QUEST_GPU_MPI_NSYS_MODULES:-cuda/13.2.1 cuda/13.1.1 cuda/12.8.0 cuda}"
