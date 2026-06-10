@@ -22,6 +22,7 @@
 #include "quest/src/core/accelerator.hpp"
 #include "quest/src/core/errors.hpp"
 #include "quest/src/core/memory.hpp"
+#include "quest/src/core/profiling.hpp"
 #include "quest/src/core/bitwise.hpp"
 #include "quest/src/cpu/cpu_config.hpp"
 #include "quest/src/gpu/gpu_config.hpp"
@@ -246,6 +247,8 @@ void accel_fullstatediagmatr_setElemsToPauliStrSum(FullStateDiagMatr out, PauliS
 
 qindex accel_statevec_packAmpsIntoBuffer(Qureg qureg, vector<int> qubits, vector<int> qubitStates) {
 
+    QuestProfileRange profileRange("quest.communication.pack");
+
     // we can never pack and swap buffers when there are no constrained qubit states, because we'd 
     // then fill the entire buffer andhave no room to receive the other node's buffer; caller would 
     // instead send amps straight to buffer
@@ -261,6 +264,8 @@ qindex accel_statevec_packAmpsIntoBuffer(Qureg qureg, vector<int> qubits, vector
 
 
 qindex accel_statevec_packPairSummedAmpsIntoBuffer(Qureg qureg, int qubit1, int qubit2, int qubit3, int bit2) {
+
+    QuestProfileRange profileRange("quest.communication.pack");
 
     return (qureg.isGpuAccelerated)?
         gpu_statevec_packPairSummedAmpsIntoBuffer(qureg, qubit1, qubit2, qubit3, bit2):

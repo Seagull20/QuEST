@@ -24,6 +24,9 @@
     - `thread_qft_stage_matrix.tsv`
     - `gate_micro_matrix.tsv`
     - `random_ratio_matrix.tsv`
+- `profile_breakdown.py`
+  - 解析 Nsight Systems SQLite 中的 NVTX、CUDA kernel 和 MPI P2P events。
+  - 输出逐 rank 与 critical-rank 的 `Communication / Computation / Others` breakdown。
 
 ## 集群提交脚本
 
@@ -137,6 +140,7 @@ bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile
 
 - 当前只实现 QFT smoke，不代表完整 GPU+MPI benchmark suite 已经全部打通。
 - 默认参数：
+  - `QUEST_GPU_MPI_SUITE_BENCHMARKS="gate_micro qft random"`
   - `QUEST_GPU_MPI_QUBITS=24`
   - `QUEST_GPU_MPI_REPS=1`
   - `QUEST_GPU_MPI_WARMUP=0`
@@ -176,9 +180,12 @@ bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile
   - 默认尝试顺序：`cuda/13.2.1 cuda/13.1.1 cuda/12.8.0 cuda`
   - 可用 `QUEST_GPU_MPI_NSYS_MODULES="..."` 覆盖。
   - 若仍不可用，会在运行 benchmark 前失败。
+  - build 时自动启用 `ENABLE_PROFILING_MARKERS`。
+  - `nsys` 固定 trace `cuda,mpi,nvtx,osrt`，随后导出 SQLite 并运行 `profile_breakdown.py`。
 - 输出写入：
   - `experiments/results/raw/gpu_mpi_proposal_<mode>_<gpu>_r<ranks>_<jobid>/`
   - profile 报告写入该目录下的 `profiles/`。
+  - breakdown 写入 `procedure_breakdown_rank.tsv` 和 `procedure_breakdown.tsv`。
 
 ## ARCHER2 QoS 选择
 

@@ -387,7 +387,7 @@ bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile
 | mode | 行为 |
 |---|---|
 | `validate` | 直接运行 compact 4-GPU suite，输出 TSV |
-| `profile` | 用 Nsight Systems 包装每个 benchmark point，输出 TSV 和 `.nsys-rep` |
+| `profile` | 用 Nsight Systems 包装每个 benchmark point，输出 TSV、`.nsys-rep`、`.sqlite` 和 whole-procedure breakdown |
 
 profile mode 会在 allocated job 中尝试加载 CUDA module 暴露 `nsys`。默认尝试：
 
@@ -406,6 +406,7 @@ QUEST_GPU_MPI_NSYS_MODULES="cuda/12.8.0" \
 
 | 环境变量 | 默认值 | 含义 |
 |---|---:|---|
+| `QUEST_GPU_MPI_SUITE_BENCHMARKS` | `"gate_micro qft random"` | 选择要 build/run 的核心 benchmark 子集 |
 | `QUEST_GPU_MPI_SUITE_QUBITS` | `24` | qubit 数 |
 | `QUEST_GPU_MPI_SUITE_REPS` | `1` | timed reps |
 | `QUEST_GPU_MPI_SUITE_WARMUP` | `0` | warmup reps |
@@ -421,6 +422,17 @@ QUEST_GPU_MPI_NSYS_MODULES="cuda/12.8.0" \
 QUEST_GPU_MPI_SUITE_GATE_REPEATS=8 \
 QUEST_GPU_MPI_SUITE_RANDOM_DEPTH=8 \
   bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile
+```
+
+示例：只 profile QFT q28：
+
+```bash
+QUEST_GPU_MPI_SUITE_BENCHMARKS=qft \
+QUEST_GPU_MPI_SUITE_QUBITS=28 \
+QUEST_GPU_MPI_SUITE_REPS=1 \
+QUEST_GPU_MPI_SUITE_WARMUP=0 \
+QUEST_GPU_MPI_PREHEAT_MODE=off \
+  bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh 2080ti 2 profile
 ```
 
 ### 5.3 cluster 输出
@@ -451,7 +463,25 @@ profiles/
   qft.nsys-rep
   random_tqr0p25.nsys-rep
   random_tqr0p50.nsys-rep
+  # 每个 report 还会导出同名 .sqlite
+
+procedure_breakdown_rank.tsv
+procedure_breakdown.tsv
 ```
+
+`procedure_breakdown_rank.tsv` 保留每个 MPI rank 的结果。`procedure_breakdown.tsv` 选择 procedure wall time 最大的 critical rank 作为主时间行，但其中 `mpi_send_calls` 和 `mpi_send_bytes` 是所有 rank 的合计。
+
+whole-procedure 分类固定为：
+
+```text
+Total = Communication + Computation + Others
+```
+
+- `Total`：从 QuEST environment 初始化前到 `finalizeQuESTEnv()` 返回后的 executable 生命周期。
+- `Communication`：amplitude pack 与 GPU/CPU staging、MPI point-to-point exchange、回传 GPU 的区间并集。
+- `Computation`：正式 timed workload 内的 CUDA simulation kernels，先扣除与 Communication 重叠的部分。
+- `Others`：Total 中未被前两类覆盖的剩余时间，包括初始化、validation、cleanup、final barrier 和非 exchange collectives。
+- `overlap_time_s`：原始 computation candidate 与 Communication 的重叠；分类时 Communication 优先，因此不会重复计入 Total。
 
 ### 5.4 GPU+MPI 注意事项
 
@@ -547,7 +577,7 @@ GUI 打开：
 nsys-ui experiments/results/raw/<run>/profiles/qft.nsys-rep
 ```
 
-CLI 导出摘要：
+profile job 已自动导出同名 SQLite。CLI 摘要仍可按需生成：
 
 ```bash
 nsys stats \
@@ -562,6 +592,14 @@ nsys stats \
 | `cuda_gpu_kern_sum` | GPU kernel 耗时分布 |
 | `cuda_api_sum` | CPU 侧 CUDA API 调用成本，例如 `cudaMemcpy/cudaMalloc/cudaFree/cudaLaunchKernel` |
 | `osrt_sum` | OS/runtime 等待、poll、thread wait 等 |
+
+suite 的自动 profile 命令使用：
+
+```bash
+nsys profile --trace=cuda,mpi,nvtx,osrt --mpi-impl=openmpi ...
+```
+
+因此 `.sqlite` 同时包含 CUDA、NVTX 和 MPI event。`profile_breakdown.py` 使用 NVTX procedure/execution/communication ranges、CUDA kernel intervals 和 MPI P2P events 生成三分类结果。
 
 `Num Calls` 表示某个 API 或 runtime 函数在 profile 期间被调用的次数。例如 `cudaMalloc Num Calls=1256` 表示捕获到 1256 次 `cudaMalloc` 调用。
 

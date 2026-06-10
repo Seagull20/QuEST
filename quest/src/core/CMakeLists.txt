@@ -11,6 +11,7 @@ target_sources(QuEST
   parser.cpp
   paulilogic.cpp
   printer.cpp
+  profiling.cpp
   randomiser.cpp
   utilities.cpp
   validation.cpp

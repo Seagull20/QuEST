@@ -12,6 +12,35 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void quest_profile_range_push(const char* name);
+void quest_profile_range_pop(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+static void bench_profile_range_push(const char* name) {
+    quest_profile_range_push(name);
+}
+
+static void bench_profile_range_pop(void) {
+    quest_profile_range_pop();
+}
+
+static void bench_profile_timed_begin(int is_warmup) {
+    if (!is_warmup)
+        bench_profile_range_push("quest.execution.timed");
+}
+
+static void bench_profile_timed_end(int is_warmup) {
+    if (!is_warmup)
+        bench_profile_range_pop();
+}
+
 #ifndef BENCH_BUILD_BACKEND_STR
 #define BENCH_BUILD_BACKEND_STR "unknown"
 #endif

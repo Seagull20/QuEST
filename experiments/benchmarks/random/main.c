@@ -260,10 +260,12 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
+    bench_profile_range_push("quest.procedure");
     bench_init_environment();
     if (!bench_open_output_for_rank(opts.output_path, &out, &should_close, &should_write_header)) {
         free(gates);
         finalizeQuESTEnv();
+        bench_profile_range_pop();
         return EXIT_FAILURE;
     }
     if (should_write_header)
@@ -273,6 +275,7 @@ int main(int argc, char** argv) {
         free(gates);
         bench_close_output(out, should_close);
         finalizeQuESTEnv();
+        bench_profile_range_pop();
         return EXIT_FAILURE;
     }
     qureg = bench_create_state_qureg(&opts);
@@ -286,7 +289,9 @@ int main(int argc, char** argv) {
         initZeroState(qureg);
         syncQuESTEnv();
 
+        bench_profile_timed_begin(is_warmup);
         total_time_s = run_random_circuit(qureg, &opts, gates, stats.gate_count);
+        bench_profile_timed_end(is_warmup);
         total_prob = calcTotalProb(qureg);
         status = bench_prob_is_valid(total_prob) ? BENCH_STATUS_PASS : BENCH_STATUS_FAILURE;
 
@@ -296,6 +301,7 @@ int main(int argc, char** argv) {
 
     destroyQureg(qureg);
     finalizeQuESTEnv();
+    bench_profile_range_pop();
     free(gates);
     bench_close_output(out, should_close);
     return EXIT_SUCCESS;

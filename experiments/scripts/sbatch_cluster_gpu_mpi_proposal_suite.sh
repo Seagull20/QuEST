@@ -22,6 +22,7 @@ Defaults:
 
 Environment overrides:
   QUEST_GPU_MPI_SUITE_QUBITS=24
+  QUEST_GPU_MPI_SUITE_BENCHMARKS="gate_micro qft random"
   QUEST_GPU_MPI_SUITE_REPS=1
   QUEST_GPU_MPI_SUITE_WARMUP=0
   QUEST_GPU_MPI_SUITE_GATE_REPEATS=64
@@ -275,6 +276,7 @@ main() {
     export_vars="${export_vars},QUEST_GPU_MPI_GPU_TYPE=${gpu_type}"
     export_vars="${export_vars},QUEST_GPU_MPI_RANKS=${ranks}"
     export_vars="${export_vars},QUEST_GPU_MPI_SUITE_QUBITS=${QUEST_GPU_MPI_SUITE_QUBITS:-24}"
+    export_vars="${export_vars},QUEST_GPU_MPI_SUITE_BENCHMARKS=${QUEST_GPU_MPI_SUITE_BENCHMARKS:-gate_micro qft random}"
     export_vars="${export_vars},QUEST_GPU_MPI_SUITE_REPS=${QUEST_GPU_MPI_SUITE_REPS:-1}"
     export_vars="${export_vars},QUEST_GPU_MPI_SUITE_WARMUP=${QUEST_GPU_MPI_SUITE_WARMUP:-0}"
     export_vars="${export_vars},QUEST_GPU_MPI_SUITE_GATE_REPEATS=${QUEST_GPU_MPI_SUITE_GATE_REPEATS:-64}"

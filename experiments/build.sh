@@ -52,6 +52,7 @@ Build type:
 
 Environment:
   QUEST_BENCH_BUILD_PARALLEL=<N>  Override CMake build parallelism.
+  QUEST_BENCH_ENABLE_PROFILING_MARKERS=1  Enable NVTX markers for GPU profiling.
 EOF
 }
 
@@ -152,6 +153,18 @@ build_common_args() {
         "-DUSER_SOURCE=${user_sources}"
         "-DOUTPUT_EXE=${output_exe}"
     )
+
+    case "${QUEST_BENCH_ENABLE_PROFILING_MARKERS:-0}" in
+        0|OFF|off|false|FALSE)
+            CMAKE_ARGS+=(-DENABLE_PROFILING_MARKERS=OFF)
+            ;;
+        1|ON|on|true|TRUE)
+            CMAKE_ARGS+=(-DENABLE_PROFILING_MARKERS=ON)
+            ;;
+        *)
+            die "QUEST_BENCH_ENABLE_PROFILING_MARKERS must be boolean (0/1 or OFF/ON)."
+            ;;
+    esac
 
     if has_cmd ninja; then
         CMAKE_ARGS+=(-G Ninja)

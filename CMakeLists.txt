@@ -156,6 +156,13 @@ option(
 message(STATUS "NVIDIA GPU acceleration is turned ${ENABLE_CUDA}. Set ENABLE_CUDA to modify.")
 
 option(
+  ENABLE_PROFILING_MARKERS
+  "Whether QuEST emits NVTX ranges for benchmark profiling. Turned OFF by default."
+  OFF
+)
+message(STATUS "Profiling markers are turned ${ENABLE_PROFILING_MARKERS}. Set ENABLE_PROFILING_MARKERS to modify.")
+
+option(
   ENABLE_CUQUANTUM
   "Whether QuEST will be built with support for NVIDIA cuQuantum. Turned OFF by default."
   OFF
@@ -204,6 +211,10 @@ endif()
 
 if (ENABLE_CUQUANTUM AND NOT ENABLE_CUDA)
   message(FATAL_ERROR "Use of cuQuantum requires CUDA.")
+endif()
+
+if (ENABLE_PROFILING_MARKERS AND NOT ENABLE_CUDA)
+  message(FATAL_ERROR "Profiling markers currently require ENABLE_CUDA=ON.")
 endif()
 
 
@@ -403,6 +414,23 @@ if (ENABLE_CUDA)
   set(CUDA_PROPAGATE_HOST_FLAGS OFF)
   
   set_property(TARGET QuEST PROPERTY CUDA_STANDARD 20)
+
+  if (ENABLE_PROFILING_MARKERS)
+    find_package(CUDAToolkit REQUIRED)
+    if (TARGET CUDA::nvtx3)
+      target_link_libraries(QuEST PRIVATE CUDA::nvtx3)
+    elseif (TARGET CUDA::nvToolsExt)
+      target_link_libraries(QuEST PRIVATE CUDA::nvToolsExt)
+    else()
+      message(FATAL_ERROR "CUDAToolkit did not provide an NVTX target.")
+    endif()
+  endif()
+endif()
+
+if (ENABLE_PROFILING_MARKERS)
+  target_compile_definitions(QuEST PRIVATE QUEST_ENABLE_PROFILING_MARKERS=1)
+else()
+  target_compile_definitions(QuEST PRIVATE QUEST_ENABLE_PROFILING_MARKERS=0)
 endif()
 
 

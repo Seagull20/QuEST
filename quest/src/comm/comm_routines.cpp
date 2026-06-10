@@ -16,6 +16,7 @@
 #include "quest/include/matrices.h"
 
 #include "quest/src/core/errors.hpp"
+#include "quest/src/core/profiling.hpp"
 #include "quest/src/core/bitwise.hpp"
 #include "quest/src/cpu/cpu_config.hpp"
 #include "quest/src/gpu/gpu_config.hpp"
@@ -393,6 +394,8 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
     // exchange GPU memory directly if possible
     if (gpu_isDirectGpuCommPossible()) {
 
+        QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
+
         // ensure GPU is finished modifying gpuAmps and gpuCommBuffer
         gpu_sync();
 
@@ -401,6 +404,8 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
 
     // otherwise route the memory through the CPU
     } else {
+
+        QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
         // copy GPU memory (amps) into CPU memory (amps), beginning from 0
         gpu_copyGpuToCpu(qureg, &qureg.gpuAmps[sendInd], &qureg.cpuAmps[0], numAmps);
@@ -421,6 +426,8 @@ void exchangeGpuSubBuffers(Qureg qureg, qindex numAmps, int pairRank) {
     // exchange GPU memory directly if possible
     if (gpu_isDirectGpuCommPossible()) {
 
+        QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
+
         // ensure GPU is finished modifying gpuCommBuffer
         gpu_sync();
 
@@ -429,6 +436,8 @@ void exchangeGpuSubBuffers(Qureg qureg, qindex numAmps, int pairRank) {
     
     // otherwise route the memory through the CPU
     } else {
+
+        QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
         // copy GPU memory (buffer) into CPU memory (amps), preserving offset
         gpu_copyGpuToCpu(qureg, &qureg.gpuCommBuffer[sendInd], &qureg.cpuAmps[sendInd], numAmps);
@@ -449,6 +458,8 @@ void asynchSendGpuSubBuffer(Qureg qureg, qindex numElems, int pairRank) {
     // send GPU memory directly if possible
     if (gpu_isDirectGpuCommPossible()) {
 
+        QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
+
         // ensure GPU is finished modifying gpuCommBuffer
         gpu_sync();
 
@@ -457,6 +468,8 @@ void asynchSendGpuSubBuffer(Qureg qureg, qindex numElems, int pairRank) {
 
     // otherwise route the memory through the CPU
     } else {
+
+        QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
         // copy GPU memory (buffer) into CPU memory (amps), at offset
         gpu_copyGpuToCpu(qureg, &qureg.gpuCommBuffer[sendInd], &qureg.cpuAmps[sendInd], numElems);
@@ -474,6 +487,8 @@ void receiveArrayToGpuBuffer(Qureg qureg, qindex numElems, int pairRank) {
     // receive to GPU memory directly if possible
     if (gpu_isDirectGpuCommPossible()) {
 
+        QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
+
         // GPU synchronisation is not necessary; we're merely receiving to buffer
 
         // communicate via GPUDirect or Peer-to-Peer
@@ -481,6 +496,8 @@ void receiveArrayToGpuBuffer(Qureg qureg, qindex numElems, int pairRank) {
 
     // otherwise, route through CPU
     } else {
+
+        QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
         // receive array to CPU memory (buffer), at offset
         receiveArray(&qureg.cpuCommBuffer[recvInd], numElems, pairRank);

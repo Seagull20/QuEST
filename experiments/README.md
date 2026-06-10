@@ -14,7 +14,7 @@ This directory contains benchmark and profiling code maintained in this fork, se
 
 ## Build strategy
 
-The top-level [`build.sh`](/Users/linzeyu/Documents/Degree_Project/03_degree_project/work/QuEST/experiments/build.sh) wraps QuEST's `USER_SOURCE` and `OUTPUT_EXE` CMake options. Each benchmark/backend combination gets its own build tree under:
+The top-level [`build.sh`](/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/QuEST/experiments/build.sh) wraps QuEST's `USER_SOURCE` and `OUTPUT_EXE` CMake options. Each benchmark/backend combination gets its own build tree under:
 
 `build/<benchmark>/<backend>/`
 
@@ -43,7 +43,7 @@ QUEST_BENCH_BUILD_PARALLEL=4 ./experiments/build.sh qft gpu_mpi
 - `cpu_mpi`
 - `gpu`
 - `cuquantum`
-- `gpu_mpi` available for the MLS-cluster QFT smoke path; full-suite GPU+MPI sweeps are not yet wired.
+- `gpu_mpi` available for the MLS-cluster QFT smoke path and proposal suite validation/profile path.
 
 ## Examples
 
@@ -64,5 +64,6 @@ QUEST_BENCH_BUILD_PARALLEL=4 ./experiments/build.sh qft gpu_mpi
 - The cluster GPU+MPI smoke path is submitted with `bash experiments/scripts/sbatch_cluster_gpu_mpi.sh [auto|a40|2080ti] [ranks]`.
 - The smoke path builds `qft/gpu_mpi` inside the Slurm job, runs `--distribution on`, and leaves rank-to-GPU binding to QuEST.
 - The proposal-aligned 4-GPU suite is submitted with `bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh [auto|a6000|a40|2080ti] 4 [validate|profile]`.
+- Profile builds enable NVTX markers only inside the allocated GPU job and generate per-rank plus critical-rank whole-procedure breakdown TSV files.
 - Generated results under `results/raw/` and `results/processed/` are ignored by git.
 - The benchmark programs append TSV rows when `--output` points to an existing file.
