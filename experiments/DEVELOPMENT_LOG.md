@@ -1480,3 +1480,63 @@
 - 注意：
   - Nsight Systems 报告成功生成。
   - Cluster kernel/config 禁用了 CPU IP/backtrace sampling 和 CPU context switch tracing；stderr 中有 warning，但 CUDA/System profile report 文件仍正常产出。
+
+## 2026-06-10 15:46 - 实现 whole-procedure profiling 并完成 QFT q28 1/2-GPU smoke
+
+- 模块：benchmark suite / NVTX / Nsight Systems / MPI / cluster gpu_mpi
+- 目标：为 `gate_micro / qft / random` 建立统一的 `Total = Communication + Computation + Others` 分解，并用 2080 Ti 验证 QFT q28 的单 GPU 与单节点双 GPU profile 路径。
+- 实现提交：
+  - `86fbb279972658992b1150f0b885cbca752b3b70`：`Add whole-procedure benchmark profiling`
+  - `8714593b93fc72474404581612a042d5ab28ff87`：`Resolve NVTX headers for profile builds`
+  - `e3f7e9c2c9d1f3cf03cdcbd7296038773a8eed2c`：`Write Nsight SQLite exports explicitly`
+- 已完成：
+  - 新增默认关闭的 `ENABLE_PROFILING_MARKERS` CMake 选项。
+  - 新增 NVTX ranges：
+    - `quest.procedure`
+    - `quest.execution.timed`
+    - `quest.communication.pack`
+    - `quest.communication.exchange.cpu_staged`
+    - `quest.communication.exchange.direct_gpu`
+  - profile 命令固定 trace `cuda,mpi,nvtx,osrt`，并指定 `--mpi-impl=openmpi`。
+  - 每个 `.nsys-rep` 自动导出同名 `.sqlite`。
+  - 新增 `profile_breakdown.py`，以区间并集生成：
+    - `procedure_breakdown_rank.tsv`
+    - `procedure_breakdown.tsv`
+  - 主表选择 procedure wall time 最大的 critical rank；MPI send calls/bytes 在主表中跨 rank 合计。
+  - 新增 `QUEST_GPU_MPI_SUITE_BENCHMARKS`，支持 QFT-only build/run/profile。
+- 调试记录：
+  - job `3501419`：`FAILED`，profile build 选择 conda CUDA 12.8，但该 toolkit 缺少 `nvtx3/nvToolsExt.h`。
+  - 修复：从 CUDA module 提供的 `nsys` 路径解析 `/opt/cuda-13.2.1/targets/x86_64-linux/include`，通过 `QUEST_NVTX_INCLUDE_DIR` 传给 CMake。
+  - job `3501423`：QFT q28 benchmark 和 `.nsys-rep` 已成功，但 job 因 SQLite 未写到 launcher 假设路径而 `FAILED`。
+  - 修复：`nsys export` 显式传 `--output <profile>.sqlite --force-overwrite=true`。
+- 1-GPU smoke：
+  - job：`3501433`
+  - node/GPU：`damnii09`, 1 x RTX 2080 Ti
+  - Slurm：`COMPLETED`, exit `0:0`, elapsed `00:04:17`
+  - raw dir：`experiments/results/raw/gpu_mpi_proposal_profile_2080ti_r1_3501433/`
+  - QFT：`q=28`, `status=PASS`, `env_num_nodes=1`, `total_time_s=4.216230869`
+  - breakdown：
+    - Total：`5.441412864 s`
+    - Computation：`4.065692934 s` (`74.7176%`)
+    - Communication：`0 s`
+    - Others：`1.375719930 s` (`25.2824%`)
+    - MPI send：`0 calls`, `0 bytes`, path=`none`
+- 2-GPU smoke：
+  - job：`3501435`
+  - node/GPU：`damnii09`, 2 x RTX 2080 Ti, single node
+  - Slurm：`COMPLETED`, exit `0:0`, elapsed `00:04:00`
+  - raw dir：`experiments/results/raw/gpu_mpi_proposal_profile_2080ti_r2_3501435/`
+  - QFT：`q=28`, `status=PASS`, `env_num_nodes=2`, `total_time_s=10.269279003`
+  - critical rank：`0`
+  - breakdown：
+    - Total：`12.614095880 s`
+    - Computation：`2.040397941 s` (`16.1755%`)
+    - Communication：`7.969072371 s` (`63.1759%`)
+    - Others：`2.604625568 s` (`20.6485%`)
+    - MPI send：`4 calls`, `6,442,450,944 bytes`, path=`cpu_staged`
+- 验证结果：
+  - parser unit tests：`5 tests`, all pass。
+  - NVTX environment/export shell regression test：pass。
+  - 本地 `gate_micro / qft / random` CPU build/run：pass。
+  - 两个成功 job 均生成 `.nsys-rep`、`.sqlite`、逐 rank breakdown 和 critical-rank breakdown。
+  - 每行 `Computation + Communication + Others = Total`，三类百分比之和为 `100%`。
