@@ -261,10 +261,14 @@ int main(int argc, char** argv) {
     }
 
     bench_profile_range_push("quest.procedure");
+    bench_profile_range_push("quest.lifecycle.environment_init");
     bench_init_environment();
+    bench_profile_range_pop();
     if (!bench_open_output_for_rank(opts.output_path, &out, &should_close, &should_write_header)) {
         free(gates);
+        bench_profile_range_push("quest.lifecycle.environment_finalize");
         finalizeQuESTEnv();
+        bench_profile_range_pop();
         bench_profile_range_pop();
         return EXIT_FAILURE;
     }
@@ -274,11 +278,15 @@ int main(int argc, char** argv) {
         fprintf(stderr, "ERROR: failed to run random light preheat\n");
         free(gates);
         bench_close_output(out, should_close);
+        bench_profile_range_push("quest.lifecycle.environment_finalize");
         finalizeQuESTEnv();
+        bench_profile_range_pop();
         bench_profile_range_pop();
         return EXIT_FAILURE;
     }
+    bench_profile_range_push("quest.lifecycle.qureg_create");
     qureg = bench_create_state_qureg(&opts);
+    bench_profile_range_pop();
 
     for (rep = 0; rep < opts.warmup + opts.reps; rep++) {
         int is_warmup = rep < opts.warmup;
@@ -286,21 +294,29 @@ int main(int argc, char** argv) {
         qreal total_prob;
         const char* status;
 
+        bench_profile_range_push("quest.lifecycle.state_init");
         initZeroState(qureg);
         syncQuESTEnv();
+        bench_profile_range_pop();
 
         bench_profile_timed_begin(is_warmup);
         total_time_s = run_random_circuit(qureg, &opts, gates, stats.gate_count);
         bench_profile_timed_end(is_warmup);
+        bench_profile_range_push("quest.lifecycle.validation");
         total_prob = calcTotalProb(qureg);
         status = bench_prob_is_valid(total_prob) ? BENCH_STATUS_PASS : BENCH_STATUS_FAILURE;
+        bench_profile_range_pop();
 
         write_row(out, &opts, rep, is_warmup, status, total_prob, &stats, total_time_s);
         fflush(out);
     }
 
+    bench_profile_range_push("quest.lifecycle.qureg_destroy");
     destroyQureg(qureg);
+    bench_profile_range_pop();
+    bench_profile_range_push("quest.lifecycle.environment_finalize");
     finalizeQuESTEnv();
+    bench_profile_range_pop();
     bench_profile_range_pop();
     free(gates);
     bench_close_output(out, should_close);

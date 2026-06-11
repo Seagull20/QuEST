@@ -99,6 +99,10 @@ main() {
     local cmd=()
     local rank_breakdown
     local summary_breakdown
+    local communication_breakdown
+    local computation_breakdown
+    local lifecycle_breakdown
+    local runtime_breakdown
     local sqlite_path
     local benchmark_name
 
@@ -148,8 +152,18 @@ main() {
     mkdir -p "${run_raw_dir}" "${profile_dir}"
     rank_breakdown="${run_raw_dir}/procedure_breakdown_rank.tsv"
     summary_breakdown="${run_raw_dir}/procedure_breakdown.tsv"
+    communication_breakdown="${run_raw_dir}/communication_breakdown_rank.tsv"
+    computation_breakdown="${run_raw_dir}/computation_breakdown_rank.tsv"
+    lifecycle_breakdown="${run_raw_dir}/lifecycle_breakdown_rank.tsv"
+    runtime_breakdown="${run_raw_dir}/cuda_runtime_summary_rank.tsv"
     if [ "${mode}" = "profile" ]; then
-        rm -f "${rank_breakdown}" "${summary_breakdown}"
+        rm -f \
+            "${rank_breakdown}" \
+            "${summary_breakdown}" \
+            "${communication_breakdown}" \
+            "${computation_breakdown}" \
+            "${lifecycle_breakdown}" \
+            "${runtime_breakdown}"
     fi
 
     export BENCH_PLATFORM="${BENCH_PLATFORM:-cluster}"
@@ -175,7 +189,7 @@ main() {
 
     info "Building proposal suite gpu_mpi targets"
     for benchmark_name in ${benchmarks}; do
-        "${EXPERIMENTS_DIR}/build.sh" "${benchmark_name}" gpu_mpi
+        "${EXPERIMENTS_DIR}/build.sh" "${benchmark_name}" gpu_mpi Release
     done
 
     gate_exe="${BUILD_ROOT}/gate_micro/gpu_mpi/gate_micro"
@@ -221,9 +235,15 @@ main() {
                 --point "${point}" \
                 --benchmark "${benchmark_name}" \
                 --num-qubits "${qubits}" \
-                --env-num-nodes "${ranks}" \
+                --mpi-ranks "${ranks}" \
+                --slurm-nodes "${SLURM_NNODES:-1}" \
+                --gpus "${ranks}" \
                 --rank-output "${rank_breakdown}" \
-                --summary-output "${summary_breakdown}"
+                --summary-output "${summary_breakdown}" \
+                --communication-output "${communication_breakdown}" \
+                --computation-output "${computation_breakdown}" \
+                --lifecycle-output "${lifecycle_breakdown}" \
+                --runtime-output "${runtime_breakdown}"
         else
             "${launcher[@]}" "${cmd[@]}"
         fi
@@ -297,6 +317,10 @@ main() {
         if [ "${mode}" = "profile" ]; then
             printf 'procedure_breakdown_rank_tsv=%s\n' "${rank_breakdown}"
             printf 'procedure_breakdown_tsv=%s\n' "${summary_breakdown}"
+            printf 'communication_breakdown_rank_tsv=%s\n' "${communication_breakdown}"
+            printf 'computation_breakdown_rank_tsv=%s\n' "${computation_breakdown}"
+            printf 'lifecycle_breakdown_rank_tsv=%s\n' "${lifecycle_breakdown}"
+            printf 'cuda_runtime_summary_rank_tsv=%s\n' "${runtime_breakdown}"
         fi
     } > "${run_raw_dir}/suite_manifest.txt"
 

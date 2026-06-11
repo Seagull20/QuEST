@@ -400,7 +400,10 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
         gpu_sync();
 
         // communicate via GPUDirect or Peer-to-Peer
-        exchangeArrays(&qureg.gpuAmps[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank);
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            exchangeArrays(&qureg.gpuAmps[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank);
+        }
 
     // otherwise route the memory through the CPU
     } else {
@@ -408,13 +411,22 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
         // copy GPU memory (amps) into CPU memory (amps), beginning from 0
-        gpu_copyGpuToCpu(qureg, &qureg.gpuAmps[sendInd], &qureg.cpuAmps[0], numAmps);
+        {
+            QuestProfileRange d2hRange("quest.communication.d2h");
+            gpu_copyGpuToCpu(qureg, &qureg.gpuAmps[sendInd], &qureg.cpuAmps[0], numAmps);
+        }
 
         // exchange CPU memory (amps) to other node's CPU memory (buffer), beginning from 0
-        exchangeArrays(qureg.cpuAmps, qureg.cpuCommBuffer, numAmps, pairRank);
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            exchangeArrays(qureg.cpuAmps, qureg.cpuCommBuffer, numAmps, pairRank);
+        }
 
         // copy CPU memory (buffer) to GPU memory (buffer), beginning from recvInd
-        gpu_copyCpuToGpu(qureg, &qureg.cpuCommBuffer[0], &qureg.gpuCommBuffer[recvInd], numAmps);
+        {
+            QuestProfileRange h2dRange("quest.communication.h2d");
+            gpu_copyCpuToGpu(qureg, &qureg.cpuCommBuffer[0], &qureg.gpuCommBuffer[recvInd], numAmps);
+        }
     }
 }
 
@@ -432,7 +444,10 @@ void exchangeGpuSubBuffers(Qureg qureg, qindex numAmps, int pairRank) {
         gpu_sync();
 
         // communicate via GPUDirect or Peer-to-Peer
-        exchangeArrays(&qureg.gpuCommBuffer[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank);
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            exchangeArrays(&qureg.gpuCommBuffer[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank);
+        }
     
     // otherwise route the memory through the CPU
     } else {
@@ -440,13 +455,22 @@ void exchangeGpuSubBuffers(Qureg qureg, qindex numAmps, int pairRank) {
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
         // copy GPU memory (buffer) into CPU memory (amps), preserving offset
-        gpu_copyGpuToCpu(qureg, &qureg.gpuCommBuffer[sendInd], &qureg.cpuAmps[sendInd], numAmps);
+        {
+            QuestProfileRange d2hRange("quest.communication.d2h");
+            gpu_copyGpuToCpu(qureg, &qureg.gpuCommBuffer[sendInd], &qureg.cpuAmps[sendInd], numAmps);
+        }
 
         // exchange CPU memory (amps) to other node's CPU memory (buffer), receiving at index 0
-        exchangeArrays(&qureg.cpuAmps[sendInd], &qureg.cpuCommBuffer[recvInd], numAmps, pairRank);
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            exchangeArrays(&qureg.cpuAmps[sendInd], &qureg.cpuCommBuffer[recvInd], numAmps, pairRank);
+        }
 
         // copy CPU memory (buffer) to GPU memory (buffer), receiving at index 0
-        gpu_copyCpuToGpu(qureg, &qureg.cpuCommBuffer[recvInd], &qureg.gpuCommBuffer[recvInd], numAmps);
+        {
+            QuestProfileRange h2dRange("quest.communication.h2d");
+            gpu_copyCpuToGpu(qureg, &qureg.cpuCommBuffer[recvInd], &qureg.gpuCommBuffer[recvInd], numAmps);
+        }
     }
 }
 
@@ -464,7 +488,10 @@ void asynchSendGpuSubBuffer(Qureg qureg, qindex numElems, int pairRank) {
         gpu_sync();
 
         // communicate via GPUDirect or Peer-to-Peer
-        asynchSendArray(&qureg.gpuCommBuffer[sendInd], numElems, pairRank);
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            asynchSendArray(&qureg.gpuCommBuffer[sendInd], numElems, pairRank);
+        }
 
     // otherwise route the memory through the CPU
     } else {
@@ -472,10 +499,16 @@ void asynchSendGpuSubBuffer(Qureg qureg, qindex numElems, int pairRank) {
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
         // copy GPU memory (buffer) into CPU memory (amps), at offset
-        gpu_copyGpuToCpu(qureg, &qureg.gpuCommBuffer[sendInd], &qureg.cpuAmps[sendInd], numElems);
+        {
+            QuestProfileRange d2hRange("quest.communication.d2h");
+            gpu_copyGpuToCpu(qureg, &qureg.gpuCommBuffer[sendInd], &qureg.cpuAmps[sendInd], numElems);
+        }
 
         // send CPU memory (amps) to other node
-        asynchSendArray(&qureg.cpuAmps[sendInd], numElems, pairRank);
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            asynchSendArray(&qureg.cpuAmps[sendInd], numElems, pairRank);
+        }
     }
 }
 
@@ -492,7 +525,10 @@ void receiveArrayToGpuBuffer(Qureg qureg, qindex numElems, int pairRank) {
         // GPU synchronisation is not necessary; we're merely receiving to buffer
 
         // communicate via GPUDirect or Peer-to-Peer
-        receiveArray(&qureg.gpuCommBuffer[recvInd], numElems, pairRank);
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            receiveArray(&qureg.gpuCommBuffer[recvInd], numElems, pairRank);
+        }
 
     // otherwise, route through CPU
     } else {
@@ -500,10 +536,16 @@ void receiveArrayToGpuBuffer(Qureg qureg, qindex numElems, int pairRank) {
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
         // receive array to CPU memory (buffer), at offset
-        receiveArray(&qureg.cpuCommBuffer[recvInd], numElems, pairRank);
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            receiveArray(&qureg.cpuCommBuffer[recvInd], numElems, pairRank);
+        }
 
         // copy CPU memory (buffer) to GPU memory (buffer), at offset
-        gpu_copyCpuToGpu(qureg, &qureg.cpuCommBuffer[recvInd], &qureg.gpuCommBuffer[recvInd], numElems);
+        {
+            QuestProfileRange h2dRange("quest.communication.h2d");
+            gpu_copyCpuToGpu(qureg, &qureg.cpuCommBuffer[recvInd], &qureg.gpuCommBuffer[recvInd], numElems);
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Submit the proposal-aligned 4-GPU GPU+MPI validation/profile suite.
+# Submit the proposal-aligned GPU+MPI validation/profile suite.
 #
 # Usage, from the repo root on the cluster login node:
 #   bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh [auto|a6000|a40|2080ti] [ranks] [validate|profile]
@@ -28,6 +28,7 @@ Environment overrides:
   QUEST_GPU_MPI_SUITE_GATE_REPEATS=64
   QUEST_GPU_MPI_SUITE_RANDOM_DEPTH=48
   QUEST_GPU_MPI_SUITE_RANDOM_RATIOS="0.25 0.50"
+  QUEST_BENCH_BUILD_PARALLEL=<positive integer>
 
 The payload runs gate_micro, qft, and random with --distribution on. QuEST owns
 rank-to-GPU mapping; this launcher does not set CUDA_VISIBLE_DEVICES.

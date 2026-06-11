@@ -432,6 +432,7 @@ QUEST_GPU_MPI_SUITE_QUBITS=28 \
 QUEST_GPU_MPI_SUITE_REPS=1 \
 QUEST_GPU_MPI_SUITE_WARMUP=0 \
 QUEST_GPU_MPI_PREHEAT_MODE=off \
+QUEST_BENCH_BUILD_PARALLEL=8 \
   bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh 2080ti 2 profile
 ```
 
@@ -467,21 +468,35 @@ profiles/
 
 procedure_breakdown_rank.tsv
 procedure_breakdown.tsv
+communication_breakdown_rank.tsv
+computation_breakdown_rank.tsv
+lifecycle_breakdown_rank.tsv
+cuda_runtime_summary_rank.tsv
 ```
 
-`procedure_breakdown_rank.tsv` 保留每个 MPI rank 的结果。`procedure_breakdown.tsv` 选择 procedure wall time 最大的 critical rank 作为主时间行，但其中 `mpi_send_calls` 和 `mpi_send_bytes` 是所有 rank 的合计。
+`procedure_breakdown_rank.tsv` 保留每个 MPI rank 的结果。`procedure_breakdown.tsv` 选择 procedure wall time 最大的 critical rank 作为主时间行；`critical_rank_mpi_*` 只描述该 rank，`aggregate_mpi_*` 才是所有 rank 的合计。主表还记录 rank wall time 的最小值、最大值和不均衡程度。
 
 whole-procedure 分类固定为：
 
 ```text
-Total = Communication + Computation + Others
+Procedure = Communication + Computation + Lifecycle + Execution Overhead
+Others = Lifecycle + Execution Overhead
 ```
 
-- `Total`：从 QuEST environment 初始化前到 `finalizeQuESTEnv()` 返回后的 executable 生命周期。
+- `Procedure`：从 QuEST environment 初始化前到 `finalizeQuESTEnv()` 返回后的 executable 生命周期。
+- `Execution`：正式 timed workload 的 wall-time 边界；它包含 Communication、Computation 和 Execution Overhead。
 - `Communication`：amplitude pack 与 GPU/CPU staging、MPI point-to-point exchange、回传 GPU 的区间并集。
 - `Computation`：正式 timed workload 内的 CUDA simulation kernels，先扣除与 Communication 重叠的部分。
-- `Others`：Total 中未被前两类覆盖的剩余时间，包括初始化、validation、cleanup、final barrier 和非 exchange collectives。
-- `overlap_time_s`：原始 computation candidate 与 Communication 的重叠；分类时 Communication 优先，因此不会重复计入 Total。
+- `Lifecycle`：environment init/finalize、qureg create/destroy、state init 和 validation marker 的区间并集；旧 profile 没有这些 marker 时退化为 Procedure 中 Execution 之外的残差。
+- `Execution Overhead`：Execution 中既不是 Communication，也不是 CUDA simulation kernel 的残差，例如 host-side dispatch、同步和未标记控制流。
+- `overlap_time_s`：原始 computation candidate 与 Communication 的重叠；分类时 Communication 优先，因此不会重复计入 Procedure。
+
+四张诊断表用于解释主分类，不参与时间相加：
+
+- `communication_breakdown_rank.tsv`：按 exchange 列出 pack、D2H、MPI、MPI wait、H2D、peer 和 byte volume。
+- `computation_breakdown_rank.tsv`：把 CUDA simulation kernels 概括为 `phase`、`hadamard`、`swap` 和 `other`。
+- `lifecycle_breakdown_rank.tsv`：逐 rank 汇总六个 lifecycle 阶段。
+- `cuda_runtime_summary_rank.tsv`：只汇总 malloc/free、memcpy、同步和 kernel launch API 的 calls、total、median、p95；这些 CPU API 时间不能与 GPU active time直接相加。
 
 ### 5.4 GPU+MPI 注意事项
 

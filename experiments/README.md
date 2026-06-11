@@ -64,6 +64,6 @@ QUEST_BENCH_BUILD_PARALLEL=4 ./experiments/build.sh qft gpu_mpi
 - The cluster GPU+MPI smoke path is submitted with `bash experiments/scripts/sbatch_cluster_gpu_mpi.sh [auto|a40|2080ti] [ranks]`.
 - The smoke path builds `qft/gpu_mpi` inside the Slurm job, runs `--distribution on`, and leaves rank-to-GPU binding to QuEST.
 - The proposal-aligned 4-GPU suite is submitted with `bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh [auto|a6000|a40|2080ti] 4 [validate|profile]`.
-- Profile builds enable NVTX markers only inside the allocated GPU job and generate per-rank plus critical-rank whole-procedure breakdown TSV files.
+- Profile builds enable NVTX markers only inside the allocated GPU job and generate per-rank, critical-rank, communication, computation, lifecycle, and CUDA runtime breakdown TSV files.
 - Generated results under `results/raw/` and `results/processed/` are ignored by git.
 - The benchmark programs append TSV rows when `--output` points to an existing file.

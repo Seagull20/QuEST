@@ -182,10 +182,13 @@ bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile
   - 若仍不可用，会在运行 benchmark 前失败。
   - build 时自动启用 `ENABLE_PROFILING_MARKERS`。
   - `nsys` 固定 trace `cuda,mpi,nvtx,osrt`，随后导出 SQLite 并运行 `profile_breakdown.py`。
+  - `QUEST_BENCH_BUILD_PARALLEL=<N>` 控制 allocation 内的 `cmake --build --parallel <N>`；2-GPU smoke 推荐设为 `8`。
 - 输出写入：
   - `experiments/results/raw/gpu_mpi_proposal_<mode>_<gpu>_r<ranks>_<jobid>/`
   - profile 报告写入该目录下的 `profiles/`。
-  - breakdown 写入 `procedure_breakdown_rank.tsv` 和 `procedure_breakdown.tsv`。
+  - 主 breakdown 写入 `procedure_breakdown_rank.tsv` 和 `procedure_breakdown.tsv`。
+  - 诊断 breakdown 写入 `communication_breakdown_rank.tsv`、`computation_breakdown_rank.tsv`、`lifecycle_breakdown_rank.tsv` 和 `cuda_runtime_summary_rank.tsv`。
+  - 时间分类为 `Procedure = Communication + Computation + Lifecycle + Execution Overhead`；`Others` 是后两项之和。
 
 ## ARCHER2 QoS 选择
 
