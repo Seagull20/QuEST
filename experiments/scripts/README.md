@@ -27,6 +27,9 @@
 - `profile_breakdown.py`
   - 解析 Nsight Systems SQLite 中的 NVTX、CUDA kernel 和 MPI P2P events。
   - 输出逐 rank 与 critical-rank 的 `Communication / Computation / Others` breakdown。
+- `scaling_analysis.py`
+  - 聚合单节点 GPU strong/weak scaling 的 raw repetitions 和 profile breakdown。
+  - 输出 samples、统计摘要、profile 摘要和自动 highlight。
 
 ## 集群提交脚本
 
@@ -79,6 +82,13 @@
 - `sbatch_cluster_gpu_mpi_proposal_suite_point.sh`
   - 上述 proposal suite 的实际 Slurm payload。
   - 作业内构建 `gate_micro / qft / random` 的 `gpu_mpi` binary，避免复用错误 CUDA architecture 的旧构建。
+- `sbatch_cluster_gpu_mpi_scaling.sh`
+  - 单节点 1/2/4-GPU strong/weak scaling 提交入口。
+  - 优先选择五分钟内可启动的 Teaching A6000，否则使用 Interactive 2080 Ti，最后回退 Teaching 2080 Ti。
+- `sbatch_cluster_gpu_mpi_scaling_point.sh`
+  - 在一个 4-GPU allocation 内顺序完成 25 个 timing points 和 11 个代表性 Nsight Systems profiles。
+- `collect_cluster_gpu_mpi_scaling.sh`
+  - 作业结束后收集 Slurm 日志和最终 accounting 状态，并重建 campaign SHA-256。
 
 ## Profiler 包装
 
@@ -134,6 +144,12 @@ QUEST_GPU_MPI_QUBITS=24 QUEST_GPU_MPI_REPS=1 QUEST_GPU_MPI_WARMUP=0 \
 ```bash
 bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 validate
 bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh auto 4 profile
+```
+
+```bash
+bash experiments/scripts/sbatch_cluster_gpu_mpi_scaling.sh --dry-run
+bash experiments/scripts/sbatch_cluster_gpu_mpi_scaling.sh
+bash experiments/scripts/collect_cluster_gpu_mpi_scaling.sh <jobid>
 ```
 
 ## Cluster GPU+MPI QFT Smoke

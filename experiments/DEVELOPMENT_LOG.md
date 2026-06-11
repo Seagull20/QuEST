@@ -1584,3 +1584,37 @@
   - 已生成 `.nsys-rep`、`.sqlite` 和六张 breakdown TSV。
   - cluster 结果已复制到本机对应 raw 目录；10 个文件逐项 SHA-256 一致。
   - Nsight Systems 仍提示 cluster 禁用 CPU IP/backtrace sampling 和 context-switch tracing，但 CUDA、MPI、NVTX 和 OS runtime 数据完整生成。
+
+## 2026-06-11 19:05 - 实现单节点 GPU strong/weak scaling campaign
+
+- 模块：benchmark suite / Slurm / GPU+MPI scaling / Nsight Systems / result aggregation
+- 目标：在同一个 4-GPU allocation 内完成 `1/2/4` GPU strong/weak scaling，并保留可用于后续可视化的完整 raw data。
+- 实现内容：
+  - 新增自动资源选择入口 `sbatch_cluster_gpu_mpi_scaling.sh`：
+    - 五分钟内可启动的 Teaching A6000 优先；
+    - 否则选择 Interactive 2080 Ti；
+    - 最后回退 Teaching 2080 Ti；
+    - 当前用户已有运行中的 GPU allocation 时拒绝提交。
+  - 新增单作业 payload：
+    - strong：`q=28 @ ranks=1,2,4`；
+    - weak：`(1,26),(2,27),(4,28)`，保持每 GPU `2^26` amplitudes；
+    - workload：H、CNOT、CPhase、QFT、depth-8 random ratio-0.5；
+    - 25 个物理 timing points，每点 warmup 1、measured reps 5；
+    - 11 个代表性 Nsight Systems profile points。
+  - 新增 `scaling_analysis.py`，生成：
+    - `scaling_samples.tsv`
+    - `scaling_summary.tsv`
+    - `scaling_profile_summary.tsv`
+    - `scaling_highlights.md`
+  - 新增 campaign collector，将 Slurm logs、最终 `sacct` 和 SHA-256 纳入 raw directory。
+  - raw data 同时保留 point manifest、命令日志、环境/toolchain/GPU topology 和逐 point GPU telemetry。
+- 本机验证：
+  - scaling/profile Python tests：17 tests passed。
+  - launcher、payload matrix、collector 和 Nsight environment shell tests：passed。
+  - manifest：25 timing points、5 shared endpoints、11 profile points，无空 TSV 字段。
+  - `gate_micro / qft / random` CPU Release build：passed。
+  - H/CNOT/CPhase、QFT 和 random q4 smoke：全部 `PASS`。
+- 待完成：
+  - 同步至 GitHub/cluster。
+  - 在 cluster dry-run 后提交真实 4-GPU campaign。
+  - 收集结果并记录 scaling behavior。

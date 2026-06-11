@@ -505,6 +505,50 @@ Others = Lifecycle + Execution Overhead
 - GPU binary 在 Slurm allocation 内 build，避免 A6000/A40/2080 Ti 之间复用错误 CUDA architecture 的旧 binary。
 - 如果 cluster 当前不能访问 GitHub，可用本机 bundle/rsync 方式同步代码。
 
+### 5.5 单节点 GPU strong/weak scaling
+
+资源选择 dry-run：
+
+```bash
+bash experiments/scripts/sbatch_cluster_gpu_mpi_scaling.sh --dry-run
+```
+
+提交完整 campaign：
+
+```bash
+bash experiments/scripts/sbatch_cluster_gpu_mpi_scaling.sh
+```
+
+脚本只申请一次 4-GPU allocation，并在同一节点内顺序运行 `1/2/4` ranks。选择顺序为：五分钟内可启动的 Teaching A6000、Interactive 2080 Ti、Teaching 2080 Ti。已有运行中的 GPU allocation 时拒绝提交，避免超过用户级 4-GPU QoS 限额。
+
+strong scaling 固定 `q=28`；weak scaling 使用 `(ranks,q)=(1,26),(2,27),(4,28)`，保持每个 GPU `2^26` amplitudes。workload 为 H、CNOT、CPhase、QFT 和 depth-8/random ratio-0.5；每点执行 1 次 warmup 和 5 次正式测量。
+
+作业结束后执行：
+
+```bash
+bash experiments/scripts/collect_cluster_gpu_mpi_scaling.sh <jobid>
+```
+
+结果目录：
+
+```text
+experiments/results/raw/gpu_mpi_scaling_<gpu>_<jobid>/
+```
+
+主要聚合文件：
+
+| 文件 | 含义 |
+|---|---|
+| `scaling_samples.tsv` | 所有 warmup/measured samples；shared endpoint 同时带 strong/weak membership |
+| `scaling_summary.tsv` | median/mean/std/p95/CV、strong speedup/efficiency、weak efficiency/slowdown |
+| `scaling_profile_summary.tsv` | scaling metadata 与 whole-procedure profile 的关联结果 |
+| `scaling_highlights.md` | negative scaling、低效率、weak slowdown、通信增长、rank imbalance 和高 CV 提示 |
+| `point_manifest.tsv` | 25 个物理 timing points 及 11 个 profile points 的完整定义 |
+| `gpu_samples.tsv` | 每个 point 前后的 GPU 温度、功耗、利用率和显存快照 |
+| `SHA256SUMS` | campaign 全部文件的校验和 |
+
+QFT 和 random 的 weak scaling 保持 local state size，但算法 gate count 会随 qubit 数增长。因此解释时应同时看 wall time 和 `median_time_per_gate_s`，不能把全部增长都归因于 communication。
+
 ## 6. QFT GPU+MPI smoke 路径
 
 如果只想测试 QFT 的 GPU+MPI 路径，而不是完整 proposal suite：
