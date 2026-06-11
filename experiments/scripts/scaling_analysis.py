@@ -286,10 +286,14 @@ def _workload_label(row):
     return f"{row['benchmark']}/{gate_kind}" if gate_kind else row["benchmark"]
 
 
+def _scaling_label(row):
+    return f"{row['scale_type']} {_workload_label(row)}"
+
+
 def generate_highlights(summaries, profiles):
     highlights = []
     for row in summaries:
-        label = _workload_label(row)
+        label = _scaling_label(row)
         ranks = row["mpi_ranks"]
         speedup = row.get("speedup", math.nan)
         efficiency = row.get("parallel_efficiency", math.nan)
@@ -311,7 +315,7 @@ def generate_highlights(summaries, profiles):
         imbalance = float(row.get("rank_imbalance_pct", 0) or 0)
         if imbalance > 10.0:
             highlights.append(
-                f"- {_workload_label(row)} at {row['mpi_ranks']} GPUs has rank imbalance {imbalance:.1f}%."
+                f"- {_scaling_label(row)} at {row['mpi_ranks']} GPUs has rank imbalance {imbalance:.1f}%."
             )
 
     for rows in profile_groups.values():
@@ -323,7 +327,7 @@ def generate_highlights(summaries, profiles):
         growth = float(last.get("communication_pct", 0) or 0) - float(first.get("communication_pct", 0) or 0)
         if growth >= 10.0:
             highlights.append(
-                f"- {_workload_label(last)} communication share increased by {growth:.1f} percentage points "
+                f"- {_scaling_label(last)} communication share increased by {growth:.1f} percentage points "
                 f"from {first['mpi_ranks']} to {last['mpi_ranks']} GPUs."
             )
 

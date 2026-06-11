@@ -241,6 +241,7 @@ class ScalingAnalysisTests(unittest.TestCase):
         self.assertIn("negative scaling", text)
         self.assertIn("parallel efficiency 40.0%", text)
         self.assertIn("weak slowdown 1.400x", text)
+        self.assertIn("strong qft communication share", text)
         self.assertIn("communication share increased by 15.0 percentage points", text)
         self.assertIn("rank imbalance 12.0%", text)
         self.assertIn("timing CV 20.0%", text)

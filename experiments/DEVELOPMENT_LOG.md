@@ -1614,7 +1614,38 @@
   - manifest：25 timing points、5 shared endpoints、11 profile points，无空 TSV 字段。
   - `gate_micro / qft / random` CPU Release build：passed。
   - H/CNOT/CPhase、QFT 和 random q4 smoke：全部 `PASS`。
-- 待完成：
-  - 同步至 GitHub/cluster。
-  - 在 cluster dry-run 后提交真实 4-GPU campaign。
-  - 收集结果并记录 scaling behavior。
+- 实现提交：
+  - `eca92b9c292bc15a4ae086b82d584359cb4c824a`：`Add intra-node GPU scaling campaign`
+  - `7b9a6a0cdc575a99af5b47c1943fcdc992dfaa0d`：修复 Slurm spool 中的 repo 路径解析。
+  - `d3891609c0ff11118d1440be9e168413557f1cc0`：由 launcher 向 batch job 传递 Git commit metadata。
+  - `5fa1c1a953b82fc96aac7fb7382ae5cbcc62a0a0`：使用独立 file descriptor 读取 manifest，避免 `mpirun` 消费 stdin 后截断 loop。
+- Cluster 调试记录：
+  - job `3502224`：`FAILED`，payload 从 Slurm spool 路径寻找 `common.sh`。
+  - job `3502228`：`FAILED`，compute-node batch 环境中 Git metadata 不可直接读取。
+  - job `3502231`：主动 `CANCELLED`；实际运行发现首个 `mpirun` 消费 manifest stdin，timing loop 只执行一个 point。
+  - 每个问题均增加对应回归测试后修复。
+- 成功 campaign：
+  - job：`3502237`
+  - partition/node/GPU：`Interactive / landonia01 / 4 x RTX 2080 Ti`
+  - Slurm：`COMPLETED`, exit `0:0`, elapsed `00:51:35`
+  - build：`gpu_mpi Release`, CUDA architecture `75`, `cmake --build --parallel 8`
+  - raw dir：`experiments/results/raw/gpu_mpi_scaling_2080ti_3502237/`
+  - 产物：25 timing TSV、11 `.nsys-rep`、11 `.sqlite`、11 profile benchmark TSV、6 张 profile breakdown、4 个 scaling aggregate 文件。
+  - 结果校验：
+    - 25 个 timing points 均有 1 warmup + 5 measured rows，全部 `PASS`。
+    - 4-rank QFT SQLite 显示 rank/device 为 `0/0, 1/1, 2/2, 3/3`。
+    - campaign SHA-256 全部通过。
+- Strong scaling median：
+  - H：`0.266 / 33.365 / 32.182 s`，4-GPU speedup `0.0083x`。
+  - CNOT：`0.312 / 21.682 / 16.461 s`，4-GPU speedup `0.0190x`。
+  - CPhase：`2.169 / 2.060 / 1.036 s`，4-GPU speedup `2.094x`、efficiency `52.3%`。
+  - QFT：`4.242 / 5.987 / 8.537 s`，4-GPU speedup `0.497x`。
+  - Random：`2.857 / 9.330 / 15.227 s`，4-GPU speedup `0.188x`。
+- Weak scaling slowdown at 4 GPUs：
+  - H `435.64x`；CNOT `195.22x`；CPhase `1.658x`；QFT `8.148x`；Random `20.960x`。
+- Profile insight：
+  - H p4 communication `83.1%`，aggregate MPI send `68.72 GB`。
+  - QFT p4 communication `58.9%`，aggregate MPI send `12.88 GB`。
+  - Random p4 communication `77.6%`，aggregate MPI send `30.06 GB`。
+  - profile rank imbalance 均低于 `1.14%`，因此主要瓶颈不是 rank skew，而是 CPU-staged amplitude exchange。
+  - CPhase 不触发 amplitude exchange，是唯一呈现正 strong scaling 的 workload；H/CNOT 的 high-bit placement 则刻意暴露 rank-crossing communication cost。
