@@ -25,6 +25,21 @@ write_git_snapshot "${TMPDIR_TEST}/git-environment"
 }
 write_point_manifest "${TMPDIR_TEST}/point_manifest.tsv"
 
+POINT_MANIFEST="${TMPDIR_TEST}/point_manifest.tsv"
+RUN_DIR="${TMPDIR_TEST}"
+calls=0
+capture_gpu_snapshot() { :; }
+make_benchmark_command() { BENCH_COMMAND=(true); }
+run_logged() {
+    calls=$((calls + 1))
+    cat >/dev/null
+}
+run_timing_points
+[ "${calls}" -eq 25 ] || {
+    echo "stdin-consuming child truncated timing loop after ${calls} points" >&2
+    exit 1
+}
+
 rows="$(awk 'END {print NR - 1}' "${TMPDIR_TEST}/point_manifest.tsv")"
 shared="$(awk -F '\t' 'NR > 1 && $8 == "strong,weak" {count++} END {print count + 0}' "${TMPDIR_TEST}/point_manifest.tsv")"
 profiles="$(awk -F '\t' 'NR > 1 && $11 == "1" {count++} END {print count + 0}' "${TMPDIR_TEST}/point_manifest.tsv")"

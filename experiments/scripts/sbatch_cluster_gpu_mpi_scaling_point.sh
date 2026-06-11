@@ -243,7 +243,7 @@ run_timing_points() {
     local point_id benchmark gate_kind qubits ranks gpus slurm_nodes membership source_file profile_point profile_selected
     local gate_repeats random_depth ratio seed output_path
 
-    while IFS=$'\t' read -r point_id benchmark gate_kind qubits ranks gpus slurm_nodes membership source_file profile_point profile_selected gate_repeats random_depth ratio seed; do
+    while IFS=$'\t' read -r point_id benchmark gate_kind qubits ranks gpus slurm_nodes membership source_file profile_point profile_selected gate_repeats random_depth ratio seed <&3; do
         [ "${point_id}" != "point_id" ] || continue
         output_path="${RUN_DIR}/${source_file}"
         make_benchmark_command timing "${point_id}" "${benchmark}" "${gate_kind}" "${qubits}" \
@@ -251,14 +251,14 @@ run_timing_points() {
         capture_gpu_snapshot "${point_id}" before
         run_logged mpirun -np "${ranks}" "${BENCH_COMMAND[@]}"
         capture_gpu_snapshot "${point_id}" after
-    done < "${POINT_MANIFEST}"
+    done 3< "${POINT_MANIFEST}"
 }
 
 run_profile_points() {
     local point_id benchmark gate_kind qubits ranks gpus slurm_nodes membership source_file profile_point profile_selected
     local gate_repeats random_depth ratio seed output_path profile_base sqlite_path
 
-    while IFS=$'\t' read -r point_id benchmark gate_kind qubits ranks gpus slurm_nodes membership source_file profile_point profile_selected gate_repeats random_depth ratio seed; do
+    while IFS=$'\t' read -r point_id benchmark gate_kind qubits ranks gpus slurm_nodes membership source_file profile_point profile_selected gate_repeats random_depth ratio seed <&3; do
         [ "${point_id}" != "point_id" ] || continue
         [ "${profile_selected}" = "1" ] || continue
         output_path="${RUN_DIR}/profiles/${point_id}.tsv"
@@ -291,7 +291,7 @@ run_profile_points() {
             --lifecycle-output "${RUN_DIR}/lifecycle_breakdown_rank.tsv" \
             --runtime-output "${RUN_DIR}/cuda_runtime_summary_rank.tsv"
         capture_gpu_snapshot "profile_${point_id}" after
-    done < "${POINT_MANIFEST}"
+    done 3< "${POINT_MANIFEST}"
 }
 
 write_checksums() {
