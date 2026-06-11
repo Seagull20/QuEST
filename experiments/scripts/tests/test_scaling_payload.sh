@@ -15,6 +15,14 @@ SLURM_SUBMIT_DIR="${REPO_ROOT}" bash -c '
 
 # shellcheck source=/dev/null
 source "${PAYLOAD}"
+git() { return 1; }
+export QUEST_SCALING_GIT_COMMIT=0123456789abcdef
+mkdir -p "${TMPDIR_TEST}/git-environment"
+write_git_snapshot "${TMPDIR_TEST}/git-environment"
+[ "$(cat "${TMPDIR_TEST}/git-environment/git_commit.txt")" = "0123456789abcdef" ] || {
+    echo "exported commit was not preserved when git was unavailable" >&2
+    exit 1
+}
 write_point_manifest "${TMPDIR_TEST}/point_manifest.tsv"
 
 rows="$(awk 'END {print NR - 1}' "${TMPDIR_TEST}/point_manifest.tsv")"

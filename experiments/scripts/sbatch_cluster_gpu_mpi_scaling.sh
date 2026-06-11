@@ -161,6 +161,7 @@ main() {
     export_vars="${export_vars},QUEST_SCALING_PARTITION=${SCALING_PARTITION}"
     export_vars="${export_vars},QUEST_SCALING_GPU_TYPE=${SCALING_GPU_TYPE}"
     export_vars="${export_vars},QUEST_SCALING_GPU_GRES=${SCALING_GPU_GRES}"
+    export_vars="${export_vars},QUEST_SCALING_GIT_COMMIT=$(git rev-parse HEAD)"
     export_vars="${export_vars},QUEST_BENCH_BUILD_PARALLEL=${QUEST_BENCH_BUILD_PARALLEL:-8}"
 
     job_id="$(

@@ -97,10 +97,21 @@ capture_gpu_snapshot() {
     done < <(nvidia-smi --query-gpu=index,uuid,name,temperature.gpu,power.draw,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits)
 }
 
+write_git_snapshot() {
+    local environment_dir="$1"
+    local commit="${QUEST_SCALING_GIT_COMMIT:-}"
+
+    if [ -z "${commit}" ]; then
+        commit="$(git rev-parse HEAD 2>/dev/null || true)"
+    fi
+    printf '%s\n' "${commit:-unavailable}" > "${environment_dir}/git_commit.txt"
+    git status --short --branch > "${environment_dir}/git_status.txt" 2>&1 || \
+        printf 'git status unavailable in batch environment\n' > "${environment_dir}/git_status.txt"
+}
+
 write_environment_snapshot() {
     mkdir -p "${RUN_DIR}/environment"
-    git rev-parse HEAD > "${RUN_DIR}/environment/git_commit.txt"
-    git status --short --branch > "${RUN_DIR}/environment/git_status.txt"
+    write_git_snapshot "${RUN_DIR}/environment"
     scontrol show job "${SLURM_JOB_ID}" -o > "${RUN_DIR}/environment/scontrol_job.txt" 2>&1 || true
     scontrol show partition "${QUEST_SCALING_PARTITION}" -o > "${RUN_DIR}/environment/scontrol_partition.txt" 2>&1 || true
     sacctmgr -n -P show assoc user="${USER}" format=Cluster,Account,User,Partition,QOS,DefaultQOS,GrpTRES,MaxTRES,MaxJobs,MaxSubmit \
