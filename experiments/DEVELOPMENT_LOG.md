@@ -1540,3 +1540,47 @@
   - 本地 `gate_micro / qft / random` CPU build/run：pass。
   - 两个成功 job 均生成 `.nsys-rep`、`.sqlite`、逐 rank breakdown 和 critical-rank breakdown。
   - 每行 `Computation + Communication + Others = Total`，三类百分比之和为 `100%`。
+
+## 2026-06-11 02:08 - 细化 NVTX breakdown 并完成单次 2-GPU QFT q28 smoke
+
+- 模块：benchmark suite / NVTX / Nsight SQLite / MPI / cluster gpu_mpi
+- 实现提交：
+  - `f85f1c959c2afe35156ac58b11dc467150bb3b24`：`Expand GPU MPI profile breakdown`
+- 实现内容：
+  - CPU-staged exchange 增加 `d2h / mpi / h2d` 子阶段 NVTX ranges；direct-GPU exchange 增加 `mpi` 子阶段。
+  - `gate_micro / qft / random` 增加 environment、qureg、state、validation 和 finalize lifecycle ranges。
+  - whole-procedure 主分类调整为：
+    - `Procedure = Communication + Computation + Lifecycle + Execution Overhead`
+    - `Others = Lifecycle + Execution Overhead`
+  - 新增通信、computation kernel、lifecycle 和 CUDA runtime 四张诊断 TSV。
+  - 主表区分 critical-rank MPI volume 与 aggregate MPI volume，并记录 rank wall-time imbalance。
+- 本地验证：
+  - parser unit tests：`9 tests`, all pass。
+  - 旧 2-rank QFT SQLite 兼容解析：pass。
+  - `qft / gate_micro / random` CPU Release build/run：pass。
+  - shell syntax、Nsight environment regression 和 `git diff --check`：pass。
+- Cluster smoke：
+  - command：`QUEST_GPU_MPI_SUITE_BENCHMARKS=qft QUEST_GPU_MPI_SUITE_QUBITS=28 QUEST_GPU_MPI_SUITE_REPS=1 QUEST_GPU_MPI_SUITE_WARMUP=0 QUEST_GPU_MPI_PREHEAT_MODE=off QUEST_BENCH_BUILD_PARALLEL=8 bash experiments/scripts/sbatch_cluster_gpu_mpi_proposal_suite.sh 2080ti 2 profile`
+  - job：`3501698`
+  - node/GPU：`damnii09`, 2 x RTX 2080 Ti, single node
+  - rank/device：rank 0 -> device 0；rank 1 -> device 1
+  - Slurm：`COMPLETED`, elapsed `00:04:21`
+  - build：`gpu_mpi Release`, CUDA architecture `75`, `cmake --build --parallel 8`
+  - raw dir：`experiments/results/raw/gpu_mpi_proposal_profile_2080ti_r2_3501698/`
+  - QFT：`q=28`, `status=PASS`, `total_time_s=10.344158888`
+  - critical rank：`0`
+  - Procedure：`12.690730758 s`
+  - Computation：`2.040656082 s` (`16.0799%`)
+  - Communication：`8.062198911 s` (`63.5282%`)
+  - Lifecycle：`2.346570068 s` (`18.4904%`)
+  - Execution Overhead：`0.241305697 s` (`1.9014%`)
+  - aggregate MPI send：`4 calls`, `6,442,450,944 bytes`
+  - rank imbalance：`0.003242697 s` (`0.0256%`)
+- Exchange 与产物验证：
+  - 每个 rank 识别两次 CPU-staged amplitude exchange；每次均有非零 D2H、MPI、MPI wait、H2D、peer 和 send/recv bytes。
+  - 第二次 exchange 在两个 rank 上均关联到 pack kernel。
+  - computation kernel 聚合包含 `phase / hadamard / swap`。
+  - 每个 rank 的四类时间之和等于 Procedure，百分比之和为 `100%`。
+  - 已生成 `.nsys-rep`、`.sqlite` 和六张 breakdown TSV。
+  - cluster 结果已复制到本机对应 raw 目录；10 个文件逐项 SHA-256 一致。
+  - Nsight Systems 仍提示 cluster 禁用 CPU IP/backtrace sampling 和 context-switch tracing，但 CUDA、MPI、NVTX 和 OS runtime 数据完整生成。
