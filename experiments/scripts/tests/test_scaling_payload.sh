@@ -3,8 +3,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PAYLOAD="${SCRIPT_DIR}/sbatch_cluster_gpu_mpi_scaling_point.sh"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TMPDIR_TEST="$(mktemp -d)"
 trap 'rm -rf "${TMPDIR_TEST}"' EXIT
+
+cp "${PAYLOAD}" "${TMPDIR_TEST}/slurm_script"
+SLURM_SUBMIT_DIR="${REPO_ROOT}" bash -c '
+    source "$1"
+    [ "${SCRIPT_DIR}" = "$2/experiments/scripts" ]
+' bash "${TMPDIR_TEST}/slurm_script" "${REPO_ROOT}"
 
 # shellcheck source=/dev/null
 source "${PAYLOAD}"
