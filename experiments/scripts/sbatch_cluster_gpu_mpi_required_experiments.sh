@@ -49,6 +49,8 @@ campaign_dir_default() {
 
 submit_one() {
     local mode="$1" allocation="$2" dependency="$3" nodelist="$4"
+    local manifest_dependency="${dependency:-none}"
+    local manifest_node="${nodelist:-scheduler}"
     local payload="${SCRIPT_DIR}/sbatch_cluster_gpu_mpi_required_experiment_point.sh"
     local job_name="quest-required-${mode}-${allocation}"
     local output_file="${QUEST_REQUIRED_CAMPAIGN_DIR}/submission-${mode}-${allocation}.jobid"
@@ -72,7 +74,7 @@ submit_one() {
     SUBMITTED_JOB_ID="$(cut -d ';' -f 1 < "${output_file}")"
     rm -f "${output_file}"
     printf '%s\t%s\t%s\t%s\t%s\t%s_%s_%s\tSUBMITTED\n' \
-        "${mode}" "${allocation}" "${SUBMITTED_JOB_ID}" "${nodelist}" "${dependency}" \
+        "${mode}" "${allocation}" "${SUBMITTED_JOB_ID}" "${manifest_node}" "${manifest_dependency}" \
         "${mode}" "${allocation}" "${SUBMITTED_JOB_ID}" >> "${QUEST_REQUIRED_CAMPAIGN_DIR}/submission_manifest.tsv"
     info "Submitted ${mode}/${allocation}: ${SUBMITTED_JOB_ID}"
 }

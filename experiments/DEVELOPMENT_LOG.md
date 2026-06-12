@@ -1670,4 +1670,32 @@
   - 预期仅 H/4GPU profile 出现 MPI bytes、communication time 和 `cpu_staged` path；
   - gate parallel efficiency 使用未 profile timing 计算。
 - Raw artifacts：保留 timing TSV、point/submission manifests、Slurm logs、命令、环境、GPU telemetry、Nsight reports、SQLite、breakdown tables 和 SHA-256。
-- 实验 job、节点、路径和结果将在 campaign 完成后追加到本节。
+- 实现提交：
+  - `2862ef4fc55c92080e47fa14f06be1b59eac4d9c`：`Add required GPU follow-up experiments`
+- Cluster campaign：
+  - raw dir：`experiments/results/raw/required_experiments_2080ti_20260612_151354/`
+  - repro 1：job `3502701`, `landonia01`, `COMPLETED`, elapsed `00:08:16`。
+  - repro 2：job `3502702`, `landonia02`, `COMPLETED`, elapsed `00:08:05`。
+  - repro 3：job `3502703`, `landonia01`, `COMPLETED`, elapsed `00:08:01`。
+  - QFT sweep：job `3502704`, `landonia01`, `COMPLETED`, elapsed `00:19:19`。
+  - gate path：job `3502705`, `landonia01`, `COMPLETED`, elapsed `00:17:39`。
+- Reproducibility result：
+  - 共 `90` 个 measured QFT q28 samples。
+  - allocation 1 median：`T1=4.24699 s`, `T2=5.95166 s`, `T4=8.79654 s`。
+  - allocation 2 median：`T1=4.24407 s`, `T2=5.88603 s`, `T4=7.91179 s`。
+  - allocation 3 median：`T1=4.25169 s`, `T2=5.86030 s`, `T4=8.21784 s`。
+  - 三次独立 allocation 均满足 `T2>T1` 且 `T4>T1`，因此 q28 negative scaling 判定为可复现。
+- QFT size-sweep result：
+  - q24-q29 × 1/2/4 GPUs，共 `180` 个 measured samples，全部 `PASS`。
+  - 全部 qubit sizes 的 2-GPU 和 4-GPU median speedup 均小于 `1`，未观察到 crossover，也不存在 robust crossover。
+  - scaling 随问题规模改善：q24 的 `S2=0.652`, `S4=0.307`；q29 的 `S2=0.745`, `S4=0.572`，但仍不足以抵消 communication cost。
+- Gate-path result：
+  - timing 共 `40` 个 measured samples；H/CPhase 的 1/4-GPU matched profiles 共 `4` 份 `.nsys-rep` 和 SQLite。
+  - H：`T1=0.26561 s`, `T4=32.34099 s`, `E4=0.205%`。
+  - CPhase：`T1=2.17006 s`, `T4=1.03450 s`, `E4=52.442%`。
+  - 只有 H/4-GPU profile 出现 amplitude exchange：Communication `32.71416 s` (`80.02%`), aggregate MPI send `64 calls / 68,719,476,736 bytes`, path=`cpu_staged`。
+  - H/1-GPU、CPhase/1-GPU 和 CPhase/4-GPU 的 amplitude-exchange communication 与 MPI bytes 均为 `0`。
+- 产物与同步：
+  - 已生成七张 aggregate outputs、完整 raw TSV、四组 Nsight reports/SQLite、环境和 Slurm metadata。
+  - 修复 submission manifest 的空字段列错位；缺省 node/dependency 现在显式记录为 `scheduler/none`。
+  - cluster campaign 已复制到本机同名 raw directory；两端 `SHA256SUMS` 全部通过。

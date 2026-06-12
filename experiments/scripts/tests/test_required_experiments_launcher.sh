@@ -31,5 +31,11 @@ submit_all
 [[ "${calls[2]}" != *"--nodelist="* ]] || fail "repro 3 should be scheduler-selected"
 [[ "${calls[1]}" == *"--dependency=afterok:3503001"* ]] || fail "repro 2 dependency missing"
 [[ "${calls[4]}" == *"--dependency=afterok:3503004"* ]] || fail "gate-path dependency missing"
+awk -F '\t' 'NR > 1 && NF != 7 {exit 1}' "${QUEST_REQUIRED_CAMPAIGN_DIR}/submission_manifest.tsv" || \
+    fail "submission manifest contains collapsed empty fields"
+awk -F '\t' 'NR == 2 && ($4 != "landonia01" || $5 != "none") {exit 1}' \
+    "${QUEST_REQUIRED_CAMPAIGN_DIR}/submission_manifest.tsv" || fail "repro 1 placeholders are incorrect"
+awk -F '\t' 'NR == 4 && $4 != "scheduler" {exit 1}' \
+    "${QUEST_REQUIRED_CAMPAIGN_DIR}/submission_manifest.tsv" || fail "scheduler placeholder is missing"
 
 printf 'Required experiment launcher tests passed.\n'
