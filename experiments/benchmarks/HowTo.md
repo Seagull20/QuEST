@@ -763,3 +763,29 @@ two_qubit_gate_count
 ### benchmark 结果可以直接跨 family 比 `time_per_gate` 吗？
 
 不建议。`time_per_gate` 只适合同一 benchmark family 内部辅助比较。`gate_micro`、`qft` 和 `random` 的线路结构不同，跨 family 直接比较 per-gate cost 容易误导。
+
+## 12. Required follow-up experiments
+
+这组入口用于复现和补强已有 scaling 结论，不替代普通 proposal suite：
+
+```bash
+bash experiments/scripts/sbatch_cluster_gpu_mpi_required_experiments.sh --dry-run all
+bash experiments/scripts/sbatch_cluster_gpu_mpi_required_experiments.sh all
+```
+
+`all` 会顺序提交五个 4-GPU allocation：三次 QFT q28 独立复现、一次
+QFT q24-q29 sweep、一次 H/CPhase matched timing/profile。所有 timing point
+均使用 `warmup=1` 和 `reps=10`；GPU 型号固定为 RTX 2080 Ti，避免把硬件差异
+混入 scaling curve。
+
+最后一个任务完成后，在 cluster repo root 执行：
+
+```bash
+bash experiments/scripts/collect_cluster_gpu_mpi_required_experiments.sh \
+  experiments/results/raw/required_experiments_2080ti_<timestamp>
+```
+
+collector 会拒绝不完整 campaign，并验证三次复现至少覆盖两台节点、18 个
+QFT sweep points、4 个 gate timing/profile points、每点采样数及所有 Nsight
+产物。分析结论写入 `required_experiment_answers.md`，原始数据和环境信息保留在
+同一 campaign 目录。

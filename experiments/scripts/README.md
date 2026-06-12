@@ -152,6 +152,42 @@ bash experiments/scripts/sbatch_cluster_gpu_mpi_scaling.sh
 bash experiments/scripts/collect_cluster_gpu_mpi_scaling.sh <jobid>
 ```
 
+```bash
+bash experiments/scripts/sbatch_cluster_gpu_mpi_required_experiments.sh --dry-run all
+bash experiments/scripts/sbatch_cluster_gpu_mpi_required_experiments.sh all
+bash experiments/scripts/collect_cluster_gpu_mpi_required_experiments.sh \
+  experiments/results/raw/required_experiments_2080ti_<timestamp>
+```
+
+## Required Follow-up Experiments
+
+`sbatch_cluster_gpu_mpi_required_experiments.sh all` submits five dependent
+single-node jobs on `Interactive` RTX 2080 Ti GPUs:
+
+- three independent QFT q28 allocations, each running 1/2/4 ranks;
+- one QFT q24-q29 sweep at 1/2/4 ranks;
+- one matched H/CPhase q28 comparison at 1/4 ranks with timing and Nsight profiles.
+
+Every timing point uses one warm-up and ten measured repetitions. Reproducibility
+jobs 1 and 2 are pinned to `landonia01` and `landonia02`; the third is selected
+by Slurm. Jobs are chained with `afterok` so the teaching QoS never allocates
+more than four GPUs to the user at once.
+
+The collector verifies all jobs and point counts, runs the fixed bootstrap and
+communication-path analysis, and writes:
+
+- `qft_repro_allocation_summary.tsv`
+- `qft_repro_summary.tsv`
+- `qft_size_sweep_summary.tsv`
+- `qft_crossover.tsv`
+- `gate_path_timing_summary.tsv`
+- `gate_path_profile_summary.tsv`
+- `required_experiment_answers.md`
+
+The campaign directory retains raw timing TSVs, Nsight reports and SQLite
+exports, six profiling breakdown tables, Slurm logs, environment metadata,
+commands, GPU telemetry, and `SHA256SUMS`.
+
 ## Cluster GPU+MPI QFT Smoke
 
 - 当前只实现 QFT smoke，不代表完整 GPU+MPI benchmark suite 已经全部打通。

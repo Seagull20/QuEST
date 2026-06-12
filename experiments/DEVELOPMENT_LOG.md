@@ -1649,3 +1649,25 @@
   - Random p4 communication `77.6%`，aggregate MPI send `30.06 GB`。
   - profile rank imbalance 均低于 `1.14%`，因此主要瓶颈不是 rank skew，而是 CPU-staged amplitude exchange。
   - CPhase 不触发 amplitude exchange，是唯一呈现正 strong scaling 的 workload；H/CNOT 的 high-bit placement 则刻意暴露 rank-crossing communication cost。
+
+## 2026-06-12 - 实现 proposal required follow-up campaign
+
+- 模块：benchmark suite / Slurm / reproducibility / QFT size sweep / gate-path profiling
+- 目标：完成 presentation note 中列出的三项 Required Next Experiments。
+- 新增入口：
+  - `sbatch_cluster_gpu_mpi_required_experiments.sh`
+  - `sbatch_cluster_gpu_mpi_required_experiment_point.sh`
+  - `collect_cluster_gpu_mpi_required_experiments.sh`
+  - `required_experiments_analysis.py`
+- 实验矩阵：
+  - 三次独立 QFT q28 allocation，每次 1/2/4 GPUs；
+  - QFT q24-q29 × 1/2/4 GPUs；
+  - H/CPhase q28 × 1/4 GPUs matched timing/profile。
+- 固定条件：RTX 2080 Ti、single node、Release、double precision、CUDA arch 75、build parallel 8、timing warmup 1 + reps 10。
+- 预注册判定：
+  - 三次均有 `T2>T1` 且 `T4>T1` 才判定 negative scaling 可复现；
+  - median speedup 大于 1 为 observed crossover；10,000 次固定 seed bootstrap 的 95% CI 全高于 1 为 robust crossover；
+  - 预期仅 H/4GPU profile 出现 MPI bytes、communication time 和 `cpu_staged` path；
+  - gate parallel efficiency 使用未 profile timing 计算。
+- Raw artifacts：保留 timing TSV、point/submission manifests、Slurm logs、命令、环境、GPU telemetry、Nsight reports、SQLite、breakdown tables 和 SHA-256。
+- 实验 job、节点、路径和结果将在 campaign 完成后追加到本节。
