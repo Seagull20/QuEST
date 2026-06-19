@@ -1699,3 +1699,73 @@
   - 已生成七张 aggregate outputs、完整 raw TSV、四组 Nsight reports/SQLite、环境和 Slurm metadata。
   - 修复 submission manifest 的空字段列错位；缺省 node/dependency 现在显式记录为 `scheduler/none`。
   - cluster campaign 已复制到本机同名 raw directory；两端 `SHA256SUMS` 全部通过。
+
+## 2026-06-16 - Memo about compression before send
+到这里进入下一阶段.已经得知了在host staging scheme下, communication + memory move致使了intra-node scaling 失效.
+分三步:
+1. 获得一些compression的基础知识,然后获得一些GPU accelerating的lossless compression的通用做法.
+  compression with ML
+  [Accelerating Lossless GPU Compression with New Flexible Interfaces in NVIDIA nvCOMP](https://developer.nvidia.com/blog/accelerating-lossless-gpu-compression-with-new-flexible-interfaces-in-nvidia-nvcomp/)
+2. toy case: mimic QuEST 的communication pattern. 确认利用gpu acc的不同compression的communication的收益几何.
+3.1 如果收益可以确认,尝试移植到QueST上并进行benchmark并确认收益.
+fallback: 如果收益不客观,则需要尝试别的路径.
+思考: 如果rank all this potential optimization. 我目前所想到的是:
+  compression:这是一个component,可以plug in before/after send/receive. it's relatively easy to implement on QuEST
+  alter the memory allocation of QuEST:
+    buile the pipline to overlap communication and compute. by convert the mem used by buffter to store amps, and left mem as buffers(two buffers轮流使用)
+    or overflow to the host and use host to compute at same time.(refers to @/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/cluster/hetero_amp_microbench)
+
+## 2026-06-17 - GPUDirect cluster probe result
+本轮目标是验证 `mls-cluster` 上 QuEST 是否能走 CUDA-aware MPI / GPUDirect path；若不可用，则保留可复现失败证据。probe 独立放在 `quest_smoke/gpudirect_cluster_probe/`，没有 patch tracked QuEST source；CPU-staged baseline 的 forced patch 只在 job output 的 scratch copy 内应用。
+
+- Local probe folder: `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/quest_smoke/gpudirect_cluster_probe/`
+- Remote mirror: `~/quest_project/quest_smoke/gpudirect_cluster_probe/`
+- Key files:
+  - `src/mpi_cuda_aware_probe.cu`: 2-rank standalone MPI CUDA device-pointer send/recv probe, captures MPI/CUDA error text.
+  - `src/quest_gpudirect_probe.c`: QuEST `USER_SOURCE` probe, prints `reportQuESTEnv()` and writes timing TSV.
+  - `scripts/discover_gpu_types.sh`: Slurm GPU GRES discovery and one-node-per-GPU-type selection.
+  - `scripts/build_and_run_one_node.sh`: per-node build/run driver for standalone probe, QuEST direct build, and scratch forced CPU-staged build.
+  - `submit_gpudirect_matrix.sh`: submits per-GPU-type Slurm jobs, with 4-GPU request then 2-GPU fallback.
+  - `README.md`: reproduction commands, verdict rules, and result interpretation.
+
+Main completed run:
+- Result root: `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/quest_smoke/gpudirect_cluster_probe/results/20260617_000321/`
+- Remote result root: `~/quest_project/quest_smoke/gpudirect_cluster_probe/results/20260617_000321/`
+- RTX 2080 Ti run: node `damnii09`, 4 GPUs, Slurm job `3506688`, state `COMPLETED`, exit `0:0`, elapsed `00:03:00`.
+- Verdict for RTX 2080 Ti: GPUDirect unavailable.
+  - Standalone CUDA-aware MPI device-pointer probe failed: `nvidia_geforce_rtx_2080_ti_4gpu/logs/mpi_cuda_aware_probe.err`, exit code `139`; key error was `Segmentation fault (11)`, `Signal code: Invalid permissions (2)`, inside OpenMPI `mca_btl_vader` / `PMPI_Waitall`.
+  - QuEST environment probe passed but reported `gpuDirect.........0` and `isMpiGpuAware.....0` in `nvidia_geforce_rtx_2080_ti_4gpu/logs/quest_direct_env.out`.
+  - Summary row: `nvidia_geforce_rtx_2080_ti_4gpu/availability_summary.tsv` records `status=UNAVAILABLE`, `mpi_probe_status=FAIL`, `quest_direct_status=PASS`, `is_mpi_gpu_aware=0`, `gpu_direct=0`.
+  - Reproduction/evidence report: `nvidia_geforce_rtx_2080_ti_4gpu/UNAVAILABLE.md`.
+- Because availability failed, no direct-vs-forced-CPU-staged benefit benchmark was valid for this GPU type; therefore no `benefit_summary.tsv` should be interpreted for this run.
+
+Other GPU types from the first discovery were not benchmarked:
+- `h200`: 4-GPU and 2-GPU allocations failed with `Requested node configuration is not available`.
+- `h200_1g.18gb`: 4-GPU and 2-GPU allocations failed with `Requested nodes are busy`.
+- `h200_3g.71gb`: 4-GPU and 2-GPU allocations failed with `Requested nodes are busy`.
+- Each skipped type has `NOT_BENCHMARKED.md` and allocation stderr under its `allocation_failures/` directory in the same result root.
+
+A40 / A6000 follow-up:
+- Result root: `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/quest_smoke/gpudirect_cluster_probe/results/20260617_124936_a40_a6000/`
+  - A40 target `crannog03`, partition `ICF-Free`, `gpu:a40:4` then `gpu:a40:2`: not benchmarked.
+  - A6000 target `landonia21`, partition `ICF-Free`, `gpu:nvidia_rtx_a6000:4` then `gpu:nvidia_rtx_a6000:2`: not benchmarked.
+  - Evidence: `Invalid account or account/partition combination specified`.
+  - Slurm association check showed current user only has `general-teaching`; `ICF-Free` / `Open-Research` require `research`, so this is an account/partition access issue rather than a GPUDirect runtime result.
+- Teaching-partition A6000 retry result root: `/Users/linzeyu/Documents/01_Degree_Project/03_degree_project/work/quest_smoke/gpudirect_cluster_probe/results/20260617_125019_a6000_teaching/`
+  - A6000 target `landonia11`, partition `Teaching`, `gpu:nvidia_rtx_a6000:4` then `gpu:nvidia_rtx_a6000:2`: not benchmarked.
+  - Evidence: `Requested nodes are busy`.
+- Evidence files:
+  - `20260617_124936_a40_a6000/a40/NOT_BENCHMARKED.md`
+  - `20260617_124936_a40_a6000/nvidia_rtx_a6000/NOT_BENCHMARKED.md`
+  - `20260617_125019_a6000_teaching/nvidia_rtx_a6000/NOT_BENCHMARKED.md`
+  - corresponding `allocation_failures/*.err`.
+
+Implementation notes:
+- Fixed `submit_gpudirect_matrix.sh` after observing that `tail ... | while read` let `srun` consume loop stdin; the script now uses process substitution and redirects `srun`/`sbatch` stdin from `/dev/null`.
+- Fixed `scripts/build_and_run_one_node.sh` parsing for QuEST dotted report rows such as `gpuDirect.........0` by normalizing dots in `parse_report_flag`.
+
+Verification:
+- Local static contract tests passed: `tests/test_static_contracts.py` reports `8 passed`.
+- Shell syntax checks passed for `scripts/discover_gpu_types.sh`, `scripts/build_and_run_one_node.sh`, and `submit_gpudirect_matrix.sh`.
+- Result contract checks passed for `20260617_000321`, `20260617_124936_a40_a6000`, and `20260617_125019_a6000_teaching`.
+- Remote `squeue` check showed no remaining jobs from this probe after the runs.
