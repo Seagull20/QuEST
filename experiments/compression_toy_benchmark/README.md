@@ -110,4 +110,4 @@ The exchange tool uses nvCOMP high-level C++ managers. NVIDIA documents that the
 - [High-level C++ Quick Start](https://docs.nvidia.com/cuda/nvcomp/samples/highlevel_cpp_quickstart.html)
 - [C++ API reference](https://docs.nvidia.com/cuda/nvcomp/cpp_api.html)
 
-For `nvcomp_bitcomp`, the tool sets the Bitcomp compression `data_type` to `NVCOMP_TYPE_DOUBLE`, because QuEST amplitudes are stored as interleaved FP64 complex values.
+For `nvcomp_bitcomp`, the tool uses an 8-byte Bitcomp lane for QuEST's interleaved FP64 complex values: `NVCOMP_TYPE_DOUBLE` when the installed nvCOMP exposes it, otherwise `NVCOMP_TYPE_ULONGLONG` for older nvCOMP headers that treat the same 64-bit payload as bit patterns.

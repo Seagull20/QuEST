@@ -71,7 +71,7 @@ Synthetic patterns 用来校准 pipeline，不作为 patch 证据：
 - `nvcomp_gdeflate`
 - `nvcomp_bitcomp`
 
-`nvcomp_bitcomp` 明确使用 `NVCOMP_TYPE_DOUBLE` compression option，因为 QuEST payload 是 interleaved FP64 complex amplitudes。这个设置让 Bitcomp test 更接近 double precision amplitude buffer，而不是 generic byte-stream compression。
+`nvcomp_bitcomp` 使用 8-byte Bitcomp lane，因为 QuEST payload 是 interleaved FP64 complex amplitudes。若 installed nvCOMP 暴露 `NVCOMP_TYPE_DOUBLE`，则使用该类型；若使用 nvCOMP 5.1 这类只暴露 integer-width enum 的版本，则 fallback 到 `NVCOMP_TYPE_ULONGLONG`，把 FP64 payload 当作 64-bit bit patterns 压缩。
 
 缺失 codec header 时，CMake macro 会让对应 path 返回 `SKIPPED_DEPENDENCY_MISSING`，不把 dependency absence 误判为 compression failure。
 

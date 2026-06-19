@@ -1793,7 +1793,7 @@ Verification:
   - 串联 capture、genuine/synthetic matrix、rank-local TSV merge 和 analysis。
   - smoke 默认 2 ranks、小 payload、`quest_h_plus_pre_exchange` + `zero_sparse,h_halfzero_real`。
   - main 默认 4 ranks、H-plus/H-halfzero/QFT/random genuine payload、四类 synthetic calibration、`raw/nvcomp_lz4/nvcomp_gdeflate/nvcomp_bitcomp`。
-  - `nvcomp_bitcomp` 在 exchange tool 中明确使用 `NVCOMP_TYPE_DOUBLE`，贴近 QuEST interleaved FP64 complex amplitude buffer。
+  - `nvcomp_bitcomp` 在 exchange tool 中使用 8-byte Bitcomp lane；新 nvCOMP 若暴露 `NVCOMP_TYPE_DOUBLE` 则使用 double type，nvCOMP 5.1 这类旧 header 则 fallback 到 `NVCOMP_TYPE_ULONGLONG` 处理 FP64 bit patterns。
 - `scripts/analyze_campaign.py`
   - 生成 `summary.tsv`、`condition_verdicts.tsv`、`outliers.tsv`、`conclusion.md`。
   - 总体 verdict 包括 `PATCH_CANDIDATE`、`CONDITIONAL_BENEFIT`、`SYNTHETIC_ONLY_BENEFIT`、`NO_BENEFIT`。

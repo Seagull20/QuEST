@@ -274,7 +274,11 @@ static std::unique_ptr<nvcomp::nvcompManagerBase> make_manager(const std::string
   if (codec == "nvcomp_bitcomp") {
 #if QUEST_COMPRESSION_HAVE_NVCOMP_BITCOMP
     auto compress_opts = nvcompBatchedBitcompCompressDefaultOpts;
+#ifdef NVCOMP_TYPE_DOUBLE
     compress_opts.data_type = NVCOMP_TYPE_DOUBLE;
+#else
+    compress_opts.data_type = NVCOMP_TYPE_ULONGLONG;
+#endif
     return std::make_unique<nvcomp::BitcompManager>(
       chunk_bytes, compress_opts, nvcompBatchedBitcompDecompressDefaultOpts,
       stream, nvcomp::NoComputeNoVerify, nvcomp::BitstreamKind::NVCOMP_NATIVE);
