@@ -1769,3 +1769,73 @@ Verification:
 - Shell syntax checks passed for `scripts/discover_gpu_types.sh`, `scripts/build_and_run_one_node.sh`, and `submit_gpudirect_matrix.sh`.
 - Result contract checks passed for `20260617_000321`, `20260617_124936_a40_a6000`, and `20260617_125019_a6000_teaching`.
 - Remote `squeue` check showed no remaining jobs from this probe after the runs.
+
+## 2026-06-19 - Compression toy benchmark campaign scaffold
+
+本轮目标：在不 patch QuEST communication internals 的前提下，新增一个 standalone CUDA+MPI+nvCOMP benchmark campaign，模拟当前 GPU+MPI bottleneck 中的 host-staged amplitude exchange，并用 genuine QuEST-generated FP64 complex amplitude payload 判断 GPU-side lossless compression 是否值得进入 QuEST patch。
+
+新增目录：
+
+- `experiments/compression_toy_benchmark/`
+
+新增组件：
+
+- `src/capture_quest_payloads.c`
+  - QuEST `USER_SOURCE` capture tool。
+  - 使用 GPU+MPI build 生成 genuine payload files 和 `payload_manifest.tsv`。
+  - 支持 `quest_h_plus_pre_exchange`、`quest_h_halfzero_pre_exchange`、`quest_qft`、`quest_random`。
+- `src/compression_exchange.cu`
+  - standalone CUDA+MPI+nvCOMP exchange benchmark。
+  - raw path：`GPU buffer -> D2H -> MPI host exchange -> H2D`。
+  - compressed path：`GPU buffer -> nvCOMP compress -> D2H compressed bytes -> MPI host exchange -> H2D -> nvCOMP decompress`。
+  - 输出 required TSV fields，并做 byte-identical reconstruction verification。
+- `scripts/run_campaign.py`
+  - 串联 capture、genuine/synthetic matrix、rank-local TSV merge 和 analysis。
+  - smoke 默认 2 ranks、小 payload、`quest_h_plus_pre_exchange` + `zero_sparse,h_halfzero_real`。
+  - main 默认 4 ranks、H-plus/H-halfzero/QFT/random genuine payload、四类 synthetic calibration、`raw/nvcomp_lz4/nvcomp_gdeflate/nvcomp_bitcomp`。
+  - `nvcomp_bitcomp` 在 exchange tool 中明确使用 `NVCOMP_TYPE_DOUBLE`，贴近 QuEST interleaved FP64 complex amplitude buffer。
+- `scripts/analyze_campaign.py`
+  - 生成 `summary.tsv`、`condition_verdicts.tsv`、`outliers.tsv`、`conclusion.md`。
+  - 总体 verdict 包括 `PATCH_CANDIDATE`、`CONDITIONAL_BENEFIT`、`SYNTHETIC_ONLY_BENEFIT`、`NO_BENEFIT`。
+- `tests/test_analyze_campaign.py`
+  - 覆盖 genuine win 推导 patch candidate，以及 synthetic-only benefit 不能支持 patch。
+- `docs/BENCHMARK_DEVELOPMENT_LOG.md`
+  - benchmark-local sub-copy，只记录 compression toy benchmark 的设计、验证边界和 run instructions。
+
+Data-pattern decision：
+
+- `quest_h_like` 在本 campaign 中定义为 QuEST 真实生成的 H-path pre-exchange payload，不是手写 synthetic bytes。
+- `quest_h_plus_pre_exchange`：`initPlusState()` 后、第一次 high-target H 前；代表 uniform real amplitudes。
+- `quest_h_halfzero_pre_exchange`：执行一次 high-target H 后、第二次 high-target H 前；代表 real-only half-zero / repeated structure。
+- synthetic calibration 只用于验证 pipeline 行为：
+  - `zero_sparse` positive control；
+  - `h_halfzero_real` H-like structured control；
+  - `phase_lattice` QFT-like deterministic phase control；
+  - `random_mantissa_normed` high-entropy negative control。
+- final patch recommendation 只基于 genuine QuEST-generated payloads。
+
+Break-even rule：
+
+```text
+T_compress + T_send_compressed + T_decompress < T_send_raw
+```
+
+Recommended patch gate：
+
+- all genuine payloads reconstruct byte-identically；
+- at least one codec gives median speedup `>= 1.10`；
+- benefit holds for both H-like checkpoints and QFT；
+- no independent allocation regresses below raw median speedup `1.00`；
+- random payload either wins or cleanly falls back with low overhead。
+
+Hetero amp microbench decision：
+
+- 不复用 `/home/s2866920/hetero_amp_microbench` 的 overflow compute model 或 host-memory capacity assumptions。
+- 只复用 timing breakdown、TSV-first reporting、Slurm environment snapshot 和 benchmark-local documentation 的思路。
+- 原因：当前问题是 communication-path compression break-even，不是 heterogenous host overflow simulation。
+
+Current verification boundary：
+
+- Python analysis unit tests are the local correctness target。
+- Full build/run requires CUDA+MPI+nvCOMP cluster environment; this local branch has not yet produced cluster campaign evidence。
+- 因此当前没有实验性 `PATCH_CANDIDATE` / `CONDITIONAL_BENEFIT` / `NO_BENEFIT` 结果，下一步应先跑 smoke，再用三次独立 allocation 跑 main campaign。
