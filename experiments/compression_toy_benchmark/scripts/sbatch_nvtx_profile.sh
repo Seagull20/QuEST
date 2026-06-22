@@ -65,6 +65,7 @@ main() {
     export QUEST_BENCH_BUILD_PARALLEL="${QUEST_BENCH_BUILD_PARALLEL:-${SLURM_CPUS_ON_NODE:-4}}"
 
     local job_id="${SLURM_JOB_ID:-manual}"
+    local nvtx_chunk_amps="${QUEST_COMPRESSION_NVTX_CHUNK_AMPS:-4194304}"
     local raw_dir="${QUEST_ROOT}/experiments/results/raw/compression_toy_nvtx_${job_id}"
     local processed_dir="${QUEST_ROOT}/experiments/results/processed/compression_toy_nvtx_${job_id}"
     mkdir -p "${raw_dir}" "${processed_dir}" "${raw_dir}/logs"
@@ -87,6 +88,7 @@ main() {
         printf 'NVCOMP_ROOT=%s\n' "${NVCOMP_ROOT:-}"
         printf 'QUEST_NVTX_INCLUDE_DIR=%s\n' "${QUEST_NVTX_INCLUDE_DIR:-}"
         printf 'QUEST_COMPRESSION_CUDA_ARCH=%s\n' "${QUEST_COMPRESSION_CUDA_ARCH}"
+        printf 'QUEST_COMPRESSION_NVTX_CHUNK_AMPS=%s\n' "${nvtx_chunk_amps}"
         printf '\n[slurm]\n'
         env | sort | grep -E '^(SLURM|CUDA|OMPI|NVCOMP|QUEST_)' || true
     } > "${raw_dir}/environment.log"
@@ -99,6 +101,7 @@ main() {
         --ranks 4 \
         --qubits 28 \
         --payload-amps 0 \
+        --chunk-amps "${nvtx_chunk_amps}" \
         --allocation-id "${job_id}" \
         --warmup 0 \
         --reps 3 \
