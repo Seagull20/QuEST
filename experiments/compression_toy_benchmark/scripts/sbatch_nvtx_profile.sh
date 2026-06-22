@@ -12,9 +12,13 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BENCH_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-QUEST_ROOT="$(cd "${BENCH_ROOT}/../.." && pwd)"
+if [ -n "${SLURM_SUBMIT_DIR:-}" ] && [ -d "${SLURM_SUBMIT_DIR}/experiments/compression_toy_benchmark" ]; then
+    QUEST_ROOT="$(cd "${SLURM_SUBMIT_DIR}" && pwd)"
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    QUEST_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+fi
+BENCH_ROOT="${QUEST_ROOT}/experiments/compression_toy_benchmark"
 COMMON_SH="${QUEST_ROOT}/experiments/scripts/common.sh"
 
 # shellcheck disable=SC1090
