@@ -1834,8 +1834,154 @@ Hetero amp microbench decision：
 - 只复用 timing breakdown、TSV-first reporting、Slurm environment snapshot 和 benchmark-local documentation 的思路。
 - 原因：当前问题是 communication-path compression break-even，不是 heterogenous host overflow simulation。
 
-Current verification boundary：
+Scaffold-time verification boundary：
 
 - Python analysis unit tests are the local correctness target。
 - Full build/run requires CUDA+MPI+nvCOMP cluster environment; this local branch has not yet produced cluster campaign evidence。
 - 因此当前没有实验性 `PATCH_CANDIDATE` / `CONDITIONAL_BENEFIT` / `NO_BENEFIT` 结果，下一步应先跑 smoke，再用三次独立 allocation 跑 main campaign。
+
+## 2026-06-19 - Compression toy benchmark cluster campaign result
+
+本轮在 `mls-cluster` Teaching / Interactive RTX 2080 Ti 单节点环境执行了 compression toy benchmark campaign。目标仍是不 patch QuEST communication internals，而是用 QuEST-mimicking standalone CUDA+MPI+nvCOMP benchmark 判断 GPU-side lossless compression 是否值得进入 QuEST patch prototype。
+
+Cluster environment:
+
+- Remote repo: `/home/s2866920/quest_project/QuEST`
+- Branch: `codex/compression-toy-benchmark`
+- Remote head: `a7e2a854c44cb4283e3cb70b9d6a53131b80cf75`
+- CUDA: 12.8
+- MPI: Open MPI 4.1.6
+- nvCOMP: `libnvcomp 5.1.0.21`, `libnvcomp-dev 5.1.0.21`
+- nvCOMP env: `/home/s2866920/miniconda3/envs/quest_compression`
+
+Run summary:
+
+- Smoke job `3510673`: 2 ranks, small payload, raw/LZ4/GDeflate/Bitcomp; 48/48 rows `PASS`, byte-identical reconstruction。
+- Main job `3510721`: full-size GDeflate attempt failed with CUDA out-of-memory on the first 1 GiB/rank genuine H-plus case；therefore GDeflate was removed from the full-payload main matrix。
+- Main jobs `3510764`, `3510765`, `3510766`: 4 ranks, qubits=28, raw/LZ4/Bitcomp；each produced 2016/2016 `PASS` rows with byte-identical reconstruction。
+- Combined main analysis: 6048 rows, all `PASS`, all `verify_status=PASS`, no missing raw baseline。
+
+Local artifacts:
+
+- Benchmark-local report: `experiments/compression_toy_benchmark/docs/CLUSTER_CAMPAIGN_2026-06-19.md`
+- Smoke raw: `experiments/results/raw/compression_toy_smoke_3510673`
+- GDeflate OOM evidence: `experiments/results/raw/compression_toy_main_3510721`
+- Main raw: `experiments/results/raw/compression_toy_main_3510764`, `compression_toy_main_3510765`, `compression_toy_main_3510766`
+- Combined raw: `experiments/results/raw/compression_toy_main_combined_3510764_3510766`
+- Combined processed: `experiments/results/processed/compression_toy_main_combined_3510764_3510766`
+
+Combined genuine result:
+
+| Genuine pattern | Exchange shape | Best codec | Median speedup | Median compression ratio |
+|---|---|---|---:|---:|
+| `quest_h_plus_pre_exchange` | `amps_to_buffers` | Bitcomp | 70.070x | 336.074x |
+| `quest_h_plus_pre_exchange` | `sub_buffers` | Bitcomp | 60.340x | 336.067x |
+| `quest_h_halfzero_pre_exchange` | `amps_to_buffers` | Bitcomp | 54.774x | 381.936x |
+| `quest_h_halfzero_pre_exchange` | `sub_buffers` | Bitcomp | 50.933x | 381.921x |
+| `quest_qft` | `amps_to_buffers` | Bitcomp | 47.175x | 288.699x |
+| `quest_qft` | `sub_buffers` | Bitcomp | 38.608x | 288.694x |
+| `quest_random` | `amps_to_buffers` | Bitcomp | 1.093x | 1.100x |
+| `quest_random` | `sub_buffers` | Bitcomp | 1.090x | 1.100x |
+
+Verdict:
+
+- Combined analyzer emitted `PATCH_CANDIDATE`。
+- Engineering interpretation should be **conditional `PATCH_CANDIDATE`**：
+  - H-plus、H-halfzero、QFT genuine payloads 在 3 次独立 allocation 中都稳定 strong win，且 `allocation_regression=0`。
+  - Random genuine payload 只对 Bitcomp 有 marginal gain，低于 1.10 patch gate；LZ4 在 random payload 上是 `NO_BENEFIT` 且有 allocation regression。
+  - GDeflate 在 full-payload 2080Ti condition 下 OOM，不应作为 first-path codec。
+  - Combined analysis flagged 139 outlier samples；outliers 已记录在 `outliers.tsv`，没有被静默删除。H/QFT 结论不是 outlier-driven，random 结论应保持 marginal。
+
+Recommendation:
+
+- 下一步可以尝试 QuEST communication-path patch prototype，但只以 `nvcomp_bitcomp` + raw fallback + codec/workload gating 作为 first path。
+- patch gate 应继续要求 byte-identical reconstruction、`T_compress + T_send_compressed + T_decompress < T_send_raw`、structured genuine payload 稳定收益，以及 random/high-entropy payload 可 fallback。
+- 不建议直接把 Bellard/ML compression、lossy compression、GDeflate full-payload path 或 full simulator redesign 作为当前 QuEST patch 的 first path。
+
+## 2026-06-22 - Compression toy NVTX breakdown profile
+
+本轮补做 standalone `compression_exchange` 的 NVTX / Nsight Systems breakdown，用同一 toy benchmark 比较：
+
+- default staging raw path: `GPU -> D2H -> MPI host exchange -> H2D`
+- Bitcomp path: `GPU -> compress -> D2H compressed -> MPI -> H2D compressed -> decompress`
+
+Implementation:
+
+- 在 `experiments/compression_toy_benchmark/src/compression_exchange.cu` 增加 opt-in NVTX ranges：
+  - top-level: `quest_compression.exchange.raw`, `quest_compression.exchange.compressed`
+  - stage: `quest_compression.stage.compress`, `size_exchange`, `d2h`, `mpi`, `h2d`, `decompress`
+  - fallback: `quest_compression.exchange.fallback_raw`
+- `CMakeLists.txt` / `build.sh` 增加 `QUEST_COMPRESSION_ENABLE_NVTX` 和 `QUEST_NVTX_INCLUDE_DIR`。
+- 新增 `scripts/nvtx_breakdown.py`，解析 Nsight `.sqlite`，输出：
+  - `nvtx_range_samples.tsv`
+  - `nvtx_breakdown_summary.tsv`
+  - `nvtx_breakdown_comparison.tsv`
+  - `nvtx_breakdown_conclusion.md`
+- 新增 `scripts/run_nvtx_profile.py` 和 `scripts/sbatch_nvtx_profile.sh`，用于 capture one H-plus payload、profile raw/Bitcomp、export SQLite、merge TSV、run analysis。
+- 新增 `tests/test_nvtx_breakdown.py`，覆盖 Nsight `text` / `textId` schema 和 missing-stage reporting。
+
+Local verification:
+
+- `python3 -m unittest experiments/compression_toy_benchmark/tests/test_nvtx_breakdown.py experiments/compression_toy_benchmark/tests/test_analyze_campaign.py` passed。
+- `bash -n experiments/compression_toy_benchmark/scripts/sbatch_nvtx_profile.sh` passed。
+
+Cluster run:
+
+- Cluster: `mls-cluster`, Teaching / Interactive, node `landonia01`, 4x RTX 2080 Ti。
+- Job: `3515222`, `COMPLETED`, elapsed `00:06:31`。
+- Remote branch: `codex/compression-toy-benchmark`。
+- Environment:
+  - CUDA 12.8, `nvcc V12.8.93`
+  - Open MPI 4.1.6
+  - Nsight Systems 2024.6.2
+  - nvCOMP root: `/home/s2866920/miniconda3/envs/quest_compression`
+- Profile condition:
+  - genuine `quest_h_plus_pre_exchange`
+  - `qubits=28`, 4 ranks, full captured payload `1,073,741,824 bytes/rank`
+  - `chunk_amps=4,194,304`, i.e. 64 MiB per MPI message
+  - `warmup=0`, `reps=3`
+  - `nsys profile --trace=cuda,mpi,nvtx,osrt --mpi-impl=openmpi`
+
+Important outlier:
+
+- Earlier job `3515204` used the same full 1 GiB/rank payload as a single MPI message under `--trace=mpi`。
+- It produced complete NVTX ranges, but raw rows had `verify_status=FAIL` on several ranks, while the previous non-Nsight main campaign had 2016/2016 raw rows passing。
+- Interpretation: this is treated as a profiling-condition outlier, likely from Nsight MPI tracing around very large `MPI_Sendrecv` messages. It is not accepted as final evidence.
+- The accepted job `3515222` keeps the full payload but chunks the exchange into 64 MiB messages; all 24 profile rows are `status=PASS`, `verify_status=PASS`。
+
+Accepted NVTX result (`3515222`):
+
+| Path / stage | Median time |
+|---|---:|
+| raw exchange total | 0.855085 s |
+| raw D2H | 0.191693 s |
+| raw MPI | 0.465922 s |
+| raw H2D | 0.201224 s |
+| Bitcomp exchange total | 0.022647 s |
+| Bitcomp compress | 0.009356 s |
+| Bitcomp size exchange | 0.000937 s |
+| Bitcomp D2H compressed | 0.000756 s |
+| Bitcomp MPI compressed | 0.000911 s |
+| Bitcomp H2D compressed | 0.000851 s |
+| Bitcomp decompress | 0.008377 s |
+
+Summary:
+
+- NVTX top-level speedup: `37.758x`。
+- Campaign analyzer speedup: `37.759x`。
+- Median compression ratio: `335.961x`。
+- No missing required NVTX stage; no outlier sample in this focused H-plus run。
+- The breakdown confirms the mechanism behind the previous campaign result: raw is dominated by MPI + host transfer, while Bitcomp shifts cost into GPU compress/decompress and makes host transfer/MPI almost negligible for this structured payload。
+
+Artifacts:
+
+- Raw/profile: `experiments/results/raw/compression_toy_nvtx_3515222`
+- Slurm output: `experiments/results/raw/compression_toy_nvtx_3515222_slurm.out`
+- Processed: `experiments/results/processed/compression_toy_nvtx_3515222`
+- Benchmark-local note: `experiments/compression_toy_benchmark/docs/NVTX_BREAKDOWN_2026-06-22.md`
+
+Conclusion:
+
+- This is not an in-tree QuEST hot-path profile; it is still the standalone QuEST-mimicking toy benchmark。
+- Under the full H-plus payload with safe 64 MiB chunking, the result supports the existing conditional Bitcomp patch-candidate conclusion。
+- A QuEST prototype should keep chunking, raw fallback, byte-identical verification, and a cheap workload/entropy gate; the `3515204` failure is a reminder not to assume every profiling/MPI message-size condition is safe.
