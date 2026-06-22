@@ -1,6 +1,14 @@
 #include <mpi.h>
 #include <cuda_runtime.h>
 
+#ifndef QUEST_COMPRESSION_ENABLE_NVTX
+#define QUEST_COMPRESSION_ENABLE_NVTX 0
+#endif
+
+#if QUEST_COMPRESSION_ENABLE_NVTX
+#include <nvtx3/nvToolsExt.h>
+#endif
+
 #include <nvcomp.hpp>
 #include <nvcomp/nvcompManager.hpp>
 #if QUEST_COMPRESSION_HAVE_NVCOMP_LZ4
@@ -26,6 +34,25 @@
 #include <string>
 #include <sys/stat.h>
 #include <vector>
+
+class ScopedNvtxRange {
+public:
+  explicit ScopedNvtxRange(const char* label)
+  {
+#if QUEST_COMPRESSION_ENABLE_NVTX
+    nvtxRangePushA(label);
+#else
+    (void)label;
+#endif
+  }
+
+  ~ScopedNvtxRange()
+  {
+#if QUEST_COMPRESSION_ENABLE_NVTX
+    nvtxRangePop();
+#endif
+  }
+};
 
 struct Complex64 {
   double real;
@@ -318,22 +345,34 @@ static Timing run_raw_rep(
   const std::size_t chunk_bytes = opts.chunk_amps == 0 ? payload_bytes : opts.chunk_amps * sizeof(Complex64);
   double start_total = wall();
 
-  for (std::size_t offset = 0; offset < payload_bytes; offset += chunk_bytes) {
-    const std::size_t bytes = std::min(chunk_bytes, payload_bytes - offset);
-    double s = wall();
-    CUDA_CHECK(cudaMemcpyAsync(h_raw_send, d_src + offset, bytes, cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    t.d2h += wall() - s;
+  {
+    ScopedNvtxRange exchange_range("quest_compression.exchange.raw");
+    for (std::size_t offset = 0; offset < payload_bytes; offset += chunk_bytes) {
+      const std::size_t bytes = std::min(chunk_bytes, payload_bytes - offset);
+      double s = wall();
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.d2h");
+        CUDA_CHECK(cudaMemcpyAsync(h_raw_send, d_src + offset, bytes, cudaMemcpyDeviceToHost, stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+      }
+      t.d2h += wall() - s;
 
-    s = wall();
-    mpi_exchange_bytes(h_raw_send, bytes, h_raw_recv, bytes, pair_rank);
-    t.mpi += wall() - s;
+      s = wall();
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.mpi");
+        mpi_exchange_bytes(h_raw_send, bytes, h_raw_recv, bytes, pair_rank);
+      }
+      t.mpi += wall() - s;
 
-    s = wall();
-    CUDA_CHECK(cudaMemcpyAsync(d_recv + offset, h_raw_recv, bytes, cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    t.h2d += wall() - s;
-    t.compressed_bytes += bytes;
+      s = wall();
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.h2d");
+        CUDA_CHECK(cudaMemcpyAsync(d_recv + offset, h_raw_recv, bytes, cudaMemcpyHostToDevice, stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+      }
+      t.h2d += wall() - s;
+      t.compressed_bytes += bytes;
+    }
   }
 
   t.total = wall() - start_total;
@@ -366,68 +405,99 @@ static Timing run_compressed_rep(
   const std::size_t chunk_bytes = opts.chunk_amps == 0 ? payload_bytes : opts.chunk_amps * sizeof(Complex64);
   double start_total = wall();
 
-  for (std::size_t offset = 0; offset < payload_bytes; offset += chunk_bytes) {
-    const std::size_t bytes = std::min(chunk_bytes, payload_bytes - offset);
-    std::uint64_t local_comp_size = 0;
-    std::uint64_t peer_comp_size = 0;
+  {
+    ScopedNvtxRange exchange_range("quest_compression.exchange.compressed");
+    for (std::size_t offset = 0; offset < payload_bytes; offset += chunk_bytes) {
+      const std::size_t bytes = std::min(chunk_bytes, payload_bytes - offset);
+      std::uint64_t local_comp_size = 0;
+      std::uint64_t peer_comp_size = 0;
 
-    double s = wall();
-    auto comp_config = manager.configure_compression(bytes);
-    manager.compress(d_src + offset, d_comp_send, comp_config, d_comp_size);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    if (comp_config.get_status() != nullptr)
-      check_nvcomp(*comp_config.get_status(), "compress");
-    CUDA_CHECK(cudaMemcpy(&local_comp_size, d_comp_size, sizeof(size_t), cudaMemcpyDeviceToHost));
-    t.compress += wall() - s;
+      double s = wall();
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.compress");
+        auto comp_config = manager.configure_compression(bytes);
+        manager.compress(d_src + offset, d_comp_send, comp_config, d_comp_size);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+        if (comp_config.get_status() != nullptr)
+          check_nvcomp(*comp_config.get_status(), "compress");
+        CUDA_CHECK(cudaMemcpy(&local_comp_size, d_comp_size, sizeof(size_t), cudaMemcpyDeviceToHost));
+      }
+      t.compress += wall() - s;
 
-    s = wall();
-    MPI_Sendrecv(
-      &local_comp_size, 1, MPI_UINT64_T, pair_rank, 1,
-      &peer_comp_size, 1, MPI_UINT64_T, pair_rank, 1,
-      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    t.size_exchange += wall() - s;
-
-    if (local_comp_size >= bytes || peer_comp_size >= bytes) {
-      t.fallback_used = 1;
       s = wall();
-      CUDA_CHECK(cudaMemcpyAsync(h_raw_send, d_src + offset, bytes, cudaMemcpyDeviceToHost, stream));
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.size_exchange");
+        MPI_Sendrecv(
+          &local_comp_size, 1, MPI_UINT64_T, pair_rank, 1,
+          &peer_comp_size, 1, MPI_UINT64_T, pair_rank, 1,
+          MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      }
+      t.size_exchange += wall() - s;
+
+      if (local_comp_size >= bytes || peer_comp_size >= bytes) {
+        ScopedNvtxRange fallback_range("quest_compression.exchange.fallback_raw");
+        t.fallback_used = 1;
+        s = wall();
+        {
+          ScopedNvtxRange stage_range("quest_compression.stage.d2h");
+          CUDA_CHECK(cudaMemcpyAsync(h_raw_send, d_src + offset, bytes, cudaMemcpyDeviceToHost, stream));
+          CUDA_CHECK(cudaStreamSynchronize(stream));
+        }
+        t.d2h += wall() - s;
+
+        s = wall();
+        {
+          ScopedNvtxRange stage_range("quest_compression.stage.mpi");
+          mpi_exchange_bytes(h_raw_send, bytes, h_raw_recv, bytes, pair_rank);
+        }
+        t.mpi += wall() - s;
+
+        s = wall();
+        {
+          ScopedNvtxRange stage_range("quest_compression.stage.h2d");
+          CUDA_CHECK(cudaMemcpyAsync(d_recv + offset, h_raw_recv, bytes, cudaMemcpyHostToDevice, stream));
+          CUDA_CHECK(cudaStreamSynchronize(stream));
+        }
+        t.h2d += wall() - s;
+        t.compressed_bytes += bytes;
+        continue;
+      }
+
+      s = wall();
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.d2h");
+        CUDA_CHECK(cudaMemcpyAsync(h_comp_send, d_comp_send, local_comp_size, cudaMemcpyDeviceToHost, stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+      }
       t.d2h += wall() - s;
 
       s = wall();
-      mpi_exchange_bytes(h_raw_send, bytes, h_raw_recv, bytes, pair_rank);
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.mpi");
+        mpi_exchange_bytes(h_comp_send, local_comp_size, h_comp_recv, peer_comp_size, pair_rank);
+      }
       t.mpi += wall() - s;
 
       s = wall();
-      CUDA_CHECK(cudaMemcpyAsync(d_recv + offset, h_raw_recv, bytes, cudaMemcpyHostToDevice, stream));
-      CUDA_CHECK(cudaStreamSynchronize(stream));
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.h2d");
+        CUDA_CHECK(cudaMemcpyAsync(d_comp_recv, h_comp_recv, peer_comp_size, cudaMemcpyHostToDevice, stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+      }
       t.h2d += wall() - s;
-      t.compressed_bytes += bytes;
-      continue;
+
+      s = wall();
+      {
+        ScopedNvtxRange stage_range("quest_compression.stage.decompress");
+        auto decomp_config = manager.configure_decompression(d_comp_recv);
+        manager.decompress(d_recv + offset, d_comp_recv, decomp_config);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+        if (decomp_config.get_status() != nullptr)
+          check_nvcomp(*decomp_config.get_status(), "decompress");
+      }
+      t.decompress += wall() - s;
+      t.compressed_bytes += local_comp_size;
     }
-
-    s = wall();
-    CUDA_CHECK(cudaMemcpyAsync(h_comp_send, d_comp_send, local_comp_size, cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    t.d2h += wall() - s;
-
-    s = wall();
-    mpi_exchange_bytes(h_comp_send, local_comp_size, h_comp_recv, peer_comp_size, pair_rank);
-    t.mpi += wall() - s;
-
-    s = wall();
-    CUDA_CHECK(cudaMemcpyAsync(d_comp_recv, h_comp_recv, peer_comp_size, cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    t.h2d += wall() - s;
-
-    s = wall();
-    auto decomp_config = manager.configure_decompression(d_comp_recv);
-    manager.decompress(d_recv + offset, d_comp_recv, decomp_config);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    if (decomp_config.get_status() != nullptr)
-      check_nvcomp(*decomp_config.get_status(), "decompress");
-    t.decompress += wall() - s;
-    t.compressed_bytes += local_comp_size;
   }
 
   t.total = wall() - start_total;

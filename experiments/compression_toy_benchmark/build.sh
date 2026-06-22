@@ -16,6 +16,8 @@ Usage:
 
 Environment:
   NVCOMP_ROOT=<path>                         nvCOMP install prefix for exchange build.
+  QUEST_COMPRESSION_ENABLE_NVTX=0|1          Enable NVTX markers in compression_exchange.
+  QUEST_NVTX_INCLUDE_DIR=<path>              Optional include dir containing nvtx3/nvToolsExt.h.
   QUEST_COMPRESSION_CUDA_ARCH=<arch>         CUDA architecture override, e.g. 75 or 86.
   QUEST_BENCH_BUILD_PARALLEL=<N>             Build parallelism override.
 EOF
@@ -102,6 +104,8 @@ build_capture() {
 build_exchange() {
     local build_dir="${BUILD_ROOT}/exchange"
     local arch="${QUEST_COMPRESSION_CUDA_ARCH:-}"
+    local nvtx_enabled="OFF"
+    local nvtx_arg=()
 
     has_cmd cmake || die "cmake not found."
     if ! has_cmd nvcc; then
@@ -111,13 +115,29 @@ build_exchange() {
         arch="$(detect_cuda_arch || true)"
     fi
     [ -n "${arch}" ] || arch=75
+    case "${QUEST_COMPRESSION_ENABLE_NVTX:-0}" in
+        1|ON|on|true|TRUE|yes|YES)
+            nvtx_enabled="ON"
+            ;;
+        0|OFF|off|false|FALSE|no|NO|"")
+            nvtx_enabled="OFF"
+            ;;
+        *)
+            die "bad QUEST_COMPRESSION_ENABLE_NVTX=${QUEST_COMPRESSION_ENABLE_NVTX}; use 0 or 1"
+            ;;
+    esac
+    if [ -n "${QUEST_NVTX_INCLUDE_DIR:-}" ]; then
+        nvtx_arg=("-DQUEST_NVTX_INCLUDE_DIR=${QUEST_NVTX_INCLUDE_DIR}")
+    fi
 
     rm -rf "${build_dir}"
     mkdir -p "${build_dir}"
     info "Configuring compression exchange build"
     cmake -S "${SCRIPT_DIR}" -B "${build_dir}" \
         -DCMAKE_BUILD_TYPE=Release \
-        "-DCMAKE_CUDA_ARCHITECTURES=${arch}"
+        "-DCMAKE_CUDA_ARCHITECTURES=${arch}" \
+        "-DQUEST_COMPRESSION_ENABLE_NVTX=${nvtx_enabled}" \
+        "${nvtx_arg[@]}"
     info "Building compression_exchange"
     cmake --build "${build_dir}" --parallel "$(parallel_jobs)" --target compression_exchange
 }
