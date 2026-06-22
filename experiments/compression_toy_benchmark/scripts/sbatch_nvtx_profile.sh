@@ -20,18 +20,12 @@ COMMON_SH="${QUEST_ROOT}/experiments/scripts/common.sh"
 . "${COMMON_SH}"
 
 activate_quest_compression_env() {
-    if [ -n "${CONDA_EXE:-}" ]; then
-        eval "$("${CONDA_EXE}" shell.bash hook)"
-    elif [ -f "${HOME}/miniconda3/etc/profile.d/conda.sh" ]; then
-        # shellcheck disable=SC1091
-        . "${HOME}/miniconda3/etc/profile.d/conda.sh"
-    elif [ -f "${HOME}/anaconda3/etc/profile.d/conda.sh" ]; then
-        # shellcheck disable=SC1091
-        . "${HOME}/anaconda3/etc/profile.d/conda.sh"
-    else
-        die "conda shell hook not found; cannot activate quest_compression"
-    fi
-    conda activate quest_compression || die "failed to activate conda env quest_compression"
+    local env_dir="${QUEST_COMPRESSION_CONDA_PREFIX:-${HOME}/miniconda3/envs/quest_compression}"
+    [ -d "${env_dir}" ] || die "quest_compression env directory not found: ${env_dir}"
+    export CONDA_PREFIX="${env_dir}"
+    export PATH="${CONDA_PREFIX}/bin:${PATH}"
+    export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
+    export CMAKE_PREFIX_PATH="${CONDA_PREFIX}:${CMAKE_PREFIX_PATH:-}"
 }
 
 resolve_nvcomp_root() {
