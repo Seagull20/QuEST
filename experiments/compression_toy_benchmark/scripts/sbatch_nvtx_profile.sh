@@ -58,6 +58,7 @@ main() {
     ensure_nsys_available
     activate_quest_compression_env
     resolve_nvcomp_root
+    cd "${QUEST_ROOT}"
 
     export QUEST_COMPRESSION_CUDA_ARCH="${QUEST_COMPRESSION_CUDA_ARCH:-75}"
     export QUEST_COMPRESSION_ENABLE_NVTX=1
