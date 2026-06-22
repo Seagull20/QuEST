@@ -3,9 +3,10 @@
 #SBATCH --partition=Interactive
 #SBATCH --account=general-teaching
 #SBATCH --qos=teaching
+#SBATCH --nodes=1
 #SBATCH --gres=gpu:4
 #SBATCH --ntasks=4
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=1
 #SBATCH --time=01:00:00
 #SBATCH --output=experiments/results/raw/compression_toy_nvtx_%j_slurm.out
 
