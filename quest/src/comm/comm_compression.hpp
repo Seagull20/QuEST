@@ -1,0 +1,43 @@
+/** @file
+ * Experimental, env-gated nvCOMP Bitcomp compression for the CPU-staged
+ * distributed-GPU exchange path (build option ENABLE_NVCOMP, default OFF).
+ *
+ * When active, the staged exchange
+ *     D2H(raw) -> MPI(raw) -> H2D(raw)
+ * is replaced per logical chunk by
+ *     GPU compress -> D2H(compressed) -> MPI(sizes) -> MPI(compressed)
+ *     -> H2D(compressed) -> GPU decompress,
+ * with a per-chunk raw fallback whenever compression does not shrink the
+ * payload on either rank. Numerical results are bit-identical to the raw
+ * path (lossless codec + byte-exact fallback).
+ *
+ * Runtime gating (read once per process):
+ *   QUEST_ENABLE_EXCHANGE_COMPRESSION=1   enable (default off)
+ *   QUEST_EXCHANGE_COMPRESSION_MIN_BYTES  activation threshold (default 16 MiB)
+ *   QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES logical chunk size (default 64 MiB)
+ *   QUEST_EXCHANGE_COMPRESSION_VERIFY=1   debug: shadow raw exchange + memcmp
+ *
+ * @author Zeyu Lin (experimental fork feature; not upstream QuEST)
+ */
+
+#ifndef COMM_COMPRESSION_HPP
+#define COMM_COMPRESSION_HPP
+
+#include "quest/include/types.h"
+
+#ifdef COMPILE_NVCOMP
+
+/// Attempts the compressed staged exchange between this rank's device buffer
+/// dSend and pair rank's, receiving into device buffer dRecv. Returns true if
+/// the exchange was fully handled (caller must skip the raw path), false if
+/// the compressed path is inactive/unavailable (caller falls through to raw).
+/// Symmetric: returns the same decision on both ranks of the pair.
+bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, int pairRank);
+
+#else
+
+static inline bool comm_compression_tryExchange(qcomp*, qcomp*, qindex, int) { return false; }
+
+#endif // COMPILE_NVCOMP
+
+#endif // COMM_COMPRESSION_HPP

@@ -21,6 +21,7 @@
 #include "quest/src/cpu/cpu_config.hpp"
 #include "quest/src/gpu/gpu_config.hpp"
 #include "quest/src/comm/comm_config.hpp"
+#include "quest/src/comm/comm_compression.hpp"
 #include "quest/src/comm/comm_indices.hpp"
 
 #if COMPILE_MPI
@@ -410,6 +411,12 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
 
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
+#ifdef COMPILE_NVCOMP
+        // experimental env-gated Bitcomp path; returns false when inactive
+        if (comm_compression_tryExchange(&qureg.gpuAmps[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank))
+            return;
+#endif
+
         // copy GPU memory (amps) into CPU memory (amps), beginning from 0
         {
             QuestProfileRange d2hRange("quest.communication.d2h");
@@ -453,6 +460,12 @@ void exchangeGpuSubBuffers(Qureg qureg, qindex numAmps, int pairRank) {
     } else {
 
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
+
+#ifdef COMPILE_NVCOMP
+        // experimental env-gated Bitcomp path; returns false when inactive
+        if (comm_compression_tryExchange(&qureg.gpuCommBuffer[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank))
+            return;
+#endif
 
         // copy GPU memory (buffer) into CPU memory (amps), preserving offset
         {

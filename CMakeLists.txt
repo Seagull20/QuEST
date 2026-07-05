@@ -475,6 +475,45 @@ if (ENABLE_CUQUANTUM)
 endif()
 
 
+# nvCOMP (experimental env-gated Bitcomp compression of the CPU-staged exchange)
+option(
+  ENABLE_NVCOMP
+  "Whether QuEST will be built with experimental nvCOMP exchange compression. Turned OFF by default."
+  OFF
+)
+if (ENABLE_NVCOMP)
+  if (NOT ENABLE_CUDA)
+    message(FATAL_ERROR "ENABLE_NVCOMP requires ENABLE_CUDA=ON")
+  endif()
+  if (NOT ENABLE_DISTRIBUTION)
+    message(FATAL_ERROR "ENABLE_NVCOMP requires ENABLE_DISTRIBUTION=ON")
+  endif()
+  if (NOT FLOAT_PRECISION EQUAL 2)
+    message(FATAL_ERROR "ENABLE_NVCOMP currently requires FLOAT_PRECISION=2 (double)")
+  endif()
+
+  set(NVCOMP_HINTS)
+  if (DEFINED ENV{NVCOMP_ROOT})
+    list(APPEND NVCOMP_HINTS "$ENV{NVCOMP_ROOT}")
+  endif()
+  if (DEFINED NVCOMP_ROOT)
+    list(APPEND NVCOMP_HINTS "${NVCOMP_ROOT}")
+  endif()
+  find_path(NVCOMP_INCLUDE_DIR NAMES nvcomp.hpp HINTS ${NVCOMP_HINTS} PATH_SUFFIXES include)
+  find_library(NVCOMP_LIBRARY NAMES nvcomp HINTS ${NVCOMP_HINTS} PATH_SUFFIXES lib lib64)
+  if (NOT NVCOMP_INCLUDE_DIR OR NOT NVCOMP_LIBRARY)
+    message(FATAL_ERROR "nvCOMP not found. Set NVCOMP_ROOT (env or cache).")
+  endif()
+
+  find_package(CUDAToolkit REQUIRED)
+  target_sources(QuEST PRIVATE quest/src/comm/comm_compression.cpp)
+  target_include_directories(QuEST PRIVATE "${NVCOMP_INCLUDE_DIR}")
+  target_link_libraries(QuEST PRIVATE "${NVCOMP_LIBRARY}" CUDA::cudart)
+  target_compile_definitions(QuEST PRIVATE COMPILE_NVCOMP=1)
+  message(STATUS "Experimental nvCOMP exchange compression is ENABLED (nvcomp at ${NVCOMP_LIBRARY}).")
+endif()
+
+
 
 # ===============================
 # Set options to save in config.h
