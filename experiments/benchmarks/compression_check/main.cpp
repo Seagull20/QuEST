@@ -19,7 +19,10 @@ int main(int argc, char** argv) {
     QuESTEnv env = getQuESTEnv();
 
     int numQubits = (argc > 1) ? std::atoi(argv[1]) : 24;
-    Qureg qureg = createQureg(numQubits);
+    // force distribution + GPU: auto-deployment skips distribution at small q,
+    // which would bypass the exchange paths this driver exists to test
+    Qureg qureg = createCustomQureg(numQubits, /*isDensMatr*/ 0,
+                                    /*useDistrib*/ 1, /*useGpuAccel*/ 1, /*useMultithread*/ 0);
 
     if (env.rank == 0)
         std::printf("q%d ranks=%d gpu=%d dist=%d\n",
