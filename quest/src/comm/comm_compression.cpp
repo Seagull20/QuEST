@@ -118,7 +118,13 @@ Context& getContext() {
             if (!cudaOk(cudaStreamCreate(&c.stream), "cudaStreamCreate")) return c;
 
             auto opts = nvcompBatchedBitcompCompressDefaultOpts;
-            opts.data_type = NVCOMP_TYPE_DOUBLE; // FLOAT_PRECISION==2 enforced at build
+            // match the campaign benchmark exactly: DOUBLE where the nvcomp
+            // version provides it, ULONGLONG otherwise (same 8-byte lanes)
+#ifdef NVCOMP_TYPE_DOUBLE
+            opts.data_type = NVCOMP_TYPE_DOUBLE;
+#else
+            opts.data_type = NVCOMP_TYPE_ULONGLONG;
+#endif
             c.manager = std::make_unique<nvcomp::BitcompManager>(
                 NVCOMP_INTERNAL_CHUNK, opts, nvcompBatchedBitcompDecompressDefaultOpts,
                 c.stream, nvcomp::NoComputeNoVerify, nvcomp::BitstreamKind::NVCOMP_NATIVE);
