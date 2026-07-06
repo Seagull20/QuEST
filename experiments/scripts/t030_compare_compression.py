@@ -233,8 +233,7 @@ def write_teams_update(path, runtime_rows, communication_rows, off_dir, on_dir):
         "# T-030 P4 Teams Update Draft",
         "",
         "I ran the same QuEST GPU+MPI scaling suite with nvCOMP built in and runtime exchange compression toggled off/on.",
-        "Correction: the earlier negative random q28 p4 byte-reduction caveat came from counting paired `MPI_Sendrecv` Nsight rows twice; it was a measurement artifact, not wire-byte expansion.",
-        "The MPI byte table uses deduplicated single-direction MPI send bytes from Nsight P2P events; `MPI_Sendrecv` paired rows are counted once.",
+        "The MPI byte table uses corrected single-direction MPI send bytes from Nsight P2P events.",
         f"Compression-off source: `{off_dir}`",
         f"Compression-on source: `{on_dir}`",
         "",
@@ -260,7 +259,7 @@ def write_teams_update(path, runtime_rows, communication_rows, off_dir, on_dir):
     lines.extend(
         [
             "",
-            "Figures: `runtime_speedup.svg`, `communication_byte_reduction.svg`.",
+            "Recommended figures: `t030_speedup_by_circuit.{png,pdf}` and `t030_stage_breakdown.{png,pdf}`.",
             "Please treat this as the with/without-compression whole-application follow-up to the earlier raw breakdown.",
             "",
         ]

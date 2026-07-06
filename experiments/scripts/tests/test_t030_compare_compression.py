@@ -127,8 +127,9 @@ class T030CompareCompressionTests(unittest.TestCase):
         self.assertEqual(communication[0]["mpi_send_byte_reduction_pct"], "75.000000")
         teams = paths["teams"].read_text(encoding="utf-8")
         self.assertIn("qft_p4_q28", teams)
-        self.assertIn("measurement artifact", teams)
-        self.assertIn("deduplicated single-direction MPI send bytes", teams)
+        self.assertIn("corrected single-direction MPI send bytes", teams)
+        self.assertIn("t030_speedup_by_circuit", teams)
+        self.assertNotIn("measurement artifact", teams)
         self.assertNotIn("-13.58", teams)
 
 
