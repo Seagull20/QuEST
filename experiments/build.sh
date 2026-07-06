@@ -100,6 +100,7 @@ detect_nvcomp_root() {
     for candidate in \
         "${NVCOMP_ROOT:-}" \
         "${CONDA_PREFIX:-}" \
+        "${HOME}/miniconda3/envs/quest_compression" \
         "${HOME}/miniconda3/envs/quest_env" \
         "/usr/local"; do
         [ -n "${candidate}" ] || continue
