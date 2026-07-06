@@ -141,6 +141,9 @@ class SqliteProfileTests(unittest.TestCase):
             12: "quest.lifecycle.validation",
             13: "quest.lifecycle.qureg_destroy",
             14: "quest.lifecycle.environment_finalize",
+            15: "quest.communication.compress",
+            16: "quest.communication.size_exchange",
+            17: "quest.communication.decompress",
             20: "void kernel_statevec_anyCtrlOneTargDiagMatr_sub<(int)1>()",
             21: "void kernel_statevec_anyCtrlOneTargDenseMatr_subA<(int)0>()",
             22: "void kernel_statevec_anyCtrlSwap_subC<(int)0>()",
@@ -179,8 +182,11 @@ class SqliteProfileTests(unittest.TestCase):
                 (65, 72, None, 5, rank0_tid),
                 (80, 140, None, 3, rank0_tid),
                 (80, 92, None, 6, rank0_tid),
+                (88, 91, None, 15, rank0_tid),
                 (92, 125, None, 7, rank0_tid),
+                (93, 96, None, 16, rank0_tid),
                 (125, 140, None, 8, rank0_tid),
+                (136, 139, None, 17, rank0_tid),
                 (0, 220, None, 1, rank1_tid),
                 (50, 180, None, 2, rank1_tid),
                 (0, 20, None, 9, rank1_tid),
@@ -192,8 +198,11 @@ class SqliteProfileTests(unittest.TestCase):
                 (95, 102, None, 5, rank1_tid),
                 (110, 165, None, 3, rank1_tid),
                 (110, 120, None, 6, rank1_tid),
+                (116, 119, None, 15, rank1_tid),
                 (120, 150, None, 7, rank1_tid),
+                (121, 124, None, 16, rank1_tid),
                 (150, 165, None, 8, rank1_tid),
+                (161, 164, None, 17, rank1_tid),
             ],
         )
 
@@ -311,8 +320,11 @@ class SqliteProfileTests(unittest.TestCase):
         self.assertEqual(rank0["mpi_wait_calls"], 1)
         self.assertEqual(rank0["pack_time_s"], 8 / 1e9)
         self.assertEqual(rank0["d2h_time_s"], 5 / 1e9)
+        self.assertEqual(rank0["compress_time_s"], 3 / 1e9)
+        self.assertEqual(rank0["size_exchange_time_s"], 3 / 1e9)
         self.assertEqual(rank0["mpi_wait_time_s"], 18 / 1e9)
         self.assertEqual(rank0["h2d_time_s"], 8 / 1e9)
+        self.assertEqual(rank0["decompress_time_s"], 3 / 1e9)
         self.assertEqual(rank0["exchange_wall_time_s"], 60 / 1e9)
         self.assertAlmostEqual(rank0["effective_bandwidth_gbps"], 8.0 * 1024 / 60)
 

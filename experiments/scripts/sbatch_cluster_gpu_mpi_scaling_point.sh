@@ -10,6 +10,8 @@ SCRIPT_DIR="${REPO_ROOT}/experiments/scripts"
 # shellcheck source=common.sh
 . "${SCRIPT_DIR}/common.sh"
 
+MPIRUN_PREFIX=(mpirun)
+
 write_point_manifest() {
     local path="$1"
     local workload benchmark gate_kind gate_repeats
@@ -47,7 +49,7 @@ write_point_manifest() {
                 profile_selected=1
             elif [ "${workload}" = "h" ] || [ "${workload}" = "random" ]; then
                 case "${ranks}:${qubits}" in
-                    1:28|1:26|4:28)
+                    1:28|1:26|2:27|4:28)
                         profile_selected=1
                         ;;
                 esac
@@ -138,6 +140,11 @@ write_environment_snapshot() {
         printf 'timing_warmup=1\n'
         printf 'profile_reps=1\n'
         printf 'profile_warmup=0\n'
+        printf 'compression_mode=%s\n' "${QUEST_SCALING_COMPRESSION_MODE:-native}"
+        printf 'bench_enable_nvcomp=%s\n' "${QUEST_BENCH_ENABLE_NVCOMP:-0}"
+        printf 'exchange_compression_enabled=%s\n' "${QUEST_ENABLE_EXCHANGE_COMPRESSION:-unset}"
+        printf 'exchange_compression_min_bytes=%s\n' "${QUEST_EXCHANGE_COMPRESSION_MIN_BYTES:-default}"
+        printf 'exchange_compression_chunk_bytes=%s\n' "${QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES:-default}"
     } > "${RUN_DIR}/campaign_metadata.txt"
     {
         cmake --version | head -n 1
@@ -155,6 +162,72 @@ build_targets() {
     export QUEST_BENCH_ENABLE_PROFILING_MARKERS="${markers}"
     for benchmark in gate_micro qft random; do
         run_logged "${EXPERIMENTS_DIR}/build.sh" "${benchmark}" gpu_mpi Release
+    done
+}
+
+detect_nvcomp_root() {
+    local candidate
+    for candidate in \
+        "${NVCOMP_ROOT:-}" \
+        "${CONDA_PREFIX:-}" \
+        "${HOME}/miniconda3/envs/quest_env" \
+        "/usr/local"; do
+        [ -n "${candidate}" ] || continue
+        if [ -f "${candidate}/include/nvcomp.hpp" ]; then
+            printf '%s' "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+configure_nvcomp_runtime() {
+    local root
+    if [ -z "${NVCOMP_ROOT:-}" ] && root="$(detect_nvcomp_root)"; then
+        export NVCOMP_ROOT="${root}"
+    fi
+    if [ -n "${NVCOMP_ROOT:-}" ] && [ -d "${NVCOMP_ROOT}/lib" ]; then
+        export LD_LIBRARY_PATH="${NVCOMP_ROOT}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+    elif [ -n "${NVCOMP_ROOT:-}" ] && [ -d "${NVCOMP_ROOT}/lib64" ]; then
+        export LD_LIBRARY_PATH="${NVCOMP_ROOT}/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+    fi
+}
+
+configure_compression_environment() {
+    case "${QUEST_SCALING_COMPRESSION_MODE:-native}" in
+        native)
+            ;;
+        off)
+            configure_nvcomp_runtime
+            export QUEST_BENCH_ENABLE_NVCOMP=1
+            export QUEST_ENABLE_EXCHANGE_COMPRESSION=0
+            export QUEST_EXCHANGE_COMPRESSION_VERIFY=0
+            ;;
+        on)
+            configure_nvcomp_runtime
+            export QUEST_BENCH_ENABLE_NVCOMP=1
+            export QUEST_ENABLE_EXCHANGE_COMPRESSION=1
+            export QUEST_EXCHANGE_COMPRESSION_VERIFY=0
+            ;;
+        *)
+            die "QUEST_SCALING_COMPRESSION_MODE must be native, off, or on."
+            ;;
+    esac
+}
+
+configure_mpirun_prefix() {
+    local var
+    MPIRUN_PREFIX=(mpirun)
+    for var in \
+        NVCOMP_ROOT \
+        LD_LIBRARY_PATH \
+        QUEST_ENABLE_EXCHANGE_COMPRESSION \
+        QUEST_EXCHANGE_COMPRESSION_VERIFY \
+        QUEST_EXCHANGE_COMPRESSION_MIN_BYTES \
+        QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES; do
+        if [ -n "${!var:-}" ]; then
+            MPIRUN_PREFIX+=(-x "${var}")
+        fi
     done
 }
 
@@ -249,7 +322,7 @@ run_timing_points() {
         make_benchmark_command timing "${point_id}" "${benchmark}" "${gate_kind}" "${qubits}" \
             "${gate_repeats}" "${random_depth}" "${ratio}" "${seed}" "${output_path}"
         capture_gpu_snapshot "${point_id}" before
-        run_logged mpirun -np "${ranks}" "${BENCH_COMMAND[@]}"
+        run_logged "${MPIRUN_PREFIX[@]}" -np "${ranks}" "${BENCH_COMMAND[@]}"
         capture_gpu_snapshot "${point_id}" after
     done 3< "${POINT_MANIFEST}"
 }
@@ -267,13 +340,13 @@ run_profile_points() {
         make_benchmark_command profile "${point_id}" "${benchmark}" "${gate_kind}" "${qubits}" \
             "${gate_repeats}" "${random_depth}" "${ratio}" "${seed}" "${output_path}"
         capture_gpu_snapshot "profile_${point_id}" before
-        record_command nsys profile --trace=cuda,mpi,nvtx,osrt --mpi-impl=openmpi --force-overwrite=true -o "${profile_base}" mpirun -np "${ranks}" "${BENCH_COMMAND[@]}"
+        record_command nsys profile --trace=cuda,mpi,nvtx,osrt --mpi-impl=openmpi --force-overwrite=true -o "${profile_base}" "${MPIRUN_PREFIX[@]}" -np "${ranks}" "${BENCH_COMMAND[@]}"
         nsys profile \
             --trace=cuda,mpi,nvtx,osrt \
             --mpi-impl=openmpi \
             --force-overwrite=true \
             -o "${profile_base}" \
-            mpirun -np "${ranks}" "${BENCH_COMMAND[@]}"
+            "${MPIRUN_PREFIX[@]}" -np "${ranks}" "${BENCH_COMMAND[@]}"
         profile_report_exists "${profile_base}" || die "No Nsight report detected for ${point_id}."
         export_nsys_sqlite "${profile_base}.nsys-rep" "${sqlite_path}"
         run_logged python3 "${SCRIPT_DIR}/profile_breakdown.py" \
@@ -304,6 +377,8 @@ write_checksums() {
 main() {
     local job_id="${SLURM_JOB_ID:-manual}"
     local gpu_type="${QUEST_SCALING_GPU_TYPE:-2080ti}"
+    local compression_mode="${QUEST_SCALING_COMPRESSION_MODE:-native}"
+    local run_tag="${gpu_type}"
 
     [ "${SLURM_NNODES:-1}" -eq 1 ] || die "Scaling payload requires exactly one node."
     [ "${SLURM_NTASKS:-4}" -eq 4 ] || die "Scaling payload requires a four-task allocation."
@@ -313,8 +388,13 @@ main() {
     source_toolchain_env_if_present
     ensure_minimum_cmake 3.21
     ensure_nsys_available
+    configure_compression_environment
+    configure_mpirun_prefix
 
-    RUN_DIR="$(current_raw_results_dir)/gpu_mpi_scaling_${gpu_type}_${job_id}"
+    if [ "${compression_mode}" != "native" ]; then
+        run_tag="${gpu_type}_${compression_mode}"
+    fi
+    RUN_DIR="$(current_raw_results_dir)/gpu_mpi_scaling_${run_tag}_${job_id}"
     POINT_MANIFEST="${RUN_DIR}/point_manifest.tsv"
     COMMAND_LOG="${RUN_DIR}/commands.log"
     GPU_SAMPLES="${RUN_DIR}/gpu_samples.tsv"
@@ -345,7 +425,7 @@ main() {
         "${RUN_DIR}/computation_breakdown_rank.tsv" \
         "${RUN_DIR}/lifecycle_breakdown_rank.tsv" \
         "${RUN_DIR}/cuda_runtime_summary_rank.tsv"
-    info "Running 11 profile points"
+    info "Running 13 profile points"
     run_profile_points
 
     run_logged python3 "${SCRIPT_DIR}/scaling_analysis.py" \

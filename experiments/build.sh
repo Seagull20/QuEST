@@ -53,6 +53,7 @@ Build type:
 Environment:
   QUEST_BENCH_BUILD_PARALLEL=<N>  Override CMake build parallelism.
   QUEST_BENCH_ENABLE_PROFILING_MARKERS=1  Enable NVTX markers for GPU profiling.
+  QUEST_BENCH_ENABLE_NVCOMP=1  Build gpu_mpi with experimental nvCOMP exchange compression.
 EOF
 }
 
@@ -86,8 +87,29 @@ resolve_source() {
     local benchmark="$1"
     local source="${BENCHMARKS_DIR}/${benchmark}/main.c"
 
-    [ -f "${source}" ] || die "Benchmark source not found: ${source}"
+    if [ ! -f "${source}" ]; then
+        source="${BENCHMARKS_DIR}/${benchmark}/main.cpp"
+    fi
+    [ -f "${source}" ] || die "Benchmark source not found: ${BENCHMARKS_DIR}/${benchmark}/main.[c|cpp]"
     USER_SOURCE="${source}"
+}
+
+detect_nvcomp_root() {
+    local candidate
+
+    for candidate in \
+        "${NVCOMP_ROOT:-}" \
+        "${CONDA_PREFIX:-}" \
+        "${HOME}/miniconda3/envs/quest_env" \
+        "/usr/local"; do
+        [ -n "${candidate}" ] || continue
+        if [ -f "${candidate}/include/nvcomp.hpp" ]; then
+            printf '%s' "${candidate}"
+            return 0
+        fi
+    done
+
+    return 1
 }
 
 configure_backend_defines() {
@@ -277,6 +299,37 @@ configure_backend_args() {
     fi
 }
 
+configure_optional_nvcomp_args() {
+    local backend="$1"
+    local enabled="${QUEST_BENCH_ENABLE_NVCOMP:-0}"
+    local nvcomp_root
+
+    case "${enabled}" in
+        0|OFF|off|false|FALSE|"")
+            return 0
+            ;;
+        1|ON|on|true|TRUE)
+            ;;
+        *)
+            die "QUEST_BENCH_ENABLE_NVCOMP must be boolean (0/1 or OFF/ON)."
+            ;;
+    esac
+
+    [ "${backend}" = "gpu_mpi" ] || die "QUEST_BENCH_ENABLE_NVCOMP=1 is only valid for gpu_mpi."
+
+    if [ -z "${NVCOMP_ROOT:-}" ]; then
+        if nvcomp_root="$(detect_nvcomp_root)"; then
+            export NVCOMP_ROOT="${nvcomp_root}"
+            info "Detected NVCOMP_ROOT=${NVCOMP_ROOT}"
+        fi
+    fi
+
+    CMAKE_ARGS+=(-DENABLE_NVCOMP=ON)
+    if [ -n "${NVCOMP_ROOT:-}" ]; then
+        CMAKE_ARGS+=("-DNVCOMP_ROOT=${NVCOMP_ROOT}")
+    fi
+}
+
 resolve_parallel_jobs() {
     local cpus_per_task="${SLURM_CPUS_PER_TASK:-}"
     local ntasks="${SLURM_NTASKS:-}"
@@ -335,6 +388,7 @@ build_target() {
     configure_backend_args "${backend}"
     configure_backend_defines "${backend}"
     CMAKE_ARGS+=("${BACKEND_ARGS[@]}")
+    configure_optional_nvcomp_args "${backend}"
 
     rm -rf "${build_dir}"
     mkdir -p "${build_dir}"

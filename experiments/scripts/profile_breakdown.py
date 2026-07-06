@@ -87,9 +87,12 @@ COMMUNICATION_FIELDS = [
     "mpi_wait_calls",
     "pack_time_s",
     "d2h_time_s",
+    "compress_time_s",
+    "size_exchange_time_s",
     "mpi_time_s",
     "mpi_wait_time_s",
     "h2d_time_s",
+    "decompress_time_s",
     "exchange_wall_time_s",
     "effective_bandwidth_gbps",
 ]
@@ -315,10 +318,16 @@ def load_nvtx(connection, strings, thread_to_rank, process_to_rank):
             by_rank[rank]["exchanges"].append({"start": int(start), "end": int(end), "path": "direct_gpu"})
         elif name == "quest.communication.d2h":
             by_rank[rank]["d2h"].append(interval)
+        elif name == "quest.communication.compress":
+            by_rank[rank]["compress"].append(interval)
+        elif name == "quest.communication.size_exchange":
+            by_rank[rank]["size_exchange"].append(interval)
         elif name == "quest.communication.mpi":
             by_rank[rank]["mpi"].append(interval)
         elif name == "quest.communication.h2d":
             by_rank[rank]["h2d"].append(interval)
+        elif name == "quest.communication.decompress":
+            by_rank[rank]["decompress"].append(interval)
         elif name.startswith(LIFECYCLE_PREFIX):
             by_rank[rank]["lifecycle"].append(
                 {"stage": name[len(LIFECYCLE_PREFIX):], "start": int(start), "end": int(end)}
@@ -579,8 +588,11 @@ def build_communication_rows(point, benchmark, num_qubits, mpi_ranks, rank, nvtx
     for exchange_id, exchange in enumerate(exchanges):
         exchange_interval = (exchange["start"], exchange["end"])
         d2h_ranges = child_intervals(nvtx["d2h"], exchange)
+        compress_ranges = child_intervals(nvtx["compress"], exchange)
+        size_exchange_ranges = child_intervals(nvtx["size_exchange"], exchange)
         mpi_ranges = child_intervals(nvtx["mpi"], exchange)
         h2d_ranges = child_intervals(nvtx["h2d"], exchange)
+        decompress_ranges = child_intervals(nvtx["decompress"], exchange)
         exchange_p2p = [event for event in p2p if interval_contains(exchange_interval, event)]
         exchange_waits = [event for event in waits if interval_contains(exchange_interval, event)]
         sends = [event for event in exchange_p2p if "send" in event["name"].lower()]
@@ -609,9 +621,12 @@ def build_communication_rows(point, benchmark, num_qubits, mpi_ranks, rank, nvtx
                 "mpi_wait_calls": len(exchange_waits),
                 "pack_time_s": seconds(interval_duration(pack_active)),
                 "d2h_time_s": seconds(interval_duration(d2h_active)),
+                "compress_time_s": seconds(interval_duration(compress_ranges)),
+                "size_exchange_time_s": seconds(interval_duration(size_exchange_ranges)),
                 "mpi_time_s": seconds(interval_duration(mpi_ranges)),
                 "mpi_wait_time_s": seconds(interval_duration((event["start"], event["end"]) for event in exchange_waits)),
                 "h2d_time_s": seconds(interval_duration(h2d_active)),
+                "decompress_time_s": seconds(interval_duration(decompress_ranges)),
                 "exchange_wall_time_s": seconds(exchange_ns),
                 "effective_bandwidth_gbps": 0.0 if exchange_ns <= 0 else (8.0 * send_bytes) / exchange_ns,
             }

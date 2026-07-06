@@ -14,6 +14,8 @@ SCALING_GPUS=4
 SCALING_CPUS_PER_TASK=2
 SCALING_WALLTIME="${QUEST_SCALING_WALLTIME:-03:30:00}"
 SCALING_A6000_MAX_WAIT_S="${QUEST_SCALING_A6000_MAX_WAIT_S:-300}"
+SCALING_GPU_CHOICE="${QUEST_SCALING_GPU_CHOICE:-auto}"
+SCALING_COMPRESSION_MODE="${QUEST_SCALING_COMPRESSION_MODE:-native}"
 
 SCALING_PARTITION=""
 SCALING_GPU_TYPE=""
@@ -32,6 +34,10 @@ Selection order:
 
 The job allocates four GPUs once, then runs 1/2/4-rank strong and weak scaling
 points sequentially on the same node.
+
+Environment:
+  QUEST_SCALING_GPU_CHOICE=auto|2080ti|a6000
+  QUEST_SCALING_COMPRESSION_MODE=native|off|on
 EOF
 }
 
@@ -96,28 +102,83 @@ a6000_starts_soon() {
 }
 
 select_scaling_resource() {
-    if test_candidate Teaching gpu:nvidia_rtx_a6000 && a6000_starts_soon; then
-        SCALING_PARTITION="Teaching"
-        SCALING_GPU_TYPE="a6000"
-        SCALING_GPU_GRES="gpu:nvidia_rtx_a6000"
-        return 0
-    fi
+    SCALING_GPU_CHOICE="${QUEST_SCALING_GPU_CHOICE:-${SCALING_GPU_CHOICE:-auto}}"
+    case "${SCALING_GPU_CHOICE}" in
+        auto)
+            if test_candidate Teaching gpu:nvidia_rtx_a6000 && a6000_starts_soon; then
+                SCALING_PARTITION="Teaching"
+                SCALING_GPU_TYPE="a6000"
+                SCALING_GPU_GRES="gpu:nvidia_rtx_a6000"
+                return 0
+            fi
+            ;;
+        a6000)
+            if test_candidate Teaching gpu:nvidia_rtx_a6000; then
+                SCALING_PARTITION="Teaching"
+                SCALING_GPU_TYPE="a6000"
+                SCALING_GPU_GRES="gpu:nvidia_rtx_a6000"
+                return 0
+            fi
+            die "No accessible four-GPU A6000 allocation passed Slurm validation."
+            ;;
+        2080ti)
+            ;;
+        *)
+            die "QUEST_SCALING_GPU_CHOICE must be auto, 2080ti, or a6000."
+            ;;
+    esac
 
-    if test_candidate Interactive gpu:nvidia_geforce_rtx_2080_ti; then
-        SCALING_PARTITION="Interactive"
-        SCALING_GPU_TYPE="2080ti"
-        SCALING_GPU_GRES="gpu:nvidia_geforce_rtx_2080_ti"
-        return 0
-    fi
+    if [ "${SCALING_GPU_CHOICE}" = "auto" ] || [ "${SCALING_GPU_CHOICE}" = "2080ti" ]; then
+        if test_candidate Interactive gpu:nvidia_geforce_rtx_2080_ti; then
+            SCALING_PARTITION="Interactive"
+            SCALING_GPU_TYPE="2080ti"
+            SCALING_GPU_GRES="gpu:nvidia_geforce_rtx_2080_ti"
+            return 0
+        fi
 
-    if test_candidate Teaching gpu:nvidia_geforce_rtx_2080_ti; then
-        SCALING_PARTITION="Teaching"
-        SCALING_GPU_TYPE="2080ti"
-        SCALING_GPU_GRES="gpu:nvidia_geforce_rtx_2080_ti"
-        return 0
+        if test_candidate Teaching gpu:nvidia_geforce_rtx_2080_ti; then
+            SCALING_PARTITION="Teaching"
+            SCALING_GPU_TYPE="2080ti"
+            SCALING_GPU_GRES="gpu:nvidia_geforce_rtx_2080_ti"
+            return 0
+        fi
     fi
 
     die "No accessible four-GPU A6000 or RTX 2080 Ti allocation passed Slurm validation."
+}
+
+build_scaling_export_vars() {
+    local export_vars="ALL"
+    SCALING_COMPRESSION_MODE="${QUEST_SCALING_COMPRESSION_MODE:-${SCALING_COMPRESSION_MODE:-native}}"
+    SCALING_GPU_CHOICE="${QUEST_SCALING_GPU_CHOICE:-${SCALING_GPU_CHOICE:-auto}}"
+
+    case "${SCALING_COMPRESSION_MODE}" in
+        native)
+            ;;
+        off)
+            export_vars="${export_vars},QUEST_BENCH_ENABLE_NVCOMP=1"
+            export_vars="${export_vars},QUEST_ENABLE_EXCHANGE_COMPRESSION=0"
+            export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_VERIFY=0"
+            ;;
+        on)
+            export_vars="${export_vars},QUEST_BENCH_ENABLE_NVCOMP=1"
+            export_vars="${export_vars},QUEST_ENABLE_EXCHANGE_COMPRESSION=1"
+            export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_VERIFY=0"
+            ;;
+        *)
+            die "QUEST_SCALING_COMPRESSION_MODE must be native, off, or on."
+            ;;
+    esac
+
+    export_vars="${export_vars},BENCH_PLATFORM=cluster"
+    export_vars="${export_vars},QUEST_SCALING_PARTITION=${SCALING_PARTITION}"
+    export_vars="${export_vars},QUEST_SCALING_GPU_TYPE=${SCALING_GPU_TYPE}"
+    export_vars="${export_vars},QUEST_SCALING_GPU_GRES=${SCALING_GPU_GRES}"
+    export_vars="${export_vars},QUEST_SCALING_GPU_CHOICE=${SCALING_GPU_CHOICE}"
+    export_vars="${export_vars},QUEST_SCALING_COMPRESSION_MODE=${SCALING_COMPRESSION_MODE}"
+    export_vars="${export_vars},QUEST_SCALING_GIT_COMMIT=$(git rev-parse HEAD)"
+    export_vars="${export_vars},QUEST_BENCH_BUILD_PARALLEL=${QUEST_BENCH_BUILD_PARALLEL:-8}"
+    printf '%s\n' "${export_vars}"
 }
 
 main() {
@@ -156,13 +217,7 @@ main() {
         return 0
     fi
 
-    export_vars="ALL"
-    export_vars="${export_vars},BENCH_PLATFORM=cluster"
-    export_vars="${export_vars},QUEST_SCALING_PARTITION=${SCALING_PARTITION}"
-    export_vars="${export_vars},QUEST_SCALING_GPU_TYPE=${SCALING_GPU_TYPE}"
-    export_vars="${export_vars},QUEST_SCALING_GPU_GRES=${SCALING_GPU_GRES}"
-    export_vars="${export_vars},QUEST_SCALING_GIT_COMMIT=$(git rev-parse HEAD)"
-    export_vars="${export_vars},QUEST_BENCH_BUILD_PARALLEL=${QUEST_BENCH_BUILD_PARALLEL:-8}"
+    export_vars="$(build_scaling_export_vars)"
 
     job_id="$(
         sbatch --parsable \
@@ -175,9 +230,9 @@ main() {
             --ntasks-per-node="${SCALING_GPUS}" \
             --cpus-per-task="${SCALING_CPUS_PER_TASK}" \
             --time="${SCALING_WALLTIME}" \
-            --job-name="quest-scaling-${SCALING_GPU_TYPE}" \
-            --output="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_%j.out" \
-            --error="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_%j.err" \
+            --job-name="quest-scaling-${SCALING_GPU_TYPE}-${SCALING_COMPRESSION_MODE}" \
+            --output="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_COMPRESSION_MODE}_%j.out" \
+            --error="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_COMPRESSION_MODE}_%j.err" \
             --export="${export_vars}" \
             "${payload}"
     )"
