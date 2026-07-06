@@ -16,6 +16,7 @@ trap 'rm -rf "${TMPDIR_TEST}"' EXIT
 source "${SUBMITTER}"
 
 SBATCH_LOG="${TMPDIR_TEST}/sbatch.log"
+EXPECTED_REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 sbatch() {
     printf '%s\n' "$*" >> "${SBATCH_LOG}"
     case "$(wc -l < "${SBATCH_LOG}" | tr -d ' ')" in
@@ -44,6 +45,7 @@ while IFS= read -r line; do
 done < "${SBATCH_LOG}"
 [ "${#jobs[@]}" -eq 3 ] || fail "expected 3 sbatch submissions, got ${#jobs[@]}"
 printf '%s\n' "${jobs[0]}" | grep -q -- '--job-name=t030-p4-smoke' || fail "smoke job name missing: ${jobs[0]}"
+printf '%s\n' "${jobs[0]}" | grep -q -- "--chdir=${EXPECTED_REPO_ROOT}" || fail "smoke job chdir missing: ${jobs[0]}"
 printf '%s\n' "${jobs[0]}" | grep -q -- '--gres=gpu:nvidia_geforce_rtx_2080_ti:2' || fail "smoke job did not request 2 RTX 2080 Ti GPUs: ${jobs[0]}"
 printf '%s\n' "${jobs[1]}" | grep -q -- '--dependency=afterok:101' || fail "off job dependency missing: ${jobs[1]}"
 printf '%s\n' "${jobs[1]}" | grep -q 'QUEST_SCALING_COMPRESSION_MODE=off' || fail "off job mode missing: ${jobs[1]}"

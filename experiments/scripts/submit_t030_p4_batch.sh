@@ -65,6 +65,7 @@ submit_t030_batch() {
 
     smoke_job="$(
         sbatch --parsable \
+            --chdir="${REPO_ROOT}" \
             --account="${T030_ACCOUNT}" \
             --qos="${T030_QOS}" \
             --partition="${T030_PARTITION}" \
@@ -84,6 +85,7 @@ submit_t030_batch() {
 
     off_job="$(
         sbatch --parsable \
+            --chdir="${REPO_ROOT}" \
             --dependency="afterok:${smoke_job}" \
             --account="${T030_ACCOUNT}" \
             --qos="${T030_QOS}" \
@@ -104,6 +106,7 @@ submit_t030_batch() {
 
     on_job="$(
         sbatch --parsable \
+            --chdir="${REPO_ROOT}" \
             --dependency="afterok:${off_job}" \
             --account="${T030_ACCOUNT}" \
             --qos="${T030_QOS}" \

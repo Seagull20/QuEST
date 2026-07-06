@@ -5,7 +5,12 @@
 
 set -euo pipefail
 
-REPO_ROOT="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+SCRIPT_PATH_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [ -n "${SLURM_SUBMIT_DIR:-}" ] && [ -f "${SLURM_SUBMIT_DIR}/experiments/build.sh" ]; then
+    REPO_ROOT="${SLURM_SUBMIT_DIR}"
+else
+    REPO_ROOT="${SCRIPT_PATH_ROOT}"
+fi
 SCRIPT_DIR="${REPO_ROOT}/experiments/scripts"
 # shellcheck source=common.sh
 . "${SCRIPT_DIR}/common.sh"
