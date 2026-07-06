@@ -88,6 +88,7 @@ class SqliteProfileTests(unittest.TestCase):
                 globalTid INTEGER NOT NULL,
                 size INTEGER NOT NULL,
                 remoteRank INTEGER,
+                tag INTEGER,
                 textId INTEGER
             );
             CREATE TABLE MPI_START_WAIT_EVENTS (
@@ -151,6 +152,7 @@ class SqliteProfileTests(unittest.TestCase):
             30: "MPI_Isend",
             31: "MPI_Irecv",
             32: "MPI_Waitall",
+            33: "MPI_Sendrecv",
             40: "cudaLaunchKernel_v7000",
             41: "cudaMemcpy_v3020",
             42: "cudaMalloc_v3020",
@@ -247,12 +249,12 @@ class SqliteProfileTests(unittest.TestCase):
             ],
         )
         cursor.executemany(
-            "INSERT INTO MPI_P2P_EVENTS VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO MPI_P2P_EVENTS VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
-                (100, 101, rank0_tid, 1024, 1, 30),
-                (100, 101, rank0_tid, 1024, 1, 31),
-                (130, 131, rank1_tid, 2048, 0, 30),
-                (130, 131, rank1_tid, 2048, 0, 31),
+                (100, 101, rank0_tid, 1024, 1, 0, 30),
+                (100, 101, rank0_tid, 1024, 1, 0, 31),
+                (130, 131, rank1_tid, 2048, 0, 0, 30),
+                (130, 131, rank1_tid, 2048, 0, 0, 31),
             ],
         )
         cursor.executemany(
@@ -261,6 +263,54 @@ class SqliteProfileTests(unittest.TestCase):
         )
         connection.commit()
         connection.close()
+
+    def test_sendrecv_events_are_counted_as_single_direction_bytes(self):
+        connection = sqlite3.connect(self.sqlite_path)
+        cursor = connection.cursor()
+        rank0_tid = global_thread_id(101)
+        rank1_tid = global_thread_id(202)
+        cursor.execute("DELETE FROM MPI_P2P_EVENTS")
+        cursor.executemany(
+            "INSERT INTO MPI_P2P_EVENTS VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                # Nsight represents one MPI_Sendrecv as two rows when send and
+                # recv sizes differ. The analyzer should keep one directional
+                # byte count, conservatively using the smaller half.
+                (100, 101, rank0_tid, 300, 1, 3, 33),
+                (100, 101, rank0_tid, 500, 1, 3, 33),
+                # Equal-size Sendrecv appears as one row in some Nsight exports.
+                (105, 106, rank0_tid, 700, 1, 3, 33),
+                # The same timestamp on a different tag is a distinct call.
+                (105, 106, rank0_tid, 11, 1, 2, 33),
+                # Rank 1 has an ordinary paired Sendrecv.
+                (130, 131, rank1_tid, 900, 0, 3, 33),
+                (130, 131, rank1_tid, 1200, 0, 3, 33),
+            ],
+        )
+        connection.commit()
+        connection.close()
+
+        result = breakdown.parse_profile(
+            sqlite_path=self.sqlite_path,
+            point="qft",
+            benchmark="qft",
+            num_qubits=28,
+            mpi_ranks=2,
+            slurm_nodes=1,
+            gpus=2,
+        )
+
+        rank_rows = {row["rank"]: row for row in result["rank_rows"]}
+        self.assertEqual(rank_rows[0]["mpi_send_calls"], 3)
+        self.assertEqual(rank_rows[0]["mpi_send_bytes"], 1011)
+        self.assertEqual(rank_rows[1]["mpi_send_calls"], 1)
+        self.assertEqual(rank_rows[1]["mpi_send_bytes"], 900)
+
+        communication = {row["rank"]: row for row in result["communication_rows"]}
+        self.assertEqual(communication[0]["send_bytes"], 1011)
+        self.assertEqual(communication[0]["mpi_send_calls"], 3)
+        self.assertEqual(communication[1]["send_bytes"], 900)
+        self.assertEqual(communication[1]["mpi_send_calls"], 1)
 
     def test_parse_profile_builds_rank_and_summary_rows(self):
         result = breakdown.parse_profile(

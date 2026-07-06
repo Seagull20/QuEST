@@ -56,6 +56,7 @@ constexpr std::size_t NVCOMP_INTERNAL_CHUNK = std::size_t(1) << 20; // 1 MiB, as
 struct Config {
     bool enabled = false;
     bool verify = false;
+    bool stats = false;
     std::size_t minBytes   = std::size_t(16) << 20; // SIZE_LIMITED boundary
     std::size_t chunkBytes = std::size_t(64) << 20; // campaign's best large-payload chunk
 };
@@ -78,6 +79,8 @@ const Config& getConfig() {
         c.enabled = (on != nullptr && on[0] == '1');
         const char* vf = std::getenv("QUEST_EXCHANGE_COMPRESSION_VERIFY");
         c.verify = (vf != nullptr && vf[0] == '1');
+        const char* sf = std::getenv("QUEST_EXCHANGE_COMPRESSION_STATS");
+        c.stats = (sf != nullptr && sf[0] == '1');
         c.minBytes = readEnvBytes("QUEST_EXCHANGE_COMPRESSION_MIN_BYTES", c.minBytes);
         c.chunkBytes = readEnvBytes("QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES", c.chunkBytes);
         // chunk must be an amp multiple, sane, and single-MPI-message safe (< INT_MAX)
@@ -87,12 +90,86 @@ const Config& getConfig() {
         if (c.enabled) {
             std::fprintf(stderr,
                 "[quest-nvcomp] exchange compression ENABLED (bitcomp, chunk=%zu MiB, "
-                "threshold=%zu MiB, verify=%d)\n",
-                c.chunkBytes >> 20, c.minBytes >> 20, (int) c.verify);
+                "threshold=%zu MiB, verify=%d, stats=%d)\n",
+                c.chunkBytes >> 20, c.minBytes >> 20, (int) c.verify, (int) c.stats);
         }
         return c;
     }();
     return cfg;
+}
+
+struct CompressionStats {
+    bool registered = false;
+    bool rankKnown = false;
+    int rank = -1;
+    unsigned long long rawBytes = 0;
+    unsigned long long sentBytes = 0;
+    unsigned long long compressedChunks = 0;
+    unsigned long long fallbackChunks = 0;
+    unsigned long long controlBytes = 0;
+};
+
+void printStatsAtExit();
+
+CompressionStats& getStats() {
+    static CompressionStats stats;
+    const Config& cfg = getConfig();
+    if (cfg.stats && !stats.registered) {
+        stats.registered = true;
+        std::atexit(printStatsAtExit);
+    }
+    return stats;
+}
+
+void ensureStatsRank(CompressionStats& stats) {
+    if (stats.rankKnown)
+        return;
+    int mpiInitialised = 0;
+    int mpiFinalised = 0;
+    MPI_Initialized(&mpiInitialised);
+    MPI_Finalized(&mpiFinalised);
+    if (mpiInitialised && !mpiFinalised && MPI_Comm_rank(MPI_COMM_WORLD, &stats.rank) == MPI_SUCCESS)
+        stats.rankKnown = true;
+}
+
+void printStatsAtExit() {
+    const Config& cfg = getConfig();
+    if (!cfg.stats)
+        return;
+    CompressionStats& stats = getStats();
+    std::fprintf(stderr,
+        "[quest-nvcomp-stats] rank=%d raw_bytes=%llu sent_bytes=%llu "
+        "compressed_chunks=%llu fallback_chunks=%llu control_bytes=%llu\n",
+        stats.rank,
+        stats.rawBytes,
+        stats.sentBytes,
+        stats.compressedChunks,
+        stats.fallbackChunks,
+        stats.controlBytes);
+    std::fflush(stderr);
+}
+
+void addControlBytes(std::size_t bytes) {
+    const Config& cfg = getConfig();
+    if (!cfg.stats)
+        return;
+    CompressionStats& stats = getStats();
+    ensureStatsRank(stats);
+    stats.controlBytes += static_cast<unsigned long long>(bytes);
+}
+
+void addChunkStats(std::size_t rawBytes, std::uint64_t sentBytes, bool fallback) {
+    const Config& cfg = getConfig();
+    if (!cfg.stats)
+        return;
+    CompressionStats& stats = getStats();
+    ensureStatsRank(stats);
+    stats.rawBytes += static_cast<unsigned long long>(rawBytes);
+    stats.sentBytes += static_cast<unsigned long long>(sentBytes);
+    if (fallback)
+        stats.fallbackChunks++;
+    else
+        stats.compressedChunks++;
 }
 
 // private communicator, dup'ed collectively in configIsGloballyUniform()
@@ -225,6 +302,8 @@ void exchangeRawChunk(const std::uint8_t* dSrc, std::uint8_t* hSend, std::uint8_
 bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, int pairRank) {
 
     const Config& cfg = getConfig();
+    if (cfg.stats)
+        ensureStatsRank(getStats());
 
     // collective one-time check MUST precede any early return (see its comment)
     if (!configIsGloballyUniform())
@@ -248,6 +327,7 @@ bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, in
     MPI_Sendrecv(&localActive, 1, MPI_UINT8_T, pairRank, TAG_ACTIVE,
                  &peerActive, 1, MPI_UINT8_T, pairRank, TAG_ACTIVE,
                  g_comm, MPI_STATUS_IGNORE);
+    addControlBytes(sizeof(localActive));
     if (!localActive || !peerActive)
         return false;
 
@@ -276,11 +356,13 @@ bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, in
             MPI_Sendrecv(&localCompSize, 1, MPI_UINT64_T, pairRank, TAG_SIZE,
                          &peerCompSize, 1, MPI_UINT64_T, pairRank, TAG_SIZE,
                          g_comm, MPI_STATUS_IGNORE);
+            addControlBytes(sizeof(localCompSize));
         }
 
         if (localCompSize == 0 || peerCompSize == 0 ||
             localCompSize >= bytes || peerCompSize >= bytes) {
             // incompressible chunk on either side: byte-exact raw fallback
+            addChunkStats(bytes, bytes, true);
             exchangeRawChunk(src + offset, ctx.hRawSend, ctx.hRawRecv, bytes,
                              pairRank, TAG_DATA, ctx.stream);
             QuestProfileRange r("quest.communication.h2d");
@@ -300,6 +382,7 @@ bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, in
             MPI_Sendrecv(ctx.hCompSend, (int) localCompSize, MPI_BYTE, pairRank, TAG_DATA,
                          ctx.hCompRecv, (int) peerCompSize, MPI_BYTE, pairRank, TAG_DATA,
                          g_comm, MPI_STATUS_IGNORE);
+            addChunkStats(bytes, localCompSize, false);
         }
         {
             QuestProfileRange r("quest.communication.h2d");

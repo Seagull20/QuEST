@@ -16,6 +16,7 @@
  *   QUEST_EXCHANGE_COMPRESSION_MIN_BYTES  activation threshold (default 16 MiB)
  *   QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES logical chunk size (default 64 MiB)
  *   QUEST_EXCHANGE_COMPRESSION_VERIFY=1   debug: shadow raw exchange + memcmp
+ *   QUEST_EXCHANGE_COMPRESSION_STATS=1    emit per-rank raw/sent/control byte counters
  *
  * @author Zeyu Lin (experimental fork feature; not upstream QuEST)
  */

@@ -54,7 +54,7 @@ run_check() {
 
     export QUEST_ENABLE_EXCHANGE_COMPRESSION="${compression}"
     export QUEST_EXCHANGE_COMPRESSION_VERIFY="${verify}"
-    for var in NVCOMP_ROOT LD_LIBRARY_PATH QUEST_ENABLE_EXCHANGE_COMPRESSION QUEST_EXCHANGE_COMPRESSION_VERIFY; do
+    for var in NVCOMP_ROOT LD_LIBRARY_PATH QUEST_ENABLE_EXCHANGE_COMPRESSION QUEST_EXCHANGE_COMPRESSION_VERIFY QUEST_EXCHANGE_COMPRESSION_STATS; do
         if [ -n "${!var:-}" ]; then
             launcher+=(-x "${var}")
         fi
@@ -84,6 +84,7 @@ main() {
         printf 'git_commit=%s\n' "$(git rev-parse HEAD)"
         printf 'NVCOMP_ROOT=%s\n' "${NVCOMP_ROOT:-unset}"
         printf 'LD_LIBRARY_PATH=%s\n' "${LD_LIBRARY_PATH:-unset}"
+        printf 'QUEST_EXCHANGE_COMPRESSION_STATS=%s\n' "${QUEST_EXCHANGE_COMPRESSION_STATS:-unset}"
     } > "${RUN_DIR}/environment.txt"
 
     QUEST_BENCH_ENABLE_NVCOMP=1 "${REPO_ROOT}/experiments/build.sh" compression_check gpu_mpi Release \

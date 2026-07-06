@@ -426,8 +426,12 @@ def load_mpi_events(connection, table, strings, thread_to_rank, process_to_rank)
     text_id_expr = select_optional(columns, "textId")
     size_expr = select_optional(columns, "size")
     remote_expr = select_optional(columns, "remoteRank")
-    query = f"SELECT start, end, globalTid, {text_expr}, {text_id_expr}, {size_expr}, {remote_expr} FROM {table}"
-    for start, end, global_tid, text, text_id, size, remote_rank in connection.execute(query):
+    tag_expr = select_optional(columns, "tag")
+    query = (
+        f"SELECT start, end, globalTid, {text_expr}, {text_id_expr}, "
+        f"{size_expr}, {remote_expr}, {tag_expr} FROM {table}"
+    )
+    for start, end, global_tid, text, text_id, size, remote_rank, tag in connection.execute(query):
         rank = rank_for_thread(global_tid, thread_to_rank, process_to_rank)
         if rank is None:
             continue
@@ -435,12 +439,38 @@ def load_mpi_events(connection, table, strings, thread_to_rank, process_to_rank)
             {
                 "start": int(start),
                 "end": int(end if end is not None else start),
+                "global_tid": int(global_tid),
                 "name": resolve_text(text, text_id, strings),
                 "size": int(size or 0),
                 "remote_rank": remote_rank,
+                "tag": tag,
             }
         )
     return by_rank
+
+
+def is_sendrecv(event):
+    return "sendrecv" in event["name"].lower()
+
+
+def dedupe_sendrecv_events(events):
+    deduped = []
+    sendrecv_groups = defaultdict(list)
+    for event in events:
+        if not is_sendrecv(event):
+            deduped.append(event)
+            continue
+        key = (event["global_tid"], event["start"], event["tag"], event["remote_rank"])
+        sendrecv_groups[key].append(event)
+
+    for group in sendrecv_groups.values():
+        representative = min(group, key=lambda event: (event["size"], event["end"]))
+        event = dict(representative)
+        event["size"] = min(item["size"] for item in group)
+        event["end"] = max(item["end"] for item in group)
+        deduped.append(event)
+
+    return sorted(deduped, key=lambda event: (event["start"], event["end"], event["name"], event["size"]))
 
 
 def interval_contains(outer, event):
@@ -716,6 +746,7 @@ def parse_profile(sqlite_path, point, benchmark, num_qubits, mpi_ranks, slurm_no
         kernels = load_kernels(connection, strings, process_to_rank)
         memcopies = load_memcopies(connection, process_to_rank)
         p2p = load_mpi_events(connection, "MPI_P2P_EVENTS", strings, thread_to_rank, process_to_rank)
+        p2p = defaultdict(list, {rank: dedupe_sendrecv_events(events) for rank, events in p2p.items()})
         waits = load_mpi_events(connection, "MPI_START_WAIT_EVENTS", strings, thread_to_rank, process_to_rank)
 
         rank_rows = []

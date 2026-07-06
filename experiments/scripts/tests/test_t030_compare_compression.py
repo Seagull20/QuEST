@@ -125,7 +125,10 @@ class T030CompareCompressionTests(unittest.TestCase):
 
         communication = compare.read_tsv(paths["communication"])
         self.assertEqual(communication[0]["mpi_send_byte_reduction_pct"], "75.000000")
-        self.assertIn("qft_p4_q28", paths["teams"].read_text(encoding="utf-8"))
+        teams = paths["teams"].read_text(encoding="utf-8")
+        self.assertIn("qft_p4_q28", teams)
+        self.assertIn("deduplicated single-direction MPI send bytes", teams)
+        self.assertNotIn("-13.58", teams)
 
 
 if __name__ == "__main__":

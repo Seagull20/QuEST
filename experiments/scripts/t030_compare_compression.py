@@ -233,6 +233,7 @@ def write_teams_update(path, runtime_rows, communication_rows, off_dir, on_dir):
         "# T-030 P4 Teams Update Draft",
         "",
         "I ran the same QuEST GPU+MPI scaling suite with nvCOMP built in and runtime exchange compression toggled off/on.",
+        "The MPI byte table uses deduplicated single-direction MPI send bytes from Nsight P2P events; `MPI_Sendrecv` paired rows are counted once.",
         f"Compression-off source: `{off_dir}`",
         f"Compression-on source: `{on_dir}`",
         "",

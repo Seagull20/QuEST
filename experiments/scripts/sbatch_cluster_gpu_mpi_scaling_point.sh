@@ -148,6 +148,7 @@ write_environment_snapshot() {
         printf 'compression_mode=%s\n' "${QUEST_SCALING_COMPRESSION_MODE:-native}"
         printf 'bench_enable_nvcomp=%s\n' "${QUEST_BENCH_ENABLE_NVCOMP:-0}"
         printf 'exchange_compression_enabled=%s\n' "${QUEST_ENABLE_EXCHANGE_COMPRESSION:-unset}"
+        printf 'exchange_compression_stats=%s\n' "${QUEST_EXCHANGE_COMPRESSION_STATS:-unset}"
         printf 'exchange_compression_min_bytes=%s\n' "${QUEST_EXCHANGE_COMPRESSION_MIN_BYTES:-default}"
         printf 'exchange_compression_chunk_bytes=%s\n' "${QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES:-default}"
     } > "${RUN_DIR}/campaign_metadata.txt"
@@ -229,6 +230,7 @@ configure_mpirun_prefix() {
         LD_LIBRARY_PATH \
         QUEST_ENABLE_EXCHANGE_COMPRESSION \
         QUEST_EXCHANGE_COMPRESSION_VERIFY \
+        QUEST_EXCHANGE_COMPRESSION_STATS \
         QUEST_EXCHANGE_COMPRESSION_MIN_BYTES \
         QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES; do
         if [ -n "${!var:-}" ]; then
