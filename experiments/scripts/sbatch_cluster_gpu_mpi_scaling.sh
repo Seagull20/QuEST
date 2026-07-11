@@ -19,6 +19,12 @@ SCALING_MEM="${QUEST_SCALING_MEM:-96G}"
 SCALING_A6000_MAX_WAIT_S="${QUEST_SCALING_A6000_MAX_WAIT_S:-300}"
 SCALING_GPU_CHOICE="${QUEST_SCALING_GPU_CHOICE:-auto}"
 SCALING_COMPRESSION_MODE="${QUEST_SCALING_COMPRESSION_MODE:-native}"
+# Optional Slurm dependency (e.g. afterany:<jobid>) to chain sequential 4-GPU
+# jobs under the single-running-allocation QoS limit. When set, the local
+# "already running" guard is skipped because queuing behind a peer is intended.
+SCALING_DEPENDENCY="${QUEST_SCALING_DEPENDENCY:-}"
+SCALING_DEP_FLAG=""
+[ -n "${SCALING_DEPENDENCY}" ] && SCALING_DEP_FLAG="--dependency=${SCALING_DEPENDENCY}"
 
 SCALING_PARTITION=""
 SCALING_GPU_TYPE=""
@@ -210,7 +216,11 @@ main() {
     cd "${REPO_ROOT}"
     ensure_results_dirs
     [ -f "${payload}" ] || die "Missing scaling payload: ${payload}"
-    ensure_no_running_gpu_allocation || die "Release the existing GPU allocation before submitting scaling."
+    if [ -z "${SCALING_DEPENDENCY}" ]; then
+        ensure_no_running_gpu_allocation || die "Release the existing GPU allocation before submitting scaling."
+    else
+        info "Dependency set (${SCALING_DEPENDENCY}); skipping running-allocation guard."
+    fi
     select_scaling_resource
 
     info "Selected partition: ${SCALING_PARTITION}"
@@ -233,6 +243,7 @@ main() {
             --ntasks-per-node="${SCALING_GPUS}" \
             --cpus-per-task="${SCALING_CPUS_PER_TASK}" \
             --mem="${SCALING_MEM}" \
+            ${SCALING_DEP_FLAG} \
             --time="${SCALING_WALLTIME}" \
             --job-name="quest-scaling-${SCALING_GPU_TYPE}-${SCALING_COMPRESSION_MODE}" \
             --output="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_COMPRESSION_MODE}_%j.out" \
