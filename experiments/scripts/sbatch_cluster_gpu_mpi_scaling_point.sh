@@ -23,7 +23,7 @@ write_point_manifest() {
     local ranks qubits membership point_id source_file profile_point profile_selected
 
     printf 'point_id\tbenchmark\tgate_kind\tnum_qubits\tmpi_ranks\tgpus\tslurm_nodes\tscale_membership\tsource_file\tprofile_point\tprofile_selected\tgate_repeats\trandom_depth\ttwo_qubit_ratio\tseed\n' > "${path}"
-    for workload in h cnot cphase qft random; do
+    for workload in h cphase qft random; do
         benchmark="${workload}"
         gate_kind="none"
         gate_repeats=0
@@ -49,25 +49,14 @@ write_point_manifest() {
             point_id="${workload}_p${ranks}_q${qubits}"
             source_file="timing/${point_id}.tsv"
             profile_point="${point_id}"
-            profile_selected=0
-            if [ "${workload}" = "qft" ]; then
-                profile_selected=1
-            elif [ "${workload}" = "h" ] || [ "${workload}" = "random" ]; then
-                case "${ranks}:${qubits}" in
-                    1:28|1:26|2:27|4:28)
-                        profile_selected=1
-                        ;;
-                esac
-            fi
+            # q29p4/q30p4 breakdown campaign: profile every point (both sizes, all workloads)
+            profile_selected=1
             printf '%s\t%s\t%s\t%s\t%s\t%s\t1\t%s\t%s\t%s\t%s\t%s\t8\t0.5\t20260402\n' \
                 "${point_id}" "${benchmark}" "${gate_kind}" "${qubits}" "${ranks}" "${ranks}" \
                 "${membership}" "${source_file}" "${profile_point}" "${profile_selected}" "${gate_repeats}" >> "${path}"
         done <<'EOF'
-1 28 strong
-2 28 strong
-4 28 strong,weak
-1 26 weak
-2 27 weak
+4 29 strong
+4 30 strong
 EOF
     done
 }

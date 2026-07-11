@@ -13,6 +13,9 @@ SCALING_QOS="${QUEST_SCALING_QOS:-teaching}"
 SCALING_GPUS=4
 SCALING_CPUS_PER_TASK=2
 SCALING_WALLTIME="${QUEST_SCALING_WALLTIME:-03:30:00}"
+# Explicit host memory: q30p4's ~37 GB host staging thrashes under the default
+# 8000M/GPU (32 GB cgroup) — proven by canary 3538010 (T-024). q<=28 unaffected.
+SCALING_MEM="${QUEST_SCALING_MEM:-96G}"
 SCALING_A6000_MAX_WAIT_S="${QUEST_SCALING_A6000_MAX_WAIT_S:-300}"
 SCALING_GPU_CHOICE="${QUEST_SCALING_GPU_CHOICE:-auto}"
 SCALING_COMPRESSION_MODE="${QUEST_SCALING_COMPRESSION_MODE:-native}"
@@ -229,6 +232,7 @@ main() {
             --ntasks="${SCALING_GPUS}" \
             --ntasks-per-node="${SCALING_GPUS}" \
             --cpus-per-task="${SCALING_CPUS_PER_TASK}" \
+            --mem="${SCALING_MEM}" \
             --time="${SCALING_WALLTIME}" \
             --job-name="quest-scaling-${SCALING_GPU_TYPE}-${SCALING_COMPRESSION_MODE}" \
             --output="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_COMPRESSION_MODE}_%j.out" \
