@@ -1,0 +1,9 @@
+point	mode	critical_rank	wall_s	computation_s	communication_s	execution_overhead_s	lifecycle_s	unclassified_residual_s	overhead_pct	residual_pct	alarm_flags
+h_p4_q30	off	0	156.6921	0.0240	133.1088	17.7222	5.8370	-0.0000	11.31	-0.00	overhead 11.3%
+h_p4_q30	on	0	15.3970	0.0238	10.8180	0.4931	4.0621	-0.0000	3.20	-0.00	-
+cphase_p4_q30	off	0	8.2259	0.0000	0.0000	4.1249	4.1010	0.0000	50.15	0.00	overhead 50.1%
+cphase_p4_q30	on	0	8.1988	0.0000	0.0000	4.1310	4.0678	-0.0000	50.39	-0.00	overhead 50.4%
+qft_p4_q30	off	0	50.4465	4.6008	38.7378	1.3373	5.7706	0.0000	2.65	0.00	-
+qft_p4_q30	on	0	11.1963	4.6012	1.9830	0.4669	4.1452	0.0000	4.17	0.00	-
+random_p4_q30	off	0	114.1652	2.9764	104.7554	0.6483	5.7850	0.0000	0.57	0.00	-
+random_p4_q30	on	0	17.5030	2.9916	10.0677	0.2966	4.1471	0.0000	1.69	0.00	-
