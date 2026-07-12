@@ -39,6 +39,7 @@ make
 | `ENABLE_MULTITHREADING` | (`ON`), OFF | Determines whether QuEST will be built with support for parallelisation with OpenMP. |
 | `ENABLE_DISTRIBUTION` | (`OFF`), ON | Determines whether QuEST will be built with support for parallelisation with MPI. |
 | `ENABLE_CUDA` | (`OFF`), `ON` | Determines whether QuEST will be built with support for NVIDIA GPU acceleration. If turned on, `CMAKE_CUDA_ARCHITECTURES` should probably also be set. |
+| `QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE` | (`OFF`), `ON` | Enables the opt-in runtime configuration scaffold for experimental GPU CPU-staging modes. All modes route to the raw path in the initial scaffold; see [`experimental_gpu_staging_pipeline.md`](experimental_gpu_staging_pipeline.md). |
 | `ENABLE_CUQUANTUM` | (`OFF`), `ON` | Determines whether QuEST will make use of the NVIDIA CuQuantum library. Cannot be turned on if `ENABLE_CUDA` is off. |
 | `ENABLE_HIP` | (`OFF`), `ON` | Determines whether QuEST will be built with support for AMD GPU acceleration. If turned on, `CMAKE_HIP_ARCHITECTURES` should probably also be set. |
 | `ENABLE_DEPRECATED_API` | (`OFF`), `ON` | Determines whether QuEST will be built with support for the deprecated (v3) API. ***Note**: this will generate compiler warnings and is not supported by MSVC.* |

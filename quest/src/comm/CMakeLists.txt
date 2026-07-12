@@ -5,3 +5,7 @@ target_sources(QuEST
   comm_config.cpp
   comm_routines.cpp
 )
+
+if (QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE)
+  target_sources(QuEST PRIVATE comm_staging.cpp)
+endif()

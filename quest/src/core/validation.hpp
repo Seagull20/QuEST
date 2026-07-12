@@ -546,6 +546,15 @@ void validate_envVarPermitNodesToShareGpu(string varValue, const char* caller);
 
 void validate_envVarDefaultValidationEpsilon(string varValue, const char* caller);
 
+#ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+void validate_envVarGpuStagingMode(string varValue, const char* caller);
+void validate_envVarGpuStagingTileMb(string varValue, const char* caller);
+void validate_envVarGpuStagingSlots(string varValue, const char* caller);
+void validate_envVarGpuStagingPinned(string varValue, const char* caller);
+void validate_envVarGpuStagingMpiProgress(string varValue, const char* caller);
+void validate_envVarForceCpuStaging(string varValue, const char* caller);
+#endif
+
 
 
 #endif // VALIDATION_HPP

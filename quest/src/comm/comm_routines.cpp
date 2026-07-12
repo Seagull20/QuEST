@@ -23,6 +23,10 @@
 #include "quest/src/comm/comm_config.hpp"
 #include "quest/src/comm/comm_indices.hpp"
 
+#ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+    #include "quest/src/comm/comm_staging.hpp"
+#endif
+
 #if COMPILE_MPI
     #include <mpi.h>
 #endif
@@ -32,6 +36,14 @@
 #include <algorithm>
 
 using std::vector;
+
+
+#ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+    #define IS_DIRECT_GPU_COMM_ALLOWED() \
+        (gpu_isDirectGpuCommPossible() && !comm_staging_isCpuStagingForced())
+#else
+    #define IS_DIRECT_GPU_COMM_ALLOWED() gpu_isDirectGpuCommPossible()
+#endif
 
 
 /**
@@ -392,7 +404,7 @@ void globallyCombineSubArrays(qcomp* recv, qcomp* send, qindex numAmpsPerRank, b
 void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qindex numAmps, int pairRank) {
 
     // exchange GPU memory directly if possible
-    if (gpu_isDirectGpuCommPossible()) {
+    if (IS_DIRECT_GPU_COMM_ALLOWED()) {
 
         QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
 
@@ -407,6 +419,10 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
 
     // otherwise route the memory through the CPU
     } else {
+
+        #ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+        (void) comm_staging_selectPath(); // all T-035 modes deliberately dispatch to raw
+        #endif
 
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
@@ -436,7 +452,7 @@ void exchangeGpuSubBuffers(Qureg qureg, qindex numAmps, int pairRank) {
     auto [sendInd, recvInd] = getSubBufferSendRecvInds(qureg);
 
     // exchange GPU memory directly if possible
-    if (gpu_isDirectGpuCommPossible()) {
+    if (IS_DIRECT_GPU_COMM_ALLOWED()) {
 
         QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
 
@@ -451,6 +467,10 @@ void exchangeGpuSubBuffers(Qureg qureg, qindex numAmps, int pairRank) {
     
     // otherwise route the memory through the CPU
     } else {
+
+        #ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+        (void) comm_staging_selectPath(); // all T-035 modes deliberately dispatch to raw
+        #endif
 
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
@@ -480,7 +500,7 @@ void asynchSendGpuSubBuffer(Qureg qureg, qindex numElems, int pairRank) {
     qindex sendInd = getSubBufferSendInd(qureg);
 
     // send GPU memory directly if possible
-    if (gpu_isDirectGpuCommPossible()) {
+    if (IS_DIRECT_GPU_COMM_ALLOWED()) {
 
         QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
 
@@ -495,6 +515,10 @@ void asynchSendGpuSubBuffer(Qureg qureg, qindex numElems, int pairRank) {
 
     // otherwise route the memory through the CPU
     } else {
+
+        #ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+        (void) comm_staging_selectPath(); // all T-035 modes deliberately dispatch to raw
+        #endif
 
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
@@ -518,7 +542,7 @@ void receiveArrayToGpuBuffer(Qureg qureg, qindex numElems, int pairRank) {
     qindex recvInd = getBufferRecvInd();
 
     // receive to GPU memory directly if possible
-    if (gpu_isDirectGpuCommPossible()) {
+    if (IS_DIRECT_GPU_COMM_ALLOWED()) {
 
         QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
 
@@ -532,6 +556,10 @@ void receiveArrayToGpuBuffer(Qureg qureg, qindex numElems, int pairRank) {
 
     // otherwise, route through CPU
     } else {
+
+        #ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+        (void) comm_staging_selectPath(); // all T-035 modes deliberately dispatch to raw
+        #endif
 
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
@@ -629,7 +657,7 @@ void comm_combineAmpsIntoBuffer(Qureg receiver, Qureg sender) {
     // but does not generally permit CPU-to-GPU (host-to-device). So if only one
     // Qureg is GPU-accelerated, we have to fall back entirely to copying through host.
     // There is ergo only a single scenario possible when we can directly GPU-exchange:
-    if (receiver.isGpuAccelerated && sender.isGpuAccelerated && gpu_isDirectGpuCommPossible()) {
+    if (receiver.isGpuAccelerated && sender.isGpuAccelerated && IS_DIRECT_GPU_COMM_ALLOWED()) {
         gpu_sync();
         globallyCombineSubArrays(receiver.gpuCommBuffer, sender.gpuAmps, numSendAmps, true);
         return;
@@ -657,7 +685,7 @@ void comm_combineElemsIntoBuffer(Qureg receiver, FullStateDiagMatr sender) {
     qindex numRecvAmps = sender.numElems;
 
     // like in comm_combineAmpsIntoBuffer(), direct-GPU comm only possible if both ptrs are GPU
-    if (receiver.isGpuAccelerated && sender.isGpuAccelerated && gpu_isDirectGpuCommPossible() ) {
+    if (receiver.isGpuAccelerated && sender.isGpuAccelerated && IS_DIRECT_GPU_COMM_ALLOWED() ) {
         gpu_sync();
         globallyCombineSubArrays(receiver.gpuCommBuffer, sender.gpuElems, numSendAmps, true);
         return;

@@ -38,6 +38,13 @@
 #include <vector>
 #include <map>
 
+#ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+#include <cctype>
+#include <climits>
+#include <limits>
+#include <stdexcept>
+#endif
+
 using std::string;
 using std::vector;
 
@@ -1125,6 +1132,26 @@ namespace report {
 
     string DEFAULT_EPSILON_ENV_VAR_IS_NEGATIVE =
         "The optional '" + envvar_names::DEFAULT_VALIDATION_EPSILON + "' environment variable was negative. The value must be zero or positive.";
+
+    #ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+    string INVALID_GPU_STAGING_MODE_ENV_VAR =
+        "The optional '" + envvar_names::GPU_STAGING_MODE + "' environment variable must be one of: raw, bulk_async, tiled_materialize, tiled_fused.";
+
+    string INVALID_GPU_STAGING_TILE_MB_ENV_VAR =
+        "The optional '" + envvar_names::GPU_STAGING_TILE_MB + "' environment variable must be a positive integer number of MiB which fits in size_t bytes.";
+
+    string INVALID_GPU_STAGING_SLOTS_ENV_VAR =
+        "The optional '" + envvar_names::GPU_STAGING_SLOTS + "' environment variable must be a positive integer which fits in an int.";
+
+    string INVALID_GPU_STAGING_PINNED_ENV_VAR =
+        "The optional boolean '" + envvar_names::GPU_STAGING_PINNED + "' environment variable must be '0' or '1'.";
+
+    string INVALID_GPU_STAGING_MPI_PROGRESS_ENV_VAR =
+        "The optional '" + envvar_names::GPU_STAGING_MPI_PROGRESS + "' environment variable must be one of: wait, testsome, testany.";
+
+    string INVALID_FORCE_CPU_STAGING_ENV_VAR =
+        "The optional boolean '" + envvar_names::FORCE_CPU_STAGING + "' environment variable must be '0' or '1'.";
+    #endif
 }
 
 
@@ -4378,3 +4405,84 @@ void validate_envVarDefaultValidationEpsilon(string varValue, const char* caller
     qreal eps = parser_parseReal(varValue);
     assertThat(eps >= 0, report::DEFAULT_EPSILON_ENV_VAR_IS_NEGATIVE, caller);
 }
+
+
+#ifdef QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+
+bool isUnsignedDecimal(string value) {
+
+    if (value.empty())
+        return false;
+
+    for (char ch : value)
+        if (!std::isdigit(static_cast<unsigned char>(ch)))
+            return false;
+
+    return true;
+}
+
+
+bool canParsePositiveUnsigned(string value, unsigned long long max) {
+
+    if (!isUnsignedDecimal(value))
+        return false;
+
+    try {
+        unsigned long long parsed = std::stoull(value);
+        return parsed > 0 && parsed <= max;
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const std::out_of_range&) {
+        return false;
+    }
+}
+
+
+void validate_envVarGpuStagingMode(string varValue, const char* caller) {
+
+    bool isValid =
+        varValue == "raw" ||
+        varValue == "bulk_async" ||
+        varValue == "tiled_materialize" ||
+        varValue == "tiled_fused";
+    assertThat(isValid, report::INVALID_GPU_STAGING_MODE_ENV_VAR, caller);
+}
+
+
+void validate_envVarGpuStagingTileMb(string varValue, const char* caller) {
+
+    constexpr unsigned long long bytesPerMib = 1024 * 1024;
+    unsigned long long maxMib = std::numeric_limits<std::size_t>::max() / bytesPerMib;
+    bool isValid = canParsePositiveUnsigned(varValue, maxMib);
+    assertThat(isValid, report::INVALID_GPU_STAGING_TILE_MB_ENV_VAR, caller);
+}
+
+
+void validate_envVarGpuStagingSlots(string varValue, const char* caller) {
+
+    bool isValid = canParsePositiveUnsigned(varValue, INT_MAX);
+    assertThat(isValid, report::INVALID_GPU_STAGING_SLOTS_ENV_VAR, caller);
+}
+
+
+void validate_envVarGpuStagingPinned(string varValue, const char* caller) {
+
+    bool isValid = varValue == "0" || varValue == "1";
+    assertThat(isValid, report::INVALID_GPU_STAGING_PINNED_ENV_VAR, caller);
+}
+
+
+void validate_envVarGpuStagingMpiProgress(string varValue, const char* caller) {
+
+    bool isValid = varValue == "wait" || varValue == "testsome" || varValue == "testany";
+    assertThat(isValid, report::INVALID_GPU_STAGING_MPI_PROGRESS_ENV_VAR, caller);
+}
+
+
+void validate_envVarForceCpuStaging(string varValue, const char* caller) {
+
+    bool isValid = varValue == "0" || varValue == "1";
+    assertThat(isValid, report::INVALID_FORCE_CPU_STAGING_ENV_VAR, caller);
+}
+
+#endif

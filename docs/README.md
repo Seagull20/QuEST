@@ -29,6 +29,7 @@ Interested in contributing? Then check out:
 
 - ❤️  [`contributing.md`](contributing.md) to learn how to make a pull request.
 - 🏗️  [`architecture.md`](architecture.md) to understand the code structure.
+- 🧱  [`experimental_gpu_staging_pipeline.md`](experimental_gpu_staging_pipeline.md) for the opt-in staging-pipeline scaffold and Phase-0 map.
 - 🎨  [`styleguide.md`](styleguide.md) for some tips on writing neat code.
 
 Want to learn how what's under the hood? Read the

@@ -156,6 +156,13 @@ option(
 message(STATUS "NVIDIA GPU acceleration is turned ${ENABLE_CUDA}. Set ENABLE_CUDA to modify.")
 
 option(
+  QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE
+  "Whether to enable the experimental runtime-selectable GPU CPU-staging pipeline scaffolding. Turned OFF by default."
+  OFF
+)
+message(STATUS "Experimental GPU staging pipeline is turned ${QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE}. Set QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE to modify.")
+
+option(
   ENABLE_PROFILING_MARKERS
   "Whether QuEST emits NVTX ranges for benchmark profiling. Turned OFF by default."
   OFF
@@ -441,6 +448,12 @@ if (ENABLE_PROFILING_MARKERS)
   target_compile_definitions(QuEST PRIVATE QUEST_ENABLE_PROFILING_MARKERS=1)
 else()
   target_compile_definitions(QuEST PRIVATE QUEST_ENABLE_PROFILING_MARKERS=0)
+endif()
+
+# Deliberately define no macro when disabled so the default build retains the
+# pre-experiment compilation inputs and behaviour.
+if (QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE)
+  target_compile_definitions(QuEST PRIVATE QUEST_EXPERIMENTAL_GPU_STAGING_PIPELINE=1)
 endif()
 
 
