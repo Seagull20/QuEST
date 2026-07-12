@@ -69,11 +69,6 @@ matplotlib.rcParams.update({
 EDGE = "#333333"
 ALARM = 5.0          # % of end-to-end wall (spec §18.2)
 OVERATTR_TOL = 0.5   # % of wall: negative residual beyond this is flagged
-C_PHASE_NOTE = (
-    "amplitude-kernel time is currently attributed to execution overhead; "
-    "classification correction in progress"
-)
-
 CIRCUIT_LABEL = {"h": "Hadamard", "cphase": "CPhase", "qft": "QFT",
                  "random": "Random"}
 
@@ -241,16 +236,10 @@ def fig_level0(data, points, out_dir, ctx, args):
             ax.grid(axis="y", alpha=0.25); ax.set_axisbelow(True)
             if row == 0:
                 ax.set_title(point_title(pt), fontsize=10.5)
-                note_y = maxwall * 1.18
-                if args.dest == "standalone" and pt.startswith("cphase_"):
-                    # This is a reader-facing, temporary explanation of the
-                    # known CPhase taxonomy anomaly. Validation alarms remain
-                    # in the TSV and are intentionally not rendered.
-                    ax.text(0.5, note_y, C_PHASE_NOTE, ha="center", va="top",
-                            fontsize=5.0, color="#555555", clip_on=False)
-                    ax.set_ylim(0, maxwall * 1.25)
-                else:
-                    ax.set_ylim(0, maxwall * 1.15)
+                # Temporary CPhase taxonomy note removed 2026-07-12: the
+                # critical-rank classification fix landed, so the panels no
+                # longer carry the anomaly it disclosed.
+                ax.set_ylim(0, maxwall * 1.15)
             if as_pct:
                 ax.set_ylim(0, 108)
         axes[0][col].set_xlabel("")
