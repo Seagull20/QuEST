@@ -611,6 +611,20 @@ def format_rank_row(point, benchmark, num_qubits, mpi_ranks, slurm_nodes, gpus, 
     }
 
 
+def select_critical_row(rank_rows):
+    # A rank can have the longest whole-procedure wall solely because it starts
+    # lifecycle work earlier, while doing no traced device or communication work
+    # during execution and waiting for active ranks at the final barrier. Using
+    # that idle rank would mislabel the active ranks' GPU time as execution
+    # overhead in the procedure summary (for example, distributed CPhase).
+    work_bearing = [
+        row
+        for row in rank_rows
+        if row["computation_time_s"] > 0 or row["communication_time_s"] > 0
+    ]
+    return max(work_bearing or rank_rows, key=lambda row: row["procedure_wall_time_s"])
+
+
 def build_communication_rows(point, benchmark, num_qubits, mpi_ranks, rank, nvtx, runtime, kernels, memcopies, p2p, waits):
     rows = []
     exchanges = sorted(nvtx["exchanges"], key=lambda item: item["start"])
@@ -832,7 +846,7 @@ def parse_profile(sqlite_path, point, benchmark, num_qubits, mpi_ranks, slurm_no
     finally:
         connection.close()
 
-    critical = max(rank_rows, key=lambda row: row["procedure_wall_time_s"])
+    critical = select_critical_row(rank_rows)
     rank_walls = [row["procedure_wall_time_s"] for row in rank_rows]
     rank_wall_min = min(rank_walls)
     rank_wall_max = max(rank_walls)
