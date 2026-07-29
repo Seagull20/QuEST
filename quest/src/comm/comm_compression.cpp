@@ -172,8 +172,13 @@ void addChunkStats(std::size_t rawBytes, std::uint64_t sentBytes, bool fallback)
         stats.compressedChunks++;
 }
 
-// private communicator, dup'ed collectively in configIsGloballyUniform()
+// private communicator, dup'ed collectively in comm_compression_init()
 MPI_Comm g_comm = MPI_COMM_NULL;
+
+// Set once by comm_compression_init(): every rank owns the private
+// communicator and agreed on the configuration. Fails closed (compression
+// never activates) if init was somehow not reached.
+bool g_uniform = false;
 
 // Persistent per-process context: one stream, one Bitcomp manager, scratch
 // buffers bounded by the logical chunk size. Heap-allocated on first use and
@@ -245,39 +250,41 @@ Context& getContext() {
     return *ctxPtr;
 }
 
-// One-time global agreement that every rank sees the same configuration.
-// Placed before any early return in the exchange: a per-rank env mismatch
+// Global agreement that every rank sees the same configuration, performed
+// once by comm_compression_init(). A per-rank env mismatch
 // (enabled/threshold/chunk/verify) would otherwise desynchronise the pair —
 // one rank in the compressed protocol, its peer in the raw one (deadlock).
-// Safe because QuEST's distributed comm steps are rank-symmetric, so every
-// rank reaches its first hooked exchange at the same logical point.
-bool configIsGloballyUniform() {
-    static bool uniform = [] {
-        const Config& cfg = getConfig();
-        long long vals[5] = {
-            (long long) cfg.enabled, (long long) cfg.minBytes,
-            (long long) cfg.chunkBytes, (long long) cfg.verify, 0 };
-        // 5th field: this rank can create the private communicator
-        vals[4] = (MPI_Comm_dup(MPI_COMM_WORLD, &g_comm) == MPI_SUCCESS) ? 1 : 0;
-        long long mins[5], maxs[5];
-        MPI_Allreduce(vals, mins, 5, MPI_LONG_LONG, MPI_MIN, MPI_COMM_WORLD);
-        MPI_Allreduce(vals, maxs, 5, MPI_LONG_LONG, MPI_MAX, MPI_COMM_WORLD);
-        if (mins[4] != 1) {
-            std::fprintf(stderr, "[quest-nvcomp] MPI_Comm_dup failed on some rank — "
-                                 "compression disabled on ALL ranks\n");
+//
+// This MUST run from a rank-symmetric point, which the exchange path is not:
+// only the *pair* is symmetric there. A gate whose control qubit lies in the
+// prefix substate makes every rank with the wrong rank-index bit return from
+// the localiser before reaching comm at all (doAnyLocalStatesHaveQubitValues,
+// localiser.cpp), so a WORLD collective placed in the exchange is joined by
+// only a subset of ranks.
+bool agreeOnConfig() {
+    const Config& cfg = getConfig();
+    long long vals[5] = {
+        (long long) cfg.enabled, (long long) cfg.minBytes,
+        (long long) cfg.chunkBytes, (long long) cfg.verify, 0 };
+    // 5th field: this rank can create the private communicator
+    vals[4] = (MPI_Comm_dup(MPI_COMM_WORLD, &g_comm) == MPI_SUCCESS) ? 1 : 0;
+    long long mins[5], maxs[5];
+    MPI_Allreduce(vals, mins, 5, MPI_LONG_LONG, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(vals, maxs, 5, MPI_LONG_LONG, MPI_MAX, MPI_COMM_WORLD);
+    if (mins[4] != 1) {
+        std::fprintf(stderr, "[quest-nvcomp] MPI_Comm_dup failed on some rank — "
+                             "compression disabled on ALL ranks\n");
+        return false;
+    }
+    for (int i = 0; i < 4; i++) {
+        if (mins[i] != maxs[i]) {
+            std::fprintf(stderr,
+                "[quest-nvcomp] config differs across ranks (field %d) — "
+                "compression disabled on ALL ranks\n", i);
             return false;
         }
-        for (int i = 0; i < 4; i++) {
-            if (mins[i] != maxs[i]) {
-                std::fprintf(stderr,
-                    "[quest-nvcomp] config differs across ranks (field %d) — "
-                    "compression disabled on ALL ranks\n", i);
-                return false;
-            }
-        }
-        return true;
-    }();
-    return uniform;
+    }
+    return true;
 }
 
 // One raw chunk exchange through pinned host staging (fallback + verify path).
@@ -299,14 +306,24 @@ void exchangeRawChunk(const std::uint8_t* dSrc, std::uint8_t* hSend, std::uint8_
 } // anonymous namespace
 
 
+void comm_compression_init() {
+
+    // called from comm_init(), which every rank reaches unconditionally; this
+    // is the only symmetric point available, so all WORLD collectives of this
+    // module live here (see agreeOnConfig)
+    g_uniform = agreeOnConfig();
+}
+
+
 bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, int pairRank) {
 
     const Config& cfg = getConfig();
     if (cfg.stats)
         ensureStatsRank(getStats());
 
-    // collective one-time check MUST precede any early return (see its comment)
-    if (!configIsGloballyUniform())
+    // agreed collectively at init; a plain load here, never a collective, as
+    // this path is only pair-symmetric (see agreeOnConfig)
+    if (!g_uniform)
         return false;
 
     if (!cfg.enabled)

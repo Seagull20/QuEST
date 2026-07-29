@@ -16,6 +16,7 @@
 #include "quest/include/types.h"
 
 #include "quest/src/comm/comm_config.hpp"
+#include "quest/src/comm/comm_compression.hpp"
 #include "quest/src/core/errors.hpp"
 
 #if COMPILE_MPI
@@ -106,6 +107,11 @@ void comm_init() {
         error_commAlreadyInit();
     
     MPI_Init(NULL, NULL);
+
+    // every rank reaches here, so it is the module's only safe home for a
+    // WORLD collective (the exchange path is only pair-symmetric); no-op
+    // unless built with ENABLE_NVCOMP
+    comm_compression_init();
 
 #endif
 }

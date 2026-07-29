@@ -28,6 +28,15 @@
 
 #ifdef COMPILE_NVCOMP
 
+/// Performs this module's one-time collective setup: duplicates the private
+/// communicator and agrees that every rank read the same configuration.
+/// MUST be called from a rank-symmetric point (comm_init), never lazily from
+/// the exchange — a gate whose control qubit lies in the prefix substate lets
+/// ranks with the wrong rank-index bit skip the exchange entirely, so a WORLD
+/// collective placed there is joined by only a subset of ranks. Until this
+/// runs, the compressed path stays inactive.
+void comm_compression_init();
+
 /// Attempts the compressed staged exchange between this rank's device buffer
 /// dSend and pair rank's, receiving into device buffer dRecv. Returns true if
 /// the exchange was fully handled (caller must skip the raw path), false if
@@ -36,6 +45,8 @@
 bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, int pairRank);
 
 #else
+
+static inline void comm_compression_init() { }
 
 static inline bool comm_compression_tryExchange(qcomp*, qcomp*, qindex, int) { return false; }
 
