@@ -173,6 +173,11 @@ build_scaling_export_vars() {
             export_vars="${export_vars},QUEST_BENCH_ENABLE_NVCOMP=1"
             export_vars="${export_vars},QUEST_ENABLE_EXCHANGE_COMPRESSION=1"
             export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_VERIFY=0"
+            # T-024 tranche 2 acceptance: ON arms MUST emit the per-rank
+            # raw/sent/control byte counters. These are the counter-level second
+            # source for the per-exchange compressibility trend and the coverage
+            # share, both of which are currently single-source.
+            export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_STATS=1"
             ;;
         *)
             die "QUEST_SCALING_COMPRESSION_MODE must be native, off, or on."
@@ -185,6 +190,15 @@ build_scaling_export_vars() {
     export_vars="${export_vars},QUEST_SCALING_GPU_GRES=${SCALING_GPU_GRES}"
     export_vars="${export_vars},QUEST_SCALING_GPU_CHOICE=${SCALING_GPU_CHOICE}"
     export_vars="${export_vars},QUEST_SCALING_COMPRESSION_MODE=${SCALING_COMPRESSION_MODE}"
+    # Passed by NAME so sbatch forwards the current value. QUEST_SCALING_POINTS
+    # is ';'-separated rather than newline-separated: --export cannot carry a
+    # multi-line value. The payload splits it back into lines.
+    if [ -n "${QUEST_SCALING_POINTS:-}" ]; then
+        export_vars="${export_vars},QUEST_SCALING_POINTS"
+    fi
+    if [ -n "${QUEST_SCALING_PROFILE_QUBITS:-}" ]; then
+        export_vars="${export_vars},QUEST_SCALING_PROFILE_QUBITS"
+    fi
     export_vars="${export_vars},QUEST_SCALING_GIT_COMMIT=$(git rev-parse HEAD)"
     export_vars="${export_vars},QUEST_BENCH_BUILD_PARALLEL=${QUEST_BENCH_BUILD_PARALLEL:-8}"
     printf '%s\n' "${export_vars}"

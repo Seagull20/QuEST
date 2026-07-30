@@ -46,18 +46,28 @@ write_point_manifest() {
         esac
 
         while read -r ranks qubits membership; do
+            [ -n "${ranks}" ] || continue
             point_id="${workload}_p${ranks}_q${qubits}"
             source_file="timing/${point_id}.tsv"
             profile_point="${point_id}"
-            # q29p4/q30p4 breakdown campaign: profile every point (both sizes, all workloads)
-            profile_selected=1
+            # Profiling every point is affordable for a 2-point campaign but not
+            # for a q20-25 fill. QUEST_SCALING_PROFILE_QUBITS, when set, is a
+            # space-separated qubit allow-list; unset keeps the previous
+            # profile-everything behaviour.
+            if [ -z "${QUEST_SCALING_PROFILE_QUBITS:-}" ]; then
+                profile_selected=1
+            elif printf ' %s ' "${QUEST_SCALING_PROFILE_QUBITS}" | grep -q " ${qubits} "; then
+                profile_selected=1
+            else
+                profile_selected=0
+            fi
             printf '%s\t%s\t%s\t%s\t%s\t%s\t1\t%s\t%s\t%s\t%s\t%s\t8\t0.5\t20260402\n' \
                 "${point_id}" "${benchmark}" "${gate_kind}" "${qubits}" "${ranks}" "${ranks}" \
                 "${membership}" "${source_file}" "${profile_point}" "${profile_selected}" "${gate_repeats}" >> "${path}"
-        done <<'EOF'
-4 29 strong
-4 30 strong
-EOF
+        # QUEST_SCALING_POINTS overrides the matrix: ';'-separated
+        # "ranks qubits membership" triples (';' because --export cannot carry a
+        # newline). Unset keeps the q29p4/q30p4 breakdown pair.
+        done < <(printf '%s\n' "${QUEST_SCALING_POINTS:-4 29 strong;4 30 strong}" | tr ';' '\n')
     done
 }
 
