@@ -23,7 +23,9 @@ write_point_manifest() {
     local ranks qubits membership point_id source_file profile_point profile_selected
 
     printf 'point_id\tbenchmark\tgate_kind\tnum_qubits\tmpi_ranks\tgpus\tslurm_nodes\tscale_membership\tsource_file\tprofile_point\tprofile_selected\tgate_repeats\trandom_depth\ttwo_qubit_ratio\tseed\n' > "${path}"
-    for workload in h cphase qft random; do
+    # QUEST_SCALING_WORKLOADS restricts the campaign to a subset (T-056 needs
+    # random alone). Unset keeps the full set.
+    for workload in ${QUEST_SCALING_WORKLOADS:-h cphase qft random}; do
         benchmark="${workload}"
         gate_kind="none"
         gate_repeats=0
@@ -61,9 +63,14 @@ write_point_manifest() {
             else
                 profile_selected=0
             fi
-            printf '%s\t%s\t%s\t%s\t%s\t%s\t1\t%s\t%s\t%s\t%s\t%s\t8\t0.5\t20260402\n' \
+            # random_depth is a campaign-level constant: point_id does NOT encode
+            # depth, so two depths in ONE campaign would collide on one
+            # source_file. T-056's depth ladder therefore runs one campaign per
+            # depth, and the uniqueness guard enforces that.
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t1\t%s\t%s\t%s\t%s\t%s\t%s\t0.5\t20260402\n' \
                 "${point_id}" "${benchmark}" "${gate_kind}" "${qubits}" "${ranks}" "${ranks}" \
-                "${membership}" "${source_file}" "${profile_point}" "${profile_selected}" "${gate_repeats}" >> "${path}"
+                "${membership}" "${source_file}" "${profile_point}" "${profile_selected}" "${gate_repeats}" \
+                "${QUEST_SCALING_RANDOM_DEPTH:-8}" >> "${path}"
         # QUEST_SCALING_POINTS overrides the matrix: ';'-separated
         # "ranks qubits membership" triples (';' because --export cannot carry a
         # newline). Unset keeps the q29p4/q30p4 breakdown pair.
@@ -77,6 +84,19 @@ write_point_manifest() {
 validate_campaign_preconditions() {
     local manifest="$1"
     local total distinct dup empty_dir profiled q missing
+
+    # Knob sanity first: a typo here silently changes what was measured.
+    local w
+    for w in ${QUEST_SCALING_WORKLOADS:-h cphase qft random}; do
+        case "${w}" in
+            h|cnot|cphase|qft|random) ;;
+            *) die "Unknown workload '${w}' in QUEST_SCALING_WORKLOADS (expected h, cnot, cphase, qft or random)." ;;
+        esac
+    done
+    case "${QUEST_SCALING_RANDOM_DEPTH:-8}" in
+        ''|*[!0-9]*) die "QUEST_SCALING_RANDOM_DEPTH='${QUEST_SCALING_RANDOM_DEPTH:-}' is not a positive integer." ;;
+        0) die "QUEST_SCALING_RANDOM_DEPTH must be greater than zero." ;;
+    esac
 
     total="$(tail -n +2 "${manifest}" | grep -c . || true)"
     [ "${total}" -gt 0 ] || die "Point manifest has no data rows (check QUEST_SCALING_POINTS syntax: ';'-separated 'ranks qubits membership' triples)."

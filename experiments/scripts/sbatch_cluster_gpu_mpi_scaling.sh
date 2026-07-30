@@ -199,6 +199,12 @@ build_scaling_export_vars() {
     if [ -n "${QUEST_SCALING_PROFILE_QUBITS:-}" ]; then
         export_vars="${export_vars},QUEST_SCALING_PROFILE_QUBITS"
     fi
+    if [ -n "${QUEST_SCALING_WORKLOADS:-}" ]; then
+        export_vars="${export_vars},QUEST_SCALING_WORKLOADS"
+    fi
+    if [ -n "${QUEST_SCALING_RANDOM_DEPTH:-}" ]; then
+        export_vars="${export_vars},QUEST_SCALING_RANDOM_DEPTH"
+    fi
     export_vars="${export_vars},QUEST_SCALING_GIT_COMMIT=$(git rev-parse HEAD)"
     export_vars="${export_vars},QUEST_BENCH_BUILD_PARALLEL=${QUEST_BENCH_BUILD_PARALLEL:-8}"
     printf '%s\n' "${export_vars}"
