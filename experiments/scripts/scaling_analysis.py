@@ -208,14 +208,33 @@ def summarize_samples(samples):
             }
         )
 
+    # Strong scaling holds the problem size fixed and varies ranks, so each
+    # qubit count is its OWN series and needs its OWN single-rank baseline.
+    # Weak scaling grows the problem with the ranks by construction, so its
+    # baseline is the single-rank point of the chain and must NOT be keyed on
+    # qubits. Keying both on (scale_type, benchmark, gate_kind) alone let one
+    # last-seen single-rank row become the baseline for every qubit count in a
+    # multi-size strong sweep, producing speedups wrong by orders of magnitude
+    # while every row still reported PASS. Latent until a strong sweep carried
+    # more than one qubit count.
+    def baseline_key(row):
+        if row["scale_type"] == "strong":
+            return (row["scale_type"], row["benchmark"], row["gate_kind"], row["num_qubits"])
+        return (row["scale_type"], row["benchmark"], row["gate_kind"])
+
     baselines = {}
     for row in summaries:
-        key = (row["scale_type"], row["benchmark"], row["gate_kind"])
+        key = baseline_key(row)
         if row["mpi_ranks"] == 1 and row["summary_status"] == "PASS":
+            if key in baselines:
+                raise SystemExit(
+                    f"Duplicate single-rank baseline for {key}; refusing to aggregate "
+                    "against an ambiguous baseline."
+                )
             baselines[key] = row
 
     for row in summaries:
-        baseline = baselines.get((row["scale_type"], row["benchmark"], row["gate_kind"]))
+        baseline = baselines.get(baseline_key(row))
         if baseline is None or row["summary_status"] != "PASS":
             continue
         base_time = baseline["median_time_s"]

@@ -71,6 +71,68 @@ write_point_manifest() {
     done
 }
 
+# Fail LOUDLY before burning an allocation. Every check here corresponds to an
+# observed or reviewer-reproduced way for a campaign to finish looking healthy
+# while being wrong; a silent one costs a whole cluster window to notice.
+validate_campaign_preconditions() {
+    local manifest="$1"
+    local total distinct dup empty_dir profiled q missing
+
+    total="$(tail -n +2 "${manifest}" | grep -c . || true)"
+    [ "${total}" -gt 0 ] || die "Point manifest has no data rows (check QUEST_SCALING_POINTS syntax: ';'-separated 'ranks qubits membership' triples)."
+
+    # point_id is <workload>_p<ranks>_q<qubits> and omits scale_membership, so
+    # the same (ranks, qubits) under two memberships collides on one source_file:
+    # timing output APPENDS and profiles OVERWRITE, silently mixing two runs.
+    distinct="$(tail -n +2 "${manifest}" | cut -f1 | sort -u | grep -c . || true)"
+    if [ "${total}" -ne "${distinct}" ]; then
+        dup="$(tail -n +2 "${manifest}" | cut -f1 | sort | uniq -d | tr '\n' ' ')"
+        die "Point manifest has ${total} rows but only ${distinct} distinct point_id. Colliding: ${dup}"
+    fi
+
+    # Structural check on every row: numeric ranks/qubits, known membership.
+    while IFS=$'\t' read -r point_id _ _ q ranks _ _ membership _; do
+        [ -n "${point_id}" ] || continue
+        case "${ranks}" in ''|*[!0-9]*) die "Non-numeric mpi_ranks '${ranks}' for ${point_id}." ;; esac
+        case "${q}" in ''|*[!0-9]*) die "Non-numeric num_qubits '${q}' for ${point_id}." ;; esac
+        case "${membership}" in
+            strong|weak) ;;
+            *) die "Unknown scale_membership '${membership}' for ${point_id} (expected strong or weak)." ;;
+        esac
+    done < <(tail -n +2 "${manifest}")
+
+    # A non-empty allow-list that matches nothing means a typo, and would
+    # silently produce a campaign with zero profiles that still validates.
+    if [ -n "${QUEST_SCALING_PROFILE_QUBITS:-}" ]; then
+        profiled="$(awk -F'\t' 'NR>1 && $11==1' "${manifest}" | grep -c . || true)"
+        [ "${profiled}" -gt 0 ] || die "QUEST_SCALING_PROFILE_QUBITS='${QUEST_SCALING_PROFILE_QUBITS}' selected zero points; check for a typo against the qubit set in the matrix."
+        for q in ${QUEST_SCALING_PROFILE_QUBITS}; do
+            if ! awk -F'\t' -v want="${q}" 'NR>1 && $4==want {found=1} END{exit !found}' "${manifest}"; then
+                die "QUEST_SCALING_PROFILE_QUBITS names qubit ${q}, which does not appear in the matrix."
+            fi
+        done
+    fi
+
+    # A Slurm requeue reuses the job-ID directory. Timing files APPEND, so a
+    # requeued campaign silently reports twice the reps it actually measured.
+    empty_dir="$(find "${RUN_DIR}/timing" -type f -name '*.tsv' 2>/dev/null | grep -c . || true)"
+    [ "${empty_dir}" -eq 0 ] || die "${RUN_DIR}/timing already holds ${empty_dir} TSV files (Slurm requeue onto a used directory?). Refusing to append to a previous run."
+
+    # The ON arm's counters are an acceptance requirement, not an optimisation.
+    if [ "${QUEST_SCALING_COMPRESSION_MODE:-native}" = "on" ]; then
+        [ "${QUEST_ENABLE_EXCHANGE_COMPRESSION:-}" = "1" ] || die "compression mode 'on' but QUEST_ENABLE_EXCHANGE_COMPRESSION='${QUEST_ENABLE_EXCHANGE_COMPRESSION:-unset}'."
+        # Forced here as well as at export: --export=ALL,VAR=1 precedence over an
+        # ambient VAR is version-dependent, and losing the counters silently
+        # would waste the arm.
+        if [ "${QUEST_EXCHANGE_COMPRESSION_STATS:-}" != "1" ]; then
+            warn "QUEST_EXCHANGE_COMPRESSION_STATS='${QUEST_EXCHANGE_COMPRESSION_STATS:-unset}' on an ON arm; forcing to 1."
+            export QUEST_EXCHANGE_COMPRESSION_STATS=1
+        fi
+    fi
+
+    info "Campaign preconditions OK: ${total} points, ${distinct} distinct, $(awk -F'\t' 'NR>1 && $11==1' "${manifest}" | grep -c . || true) profiled."
+}
+
 profile_report_exists() {
     [ -s "$1.nsys-rep" ]
 }
@@ -411,6 +473,7 @@ main() {
     : > "${COMMAND_LOG}"
     printf 'timestamp\tpoint\tphase\tindex\tuuid\tname\ttemperature_gpu_c\tpower_w\tutilization_gpu_pct\tmemory_used_mib\tmemory_total_mib\n' > "${GPU_SAMPLES}"
     write_point_manifest "${POINT_MANIFEST}"
+    validate_campaign_preconditions "${POINT_MANIFEST}"
     write_environment_snapshot
 
     export BENCH_PLATFORM=cluster
