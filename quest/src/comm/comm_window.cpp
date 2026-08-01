@@ -613,6 +613,11 @@ bool comm_window_tryExchange(
 }
 
 
+bool comm_window_isAvailable() {
+    return true;
+}
+
+
 bool comm_window_statsEnabled() {
     initialiseStats();
     return stagingStats().enabled;
@@ -629,6 +634,10 @@ void comm_window_initForQureg(Qureg) {}
 void comm_window_destroyForQureg(Qureg) {}
 
 bool comm_window_tryExchange(Qureg, qcomp*, qcomp*, qindex, int) {
+    return false;
+}
+
+bool comm_window_isAvailable() {
     return false;
 }
 

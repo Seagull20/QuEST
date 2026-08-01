@@ -17,6 +17,7 @@
 
 #include "quest/src/comm/comm_config.hpp"
 #include "quest/src/comm/comm_compression.hpp"
+#include "quest/src/comm/comm_window.hpp"
 #include "quest/src/core/errors.hpp"
 
 #include <cstdio>
@@ -128,6 +129,24 @@ bool env_requests_bulk_async() {
 
     global_bulk_async_enabled = local_bulk_async != 0;
     global_force_cpu_staging = local_force_cpu != 0;
+
+    // A build that compiled the window implementation out still honours the
+    // request everywhere else: comm_isBulkAsyncEnabled() would return true, the
+    // direct-GPU and compression paths would be skipped, comm_window_tryExchange
+    // would return false, and the run would quietly execute raw CPU staging while
+    // being labelled bulk_async. That corrupts the attribution this transport
+    // exists to measure, so it aborts instead.
+    if (global_bulk_async_enabled && !comm_window_isAvailable()) {
+        std::fprintf(stderr,
+            "[quest-staging] QUEST_GPU_STAGING_MODE=bulk_async was requested but this "
+            "build contains no window transport (needs CUDA+MPI, and comm_window.cpp "
+            "compiled as CUDA). Refusing to run: the arm would silently be raw CPU "
+            "staging.\n");
+#if COMPILE_MPI
+        MPI_Abort(MPI_COMM_WORLD, 739);
+#endif
+        std::abort();
+    }
 }
 
 } // namespace

@@ -25,6 +25,16 @@ void comm_window_destroyForQureg(Qureg qureg);
 bool comm_window_tryExchange(
     Qureg qureg, qcomp* gpuSend, qcomp* gpuRecv, qindex numAmps, int pairRank);
 
+/**
+ * Whether this build actually contains the window transport.
+ *
+ * False on any configuration that compiled the implementation out (no CUDA, a
+ * HIP build, or a build where comm_window.cpp was not routed through the CUDA
+ * compiler). Requesting bulk_async on such a build must fail loudly rather than
+ * fall through to raw staging, which would silently mislabel the ladder arm.
+ */
+bool comm_window_isAvailable();
+
 bool comm_window_statsEnabled();
 void comm_window_recordPayloadMpi(std::size_t bytes, double seconds);
 
