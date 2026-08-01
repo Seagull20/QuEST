@@ -62,9 +62,38 @@
     #include "quest/src/gpu/gpu_cuquantum.cuh"
 #endif
 
+#if COMPILE_CUDA && defined(__NVCC__)
+    #include <cuda_runtime.h>
+#endif
+
 #include <vector>
 using std::vector;
 
+
+
+void gpu_waitForPriorWorkOnStream(void* targetStream) {
+#if COMPILE_CUDA && !COMPILE_HIP
+
+    cudaStream_t stream = reinterpret_cast<cudaStream_t>(targetStream);
+
+    cudaEvent_t defaultStreamEvent;
+    CUDA_CHECK( cudaEventCreateWithFlags(&defaultStreamEvent, cudaEventDisableTiming) );
+    CUDA_CHECK( cudaEventRecord(defaultStreamEvent, nullptr) );
+    CUDA_CHECK( cudaStreamWaitEvent(stream, defaultStreamEvent, 0) );
+    CUDA_CHECK( cudaEventDestroy(defaultStreamEvent) );
+
+#if COMPILE_CUQUANTUM
+    cudaEvent_t cuQuantumStreamEvent;
+    CUDA_CHECK( cudaEventCreateWithFlags(&cuQuantumStreamEvent, cudaEventDisableTiming) );
+    CUDA_CHECK( cudaEventRecord(cuQuantumStreamEvent, config.stream) );
+    CUDA_CHECK( cudaStreamWaitEvent(stream, cuQuantumStreamEvent, 0) );
+    CUDA_CHECK( cudaEventDestroy(cuQuantumStreamEvent) );
+#endif
+
+#else
+    (void) targetStream;
+#endif
+}
 
 
 /*

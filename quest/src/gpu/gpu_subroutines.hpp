@@ -17,6 +17,14 @@
 using std::vector;
 
 
+/**
+ * Makes work already queued on QuEST's default stream and cuQuantum's
+ * private stream visible to a dedicated communication stream. This is an
+ * event-based dependency insertion; it does not synchronize the device.
+ */
+void gpu_waitForPriorWorkOnStream(void* targetStream);
+
+
 /*
  * GETTERS
  */

@@ -236,6 +236,11 @@ bool gpu_isGpuAvailable() {
 bool gpu_isDirectGpuCommPossible() {
 #if COMPILE_CUDA
 
+    // T-039's verification and the selected CPU-staged mode may explicitly
+    // hold the transport constant even on a CUDA-aware MPI installation.
+    if (comm_isCpuStagingForced())
+        return false;
+
     if (!comm_isMpiGpuAware())
         return false;
 
