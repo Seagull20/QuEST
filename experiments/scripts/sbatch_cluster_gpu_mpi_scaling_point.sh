@@ -83,7 +83,7 @@ write_point_manifest() {
 # while being wrong; a silent one costs a whole cluster window to notice.
 validate_campaign_preconditions() {
     local manifest="$1"
-    local total distinct dup empty_dir profiled q missing
+    local total distinct dup empty_dir profiled q missing mode
 
     # Knob sanity first: a typo here silently changes what was measured.
     local w
@@ -138,17 +138,29 @@ validate_campaign_preconditions() {
     empty_dir="$(find "${RUN_DIR}/timing" -type f -name '*.tsv' 2>/dev/null | grep -c . || true)"
     [ "${empty_dir}" -eq 0 ] || die "${RUN_DIR}/timing already holds ${empty_dir} TSV files (Slurm requeue onto a used directory?). Refusing to append to a previous run."
 
-    # The ON arm's counters are an acceptance requirement, not an optimisation.
-    if [ "${QUEST_SCALING_COMPRESSION_MODE:-native}" = "on" ]; then
-        [ "${QUEST_ENABLE_EXCHANGE_COMPRESSION:-}" = "1" ] || die "compression mode 'on' but QUEST_ENABLE_EXCHANGE_COMPRESSION='${QUEST_ENABLE_EXCHANGE_COMPRESSION:-unset}'."
-        # Forced here as well as at export: --export=ALL,VAR=1 precedence over an
-        # ambient VAR is version-dependent, and losing the counters silently
-        # would waste the arm.
-        if [ "${QUEST_EXCHANGE_COMPRESSION_STATS:-}" != "1" ]; then
-            warn "QUEST_EXCHANGE_COMPRESSION_STATS='${QUEST_EXCHANGE_COMPRESSION_STATS:-unset}' on an ON arm; forcing to 1."
-            export QUEST_EXCHANGE_COMPRESSION_STATS=1
-        fi
-    fi
+    # The ON/RAW arms' counters are an acceptance requirement, not an optimisation.
+    case "${QUEST_SCALING_COMPRESSION_MODE:-native}" in
+        on|raw)
+            mode="${QUEST_SCALING_COMPRESSION_MODE}"
+            [ "${QUEST_ENABLE_EXCHANGE_COMPRESSION:-}" = "1" ] || die "compression mode '${mode}' but QUEST_ENABLE_EXCHANGE_COMPRESSION='${QUEST_ENABLE_EXCHANGE_COMPRESSION:-unset}'."
+            # Forced here as well as at export: --export=ALL,VAR=1 precedence over an
+            # ambient VAR is version-dependent, and losing the counters silently
+            # would waste the arm.
+            if [ "${QUEST_EXCHANGE_COMPRESSION_STATS:-}" != "1" ]; then
+                warn "QUEST_EXCHANGE_COMPRESSION_STATS='${QUEST_EXCHANGE_COMPRESSION_STATS:-unset}' on a ${mode} arm; forcing to 1."
+                export QUEST_EXCHANGE_COMPRESSION_STATS=1
+            fi
+            # T-075: the arms differ ONLY in this flag. An ambient value leaking in
+            # either direction silently turns RAW into ON (or vice versa) while the
+            # metadata still claims the arm — the exact failure 944041d's pattern
+            # exists to make loud.
+            if [ "${mode}" = "raw" ]; then
+                [ "${QUEST_EXCHANGE_COMPRESSION_FORCE_RAW:-}" = "1" ] || die "compression mode 'raw' but QUEST_EXCHANGE_COMPRESSION_FORCE_RAW='${QUEST_EXCHANGE_COMPRESSION_FORCE_RAW:-unset}'."
+            else
+                [ "${QUEST_EXCHANGE_COMPRESSION_FORCE_RAW:-0}" != "1" ] || die "compression mode 'on' but QUEST_EXCHANGE_COMPRESSION_FORCE_RAW=1 — that is the RAW arm, not ON."
+            fi
+            ;;
+    esac
 
     info "Campaign preconditions OK: ${total} points, ${distinct} distinct, $(awk -F'\t' 'NR>1 && $11==1' "${manifest}" | grep -c . || true) profiled."
 }
@@ -230,6 +242,7 @@ write_environment_snapshot() {
         printf 'bench_enable_nvcomp=%s\n' "${QUEST_BENCH_ENABLE_NVCOMP:-0}"
         printf 'exchange_compression_enabled=%s\n' "${QUEST_ENABLE_EXCHANGE_COMPRESSION:-unset}"
         printf 'exchange_compression_stats=%s\n' "${QUEST_EXCHANGE_COMPRESSION_STATS:-unset}"
+        printf 'exchange_compression_force_raw=%s\n' "${QUEST_EXCHANGE_COMPRESSION_FORCE_RAW:-unset}"
         printf 'exchange_compression_min_bytes=%s\n' "${QUEST_EXCHANGE_COMPRESSION_MIN_BYTES:-default}"
         printf 'exchange_compression_chunk_bytes=%s\n' "${QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES:-default}"
     } > "${RUN_DIR}/campaign_metadata.txt"
@@ -296,9 +309,21 @@ configure_compression_environment() {
             export QUEST_BENCH_ENABLE_NVCOMP=1
             export QUEST_ENABLE_EXCHANGE_COMPRESSION=1
             export QUEST_EXCHANGE_COMPRESSION_VERIFY=0
+            export QUEST_EXCHANGE_COMPRESSION_FORCE_RAW=0
+            ;;
+        raw)
+            # T-075: identical to `on` except the codec is short-circuited, so
+            # every chunk takes the raw fallback through the same pinned buffers
+            # and chunk loop. RAW-vs-ON isolates encoding; OFF-vs-RAW isolates
+            # the pinned+chunked plumbing.
+            configure_nvcomp_runtime
+            export QUEST_BENCH_ENABLE_NVCOMP=1
+            export QUEST_ENABLE_EXCHANGE_COMPRESSION=1
+            export QUEST_EXCHANGE_COMPRESSION_VERIFY=0
+            export QUEST_EXCHANGE_COMPRESSION_FORCE_RAW=1
             ;;
         *)
-            die "QUEST_SCALING_COMPRESSION_MODE must be native, off, or on."
+            die "QUEST_SCALING_COMPRESSION_MODE must be native, off, on, or raw."
             ;;
     esac
 }
@@ -312,6 +337,7 @@ configure_mpirun_prefix() {
         QUEST_ENABLE_EXCHANGE_COMPRESSION \
         QUEST_EXCHANGE_COMPRESSION_VERIFY \
         QUEST_EXCHANGE_COMPRESSION_STATS \
+        QUEST_EXCHANGE_COMPRESSION_FORCE_RAW \
         QUEST_EXCHANGE_COMPRESSION_MIN_BYTES \
         QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES; do
         if [ -n "${!var:-}" ]; then
