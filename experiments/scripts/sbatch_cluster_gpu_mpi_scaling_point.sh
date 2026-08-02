@@ -354,6 +354,16 @@ configure_staging_environment() {
     # this axis is independent of QUEST_SCALING_COMPRESSION_MODE.
     case "${QUEST_SCALING_STAGING_MODE:-none}" in
         none)
+            # A non-window arm must not inherit an ambient QUEST_GPU_STAGING_MODE
+            # (sbatch --export=ALL forwards the submission shell's environment,
+            # and configure_mpirun_prefix -x would forward it again to the
+            # ranks): a leaked bulk_async here would run the window while the
+            # metadata claims staging is disabled — the inverse of the 944041d
+            # failure shape. Unset loudly rather than trust the caller.
+            if [ -n "${QUEST_GPU_STAGING_MODE:-}" ]; then
+                warn "ambient QUEST_GPU_STAGING_MODE='${QUEST_GPU_STAGING_MODE}' with staging mode 'none'; unsetting."
+            fi
+            unset QUEST_GPU_STAGING_MODE QUEST_GPU_STAGING_STATS
             ;;
         bulk_async)
             export QUEST_GPU_STAGING_MODE=bulk_async
@@ -544,7 +554,12 @@ main() {
     source_system_profile_if_present
     source_toolchain_env_if_present
     ensure_minimum_cmake 3.21
-    ensure_nsys_available
+    # A profile-free campaign (QUEST_SCALING_PROFILE_QUBITS=none) never invokes
+    # nsys, so requiring it here would fail a timing-only run on a node without
+    # Nsight before any rep executes.
+    if [ "${QUEST_SCALING_PROFILE_QUBITS:-}" != "none" ]; then
+        ensure_nsys_available
+    fi
     configure_compression_environment
     configure_staging_environment
     configure_mpirun_prefix
