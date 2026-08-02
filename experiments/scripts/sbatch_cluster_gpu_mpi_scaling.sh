@@ -283,7 +283,11 @@ main() {
     SCALING_COMPRESSION_MODE="${QUEST_SCALING_COMPRESSION_MODE:-${SCALING_COMPRESSION_MODE:-native}}"
     SCALING_STAGING_MODE="${QUEST_SCALING_STAGING_MODE:-none}"
     SCALING_ARM_TAG="${SCALING_COMPRESSION_MODE}"
-    [ "${SCALING_STAGING_MODE}" = "none" ] || SCALING_ARM_TAG="${SCALING_COMPRESSION_MODE}_window"
+    case "${SCALING_STAGING_MODE}" in
+        none) ;;
+        tiled_materialize) SCALING_ARM_TAG="${SCALING_COMPRESSION_MODE}_tiledwin" ;;
+        *) SCALING_ARM_TAG="${SCALING_COMPRESSION_MODE}_window" ;;
+    esac
     export_vars="$(build_scaling_export_vars)"
 
     job_id="$(
