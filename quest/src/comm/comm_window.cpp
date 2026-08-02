@@ -350,13 +350,6 @@ class CommWindow {
         return nullptr;
     }
 
-    const WindowEntry* findWorldRank(int worldRank) const {
-        for (const WindowEntry& entry : entries_)
-            if (entry.worldRank == worldRank)
-                return &entry;
-        return nullptr;
-    }
-
     bool configureTileGeometry() {
         if (!comm_isTiledMaterializeEnabled())
             return true;
