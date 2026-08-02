@@ -22,6 +22,15 @@ case "${WINDOW_MODE}" in
     *) die "unsupported window mode: ${WINDOW_MODE}" ;;
 esac
 
+# T-040 A3: build with the nvcomp codec and run the WINDOW cases with
+# compression enabled (raw references stay uncompressed). The suite's
+# bit-identical comparison then verifies codec-over-window losslessness.
+NVCOMP_ENABLED="${T039_ENABLE_NVCOMP:-0}"
+NVCOMP_ROOT="${NVCOMP_ROOT:-$HOME/miniconda3/envs/quest_compression}"
+if [ "${NVCOMP_ENABLED}" = "1" ]; then
+    [ -d "${NVCOMP_ROOT}" ] || die "NVCOMP_ROOT not found: ${NVCOMP_ROOT}"
+fi
+
 [ -n "${SLURM_JOB_ID:-}" ] || die "run inside an already allocated Slurm job"
 [ -x /usr/bin/cc ] || die "/usr/bin/cc is unavailable"
 [ -x /usr/bin/c++ ] || die "/usr/bin/c++ is unavailable"
@@ -41,8 +50,14 @@ case "${CONDA_DEFAULT_ENV:-}:${CONDA_PREFIX:-}" in
         ;;
 esac
 
+CMAKE_EXTRA=()
+if [ "${NVCOMP_ENABLED}" = "1" ]; then
+    CMAKE_EXTRA+=( -DENABLE_NVCOMP=ON "-DNVCOMP_ROOT=${NVCOMP_ROOT}" )
+fi
+
 mkdir -p "${BUILD_DIR}"
 cmake -S "${REPO_ROOT}" -B "${BUILD_DIR}" \
+    "${CMAKE_EXTRA[@]}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_C_COMPILER=/usr/bin/cc \
     -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
@@ -64,6 +79,13 @@ cmake --build "${BUILD_DIR}" --parallel "${BUILD_JOBS}" --target t039_bulk_async
 
 CUDA_LIBRARY_PATH="${CUDA_ROOT}/targets/x86_64-linux/lib:${CUDA_ROOT}/lib"
 export LD_LIBRARY_PATH="${CUDA_LIBRARY_PATH}:${LD_LIBRARY_PATH:-}"
+COMPRESSION_ENV=()
+COMPRESSION_EXPORTS=()
+if [ "${NVCOMP_ENABLED}" = "1" ]; then
+    export LD_LIBRARY_PATH="${NVCOMP_ROOT}/lib:${LD_LIBRARY_PATH}"
+    COMPRESSION_ENV=( QUEST_ENABLE_EXCHANGE_COMPRESSION=1 QUEST_EXCHANGE_COMPRESSION_STATS=1 )
+    COMPRESSION_EXPORTS=( -x QUEST_ENABLE_EXCHANGE_COMPRESSION -x QUEST_EXCHANGE_COMPRESSION_STATS )
+fi
 BINARY="${BUILD_DIR}/t039_bulk_async_verify"
 RESULT_DIR="${T039_RESULT_DIR:-${SCRIPT_DIR}/results/$(date -u +%Y%m%dT%H%M%SZ)}"
 mkdir -p "${RESULT_DIR}"
@@ -104,18 +126,21 @@ run_case() {
         env QUEST_GPU_STAGING_MODE="${WINDOW_MODE}" \
             QUEST_FORCE_CPU_STAGING=1 QUEST_GPU_STAGING_STATS=1 \
             QUEST_GPU_STAGING_FORCE_WINDOW_FALLBACK_RANK="${fallback_rank}" \
+            "${COMPRESSION_ENV[@]}" \
             "${MPI_LAUNCHER}" -np "${ranks}" --oversubscribe "${map_args[@]}" \
             -x QUEST_GPU_STAGING_MODE -x QUEST_FORCE_CPU_STAGING \
             -x QUEST_GPU_STAGING_STATS -x QUEST_GPU_STAGING_FORCE_WINDOW_FALLBACK_RANK \
-            -x LD_LIBRARY_PATH "${MPI_OPTIONAL_EXPORTS[@]}" \
+            -x LD_LIBRARY_PATH "${MPI_OPTIONAL_EXPORTS[@]}" "${COMPRESSION_EXPORTS[@]}" \
             "${BINARY}" --qubits "${qubits}" --targets "${targets}" \
             >"${output}" 2>&1
     else
         env QUEST_GPU_STAGING_MODE="${WINDOW_MODE}" \
             QUEST_FORCE_CPU_STAGING=1 QUEST_GPU_STAGING_STATS=1 \
+            "${COMPRESSION_ENV[@]}" \
             "${MPI_LAUNCHER}" -np "${ranks}" --oversubscribe "${map_args[@]}" \
             -x QUEST_GPU_STAGING_MODE -x QUEST_FORCE_CPU_STAGING \
             -x QUEST_GPU_STAGING_STATS -x LD_LIBRARY_PATH "${MPI_OPTIONAL_EXPORTS[@]}" \
+            "${COMPRESSION_EXPORTS[@]}" \
             "${BINARY}" --qubits "${qubits}" --targets "${targets}" \
             >"${output}" 2>&1
     fi
