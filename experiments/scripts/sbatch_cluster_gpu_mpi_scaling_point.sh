@@ -55,8 +55,13 @@ write_point_manifest() {
             # Profiling every point is affordable for a 2-point campaign but not
             # for a q20-25 fill. QUEST_SCALING_PROFILE_QUBITS, when set, is a
             # space-separated qubit allow-list; unset keeps the previous
-            # profile-everything behaviour.
-            if [ -z "${QUEST_SCALING_PROFILE_QUBITS:-}" ]; then
+            # profile-everything behaviour; the literal 'none' disables
+            # profiling entirely (T-044 bulk arms: nsys belongs to A3/I1 only,
+            # and the T-075 OFF arm showed the profile pass can eat the
+            # walltime the timing reps already banked).
+            if [ "${QUEST_SCALING_PROFILE_QUBITS:-}" = "none" ]; then
+                profile_selected=0
+            elif [ -z "${QUEST_SCALING_PROFILE_QUBITS:-}" ]; then
                 profile_selected=1
             elif printf ' %s ' "${QUEST_SCALING_PROFILE_QUBITS}" | grep -q " ${qubits} "; then
                 profile_selected=1
@@ -123,7 +128,7 @@ validate_campaign_preconditions() {
 
     # A non-empty allow-list that matches nothing means a typo, and would
     # silently produce a campaign with zero profiles that still validates.
-    if [ -n "${QUEST_SCALING_PROFILE_QUBITS:-}" ]; then
+    if [ -n "${QUEST_SCALING_PROFILE_QUBITS:-}" ] && [ "${QUEST_SCALING_PROFILE_QUBITS}" != "none" ]; then
         profiled="$(awk -F'\t' 'NR>1 && $11==1' "${manifest}" | grep -c . || true)"
         [ "${profiled}" -gt 0 ] || die "QUEST_SCALING_PROFILE_QUBITS='${QUEST_SCALING_PROFILE_QUBITS}' selected zero points; check for a typo against the qubit set in the matrix."
         for q in ${QUEST_SCALING_PROFILE_QUBITS}; do
@@ -161,6 +166,17 @@ validate_campaign_preconditions() {
             fi
             ;;
     esac
+
+    # T-044 window arm: same loud-failure contract as the compression arms —
+    # an arm whose window never engaged while the metadata claims bulk_async
+    # is the 944041d failure shape.
+    if [ "${QUEST_SCALING_STAGING_MODE:-none}" = "bulk_async" ]; then
+        [ "${QUEST_GPU_STAGING_MODE:-}" = "bulk_async" ] || die "staging mode 'bulk_async' but QUEST_GPU_STAGING_MODE='${QUEST_GPU_STAGING_MODE:-unset}'."
+        if [ "${QUEST_GPU_STAGING_STATS:-}" != "1" ]; then
+            warn "QUEST_GPU_STAGING_STATS='${QUEST_GPU_STAGING_STATS:-unset}' on the window arm; forcing to 1."
+            export QUEST_GPU_STAGING_STATS=1
+        fi
+    fi
 
     info "Campaign preconditions OK: ${total} points, ${distinct} distinct, $(awk -F'\t' 'NR>1 && $11==1' "${manifest}" | grep -c . || true) profiled."
 }
@@ -245,12 +261,22 @@ write_environment_snapshot() {
         printf 'exchange_compression_force_raw=%s\n' "${QUEST_EXCHANGE_COMPRESSION_FORCE_RAW:-unset}"
         printf 'exchange_compression_min_bytes=%s\n' "${QUEST_EXCHANGE_COMPRESSION_MIN_BYTES:-default}"
         printf 'exchange_compression_chunk_bytes=%s\n' "${QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES:-default}"
+        printf 'staging_mode=%s\n' "${QUEST_SCALING_STAGING_MODE:-none}"
+        printf 'gpu_staging_mode=%s\n' "${QUEST_GPU_STAGING_MODE:-unset}"
+        printf 'gpu_staging_stats=%s\n' "${QUEST_GPU_STAGING_STATS:-unset}"
     } > "${RUN_DIR}/campaign_metadata.txt"
     {
         cmake --version | head -n 1
         nvcc --version | tail -n 1
         mpirun --version | head -n 1
-        nsys --version | head -n 1
+        # nsys is optional on a profile-free campaign (see the
+        # ensure_nsys_available gate in main); record absence instead of
+        # aborting the snapshot under set -e.
+        if command -v nsys >/dev/null 2>&1; then
+            nsys --version | head -n 1
+        else
+            printf 'nsys: not available\n'
+        fi
         python3 --version
     } > "${RUN_DIR}/environment/tool_versions.txt" 2>&1
 }
@@ -328,6 +354,37 @@ configure_compression_environment() {
     esac
 }
 
+configure_staging_environment() {
+    # T-044 ladder arm A1: the D-023 window transport inside QuEST (T-039,
+    # pin 910b9ad), behind the same launcher-plus-payload double-export the
+    # compression arms use. The window path bypasses the codec by design, so
+    # this axis is independent of QUEST_SCALING_COMPRESSION_MODE.
+    case "${QUEST_SCALING_STAGING_MODE:-none}" in
+        none)
+            # A non-window arm must not inherit an ambient QUEST_GPU_STAGING_MODE
+            # (sbatch --export=ALL forwards the submission shell's environment,
+            # and configure_mpirun_prefix -x would forward it again to the
+            # ranks): a leaked bulk_async here would run the window while the
+            # metadata claims staging is disabled — the inverse of the 944041d
+            # failure shape. Unset loudly rather than trust the caller.
+            if [ -n "${QUEST_GPU_STAGING_MODE:-}" ]; then
+                warn "ambient QUEST_GPU_STAGING_MODE='${QUEST_GPU_STAGING_MODE}' with staging mode 'none'; unsetting."
+            fi
+            unset QUEST_GPU_STAGING_MODE QUEST_GPU_STAGING_STATS
+            ;;
+        bulk_async)
+            export QUEST_GPU_STAGING_MODE=bulk_async
+            # The window arm without its counters cannot prove the window
+            # actually engaged (window_exchanges=0 would look identical to a
+            # healthy raw run) — same 944041d logic as the compression stats.
+            export QUEST_GPU_STAGING_STATS=1
+            ;;
+        *)
+            die "QUEST_SCALING_STAGING_MODE must be none or bulk_async."
+            ;;
+    esac
+}
+
 configure_mpirun_prefix() {
     local var
     MPIRUN_PREFIX=(mpirun)
@@ -339,7 +396,9 @@ configure_mpirun_prefix() {
         QUEST_EXCHANGE_COMPRESSION_STATS \
         QUEST_EXCHANGE_COMPRESSION_FORCE_RAW \
         QUEST_EXCHANGE_COMPRESSION_MIN_BYTES \
-        QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES; do
+        QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES \
+        QUEST_GPU_STAGING_MODE \
+        QUEST_GPU_STAGING_STATS; do
         if [ -n "${!var:-}" ]; then
             MPIRUN_PREFIX+=(-x "${var}")
         fi
@@ -502,12 +561,21 @@ main() {
     source_system_profile_if_present
     source_toolchain_env_if_present
     ensure_minimum_cmake 3.21
-    ensure_nsys_available
+    # A profile-free campaign (QUEST_SCALING_PROFILE_QUBITS=none) never invokes
+    # nsys, so requiring it here would fail a timing-only run on a node without
+    # Nsight before any rep executes.
+    if [ "${QUEST_SCALING_PROFILE_QUBITS:-}" != "none" ]; then
+        ensure_nsys_available
+    fi
     configure_compression_environment
+    configure_staging_environment
     configure_mpirun_prefix
 
     if [ "${compression_mode}" != "native" ]; then
         run_tag="${gpu_type}_${compression_mode}"
+    fi
+    if [ "${QUEST_SCALING_STAGING_MODE:-none}" != "none" ]; then
+        run_tag="${run_tag}_window"
     fi
     RUN_DIR="$(current_raw_results_dir)/gpu_mpi_scaling_${run_tag}_${job_id}"
     POINT_MANIFEST="${RUN_DIR}/point_manifest.tsv"

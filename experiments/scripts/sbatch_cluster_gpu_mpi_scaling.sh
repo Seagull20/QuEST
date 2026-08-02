@@ -160,6 +160,23 @@ build_scaling_export_vars() {
     local export_vars="ALL"
     SCALING_COMPRESSION_MODE="${QUEST_SCALING_COMPRESSION_MODE:-${SCALING_COMPRESSION_MODE:-native}}"
     SCALING_GPU_CHOICE="${QUEST_SCALING_GPU_CHOICE:-${SCALING_GPU_CHOICE:-auto}}"
+    SCALING_STAGING_MODE="${QUEST_SCALING_STAGING_MODE:-none}"
+
+    # T-044 ladder arm A1: window transport (T-039, pin 910b9ad) as an axis
+    # orthogonal to the compression mode. Double-exported (value here, arm
+    # re-derivation in the payload) like the compression knobs.
+    case "${SCALING_STAGING_MODE}" in
+        none)
+            ;;
+        bulk_async)
+            export_vars="${export_vars},QUEST_GPU_STAGING_MODE=bulk_async"
+            export_vars="${export_vars},QUEST_GPU_STAGING_STATS=1"
+            ;;
+        *)
+            die "QUEST_SCALING_STAGING_MODE must be none or bulk_async."
+            ;;
+    esac
+    export_vars="${export_vars},QUEST_SCALING_STAGING_MODE=${SCALING_STAGING_MODE}"
 
     case "${SCALING_COMPRESSION_MODE}" in
         native)
@@ -261,6 +278,12 @@ main() {
         return 0
     fi
 
+    # Runs in a command substitution, so name-tag resolution cannot live inside
+    # build_scaling_export_vars (a subshell variable never reaches sbatch).
+    SCALING_COMPRESSION_MODE="${QUEST_SCALING_COMPRESSION_MODE:-${SCALING_COMPRESSION_MODE:-native}}"
+    SCALING_STAGING_MODE="${QUEST_SCALING_STAGING_MODE:-none}"
+    SCALING_ARM_TAG="${SCALING_COMPRESSION_MODE}"
+    [ "${SCALING_STAGING_MODE}" = "none" ] || SCALING_ARM_TAG="${SCALING_COMPRESSION_MODE}_window"
     export_vars="$(build_scaling_export_vars)"
 
     job_id="$(
@@ -276,9 +299,9 @@ main() {
             --mem="${SCALING_MEM}" \
             ${SCALING_DEP_FLAG} \
             --time="${SCALING_WALLTIME}" \
-            --job-name="quest-scaling-${SCALING_GPU_TYPE}-${SCALING_COMPRESSION_MODE}" \
-            --output="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_COMPRESSION_MODE}_%j.out" \
-            --error="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_COMPRESSION_MODE}_%j.err" \
+            --job-name="quest-scaling-${SCALING_GPU_TYPE}-${SCALING_ARM_TAG:-${SCALING_COMPRESSION_MODE}}" \
+            --output="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_ARM_TAG:-${SCALING_COMPRESSION_MODE}}_%j.out" \
+            --error="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_ARM_TAG:-${SCALING_COMPRESSION_MODE}}_%j.err" \
             --export="${export_vars}" \
             "${payload}"
     )"
