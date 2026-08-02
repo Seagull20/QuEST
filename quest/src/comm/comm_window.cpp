@@ -429,7 +429,7 @@ class CommWindow {
         double d2hSeconds = 0;
         double h2dSeconds = 0;
         double controlSeconds = 0;
-        cudaError_t result = cudaSuccess;
+        int result = cudaSuccess;
         for (std::size_t tile = 0; tile < tileCount; tile++) {
             const std::size_t byteOffset = tile * tileBytes_;
             const std::size_t rawBytes = std::min(tileBytes_, payloadBytes - byteOffset);
