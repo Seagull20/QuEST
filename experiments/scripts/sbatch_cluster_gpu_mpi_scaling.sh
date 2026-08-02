@@ -168,12 +168,12 @@ build_scaling_export_vars() {
     case "${SCALING_STAGING_MODE}" in
         none)
             ;;
-        bulk_async)
-            export_vars="${export_vars},QUEST_GPU_STAGING_MODE=bulk_async"
+        bulk_async|tiled_materialize)
+            export_vars="${export_vars},QUEST_GPU_STAGING_MODE=${SCALING_STAGING_MODE}"
             export_vars="${export_vars},QUEST_GPU_STAGING_STATS=1"
             ;;
         *)
-            die "QUEST_SCALING_STAGING_MODE must be none or bulk_async."
+            die "QUEST_SCALING_STAGING_MODE must be none, bulk_async or tiled_materialize."
             ;;
     esac
     export_vars="${export_vars},QUEST_SCALING_STAGING_MODE=${SCALING_STAGING_MODE}"
