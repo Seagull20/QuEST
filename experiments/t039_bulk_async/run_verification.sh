@@ -153,17 +153,20 @@ run_pair 26 4 "$(distributed_targets 26 4)" ppr:4:node
 # then use the unchanged CPU-staged payload path without hanging.
 FALLBACK_RAW_LOG="${RESULT_DIR}/raw_fallback_q24_r2.log"
 FALLBACK_LOG="${RESULT_DIR}/bulk_async_registration_fallback_q24_r2.log"
-run_case raw 24 2 0 "${FALLBACK_RAW_LOG}" ppr:2:node
-run_case bulk_async 24 2 0 "${FALLBACK_LOG}" ppr:2:node 1
+FALLBACK_TARGETS="$(distributed_targets 24 2)"
+run_case raw 24 2 "${FALLBACK_TARGETS}" "${FALLBACK_RAW_LOG}" ppr:2:node
+run_case bulk_async 24 2 "${FALLBACK_TARGETS}" "${FALLBACK_LOG}" ppr:2:node 1
 python3 "${SCRIPT_DIR}/check_results.py" \
     "${FALLBACK_RAW_LOG}" "${FALLBACK_LOG}" 2 --expect-registration-fallback 2
 
 if [ "${SLURM_NNODES:-1}" -ge 2 ]; then
     OFFNODE_RAW_LOG="${RESULT_DIR}/raw_offnode_q24_r4.log"
     OFFNODE_LOG="${RESULT_DIR}/bulk_async_offnode_q24_r4.log"
-    # With two ranks per node, target 1 pairs ranks across nodes.
-    run_case raw 24 4 1 "${OFFNODE_RAW_LOG}" ppr:2:node
-    run_case bulk_async 24 4 1 "${OFFNODE_LOG}" ppr:2:node
+    # With two ranks per node, target 23 pairs ranks across nodes; target 22
+    # remains an on-node comparison in the same matrix.
+    OFFNODE_TARGETS="$(distributed_targets 24 4)"
+    run_case raw 24 4 "${OFFNODE_TARGETS}" "${OFFNODE_RAW_LOG}" ppr:2:node
+    run_case bulk_async 24 4 "${OFFNODE_TARGETS}" "${OFFNODE_LOG}" ppr:2:node
     python3 "${SCRIPT_DIR}/check_results.py" \
         "${OFFNODE_RAW_LOG}" "${OFFNODE_LOG}" 4 --expect-offnode
 else
