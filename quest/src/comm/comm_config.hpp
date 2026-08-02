@@ -15,6 +15,10 @@ constexpr int ROOT_RANK = 0;
 
 bool comm_isMpiCompiled();
 bool comm_isMpiGpuAware();
+bool comm_isBulkAsyncEnabled();
+bool comm_isTiledMaterializeEnabled();
+bool comm_isWindowStagingEnabled();
+bool comm_isCpuStagingForced();
 
 void comm_init();
 void comm_end();

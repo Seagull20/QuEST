@@ -19,6 +19,7 @@
 #include "quest/src/core/localiser.hpp"
 #include "quest/src/comm/comm_config.hpp"
 #include "quest/src/comm/comm_routines.hpp"
+#include "quest/src/comm/comm_window.hpp"
 #include "quest/src/cpu/cpu_config.hpp"
 #include "quest/src/gpu/gpu_config.hpp"
 
@@ -167,6 +168,11 @@ Qureg validateAndCreateCustomQureg(int numQubits, int isDensMatr, int useDistrib
     // if any of the above mallocs failed, below validation will memory leak; so free first (but don't set to nullptr)
     freeAllMemoryIfAnyAllocsFailed(qureg);
     validate_newQuregAllocs(qureg, __func__);
+
+    // bulk_async window state is a per-Qureg collective resource.  It is
+    // created after the ordinary allocations have been validated, and before
+    // the Qureg becomes visible to communication routines.
+    comm_window_initForQureg(qureg);
 
     // initialise state to |0> or |0><0|
     initZeroState(qureg); 
@@ -333,6 +339,10 @@ Qureg createCloneQureg(Qureg qureg) {
 
 void destroyQureg(Qureg qureg) {
     validate_quregFields(qureg, __func__);
+
+    // This collectively tears down the optional shared window before either
+    // retained cpuCommBuffer or GPU memory is released.
+    comm_window_destroyForQureg(qureg);
 
     // free CPU memory
     cpu_deallocNumaArray(qureg.cpuAmps, qureg.numAmpsPerNode);

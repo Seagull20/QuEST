@@ -395,7 +395,13 @@ Qureg createCloneQureg(Qureg qureg);
  */
 
 
-/// @notyetdoced
+/**
+ * Destroys a Qureg. When the runtime environment variable
+ * @c QUEST_GPU_STAGING_MODE is selected as @c bulk_async or
+ * @c tiled_materialize, distributed GPU Qureg creation and destruction are
+ * collective and must be identically ordered on all ranks, because the
+ * transport owns a shared MPI window per Qureg.
+ */
 void destroyQureg(Qureg qureg);
 
 

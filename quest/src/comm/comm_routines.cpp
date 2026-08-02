@@ -23,6 +23,7 @@
 #include "quest/src/comm/comm_config.hpp"
 #include "quest/src/comm/comm_compression.hpp"
 #include "quest/src/comm/comm_indices.hpp"
+#include "quest/src/comm/comm_window.hpp"
 
 #if COMPILE_MPI
     #include <mpi.h>
@@ -31,6 +32,7 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include <cstddef>
 
 using std::vector;
 
@@ -393,7 +395,10 @@ void globallyCombineSubArrays(qcomp* recv, qcomp* send, qindex numAmpsPerRank, b
 void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qindex numAmps, int pairRank) {
 
     // exchange GPU memory directly if possible
-    if (gpu_isDirectGpuCommPossible()) {
+    // bulk_async owns the full exchange's CPU-staged decision, including its
+    // off-node and registration-consensus raw fallbacks.  Do not let a
+    // CUDA-aware MPI build silently bypass that decision with direct GPU MPI.
+    if (gpu_isDirectGpuCommPossible() && !comm_isWindowStagingEnabled()) {
 
         QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
 
@@ -412,10 +417,20 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
         QuestProfileRange profileRange("quest.communication.exchange.cpu_staged");
 
 #ifdef COMPILE_NVCOMP
-        // experimental env-gated Bitcomp path; returns false when inactive
-        if (comm_compression_tryExchange(&qureg.gpuAmps[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank))
+        // The old whole-exchange compression hook is retained for raw mode,
+        // but is not reused by the selected bulk_async transport.
+        if (!comm_isWindowStagingEnabled() && comm_compression_tryExchange(
+                &qureg.gpuAmps[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank))
             return;
 #endif
+
+        // The selected window transport is deliberately separate from the
+        // old whole-exchange compression hook.  A failed pre-protocol
+        // eligibility check returns false and falls through to this exact raw
+        // CPU-staged exchange, retaining cpuCommBuffer for that fallback.
+        if (comm_isWindowStagingEnabled() && comm_window_tryExchange(
+                qureg, &qureg.gpuAmps[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank))
+            return;
 
         // copy GPU memory (amps) into CPU memory (amps), beginning from 0
         {
@@ -426,7 +441,17 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
         // exchange CPU memory (amps) to other node's CPU memory (buffer), beginning from 0
         {
             QuestProfileRange mpiRange("quest.communication.mpi");
+#if COMPILE_MPI
+            const bool recordStats = comm_window_statsEnabled();
+            const double mpiStart = recordStats? MPI_Wtime() : 0;
+#endif
             exchangeArrays(qureg.cpuAmps, qureg.cpuCommBuffer, numAmps, pairRank);
+#if COMPILE_MPI
+            if (recordStats)
+                comm_window_recordPayloadMpi(
+                    2 * static_cast<std::size_t>(numAmps) * sizeof(qcomp),
+                    MPI_Wtime() - mpiStart);
+#endif
         }
 
         // copy CPU memory (buffer) to GPU memory (buffer), beginning from recvInd
