@@ -269,7 +269,14 @@ write_environment_snapshot() {
         cmake --version | head -n 1
         nvcc --version | tail -n 1
         mpirun --version | head -n 1
-        nsys --version | head -n 1
+        # nsys is optional on a profile-free campaign (see the
+        # ensure_nsys_available gate in main); record absence instead of
+        # aborting the snapshot under set -e.
+        if command -v nsys >/dev/null 2>&1; then
+            nsys --version | head -n 1
+        else
+            printf 'nsys: not available\n'
+        fi
         python3 --version
     } > "${RUN_DIR}/environment/tool_versions.txt" 2>&1
 }
