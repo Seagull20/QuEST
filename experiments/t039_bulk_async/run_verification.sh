@@ -162,9 +162,10 @@ python3 "${SCRIPT_DIR}/check_results.py" \
 if [ "${SLURM_NNODES:-1}" -ge 2 ]; then
     OFFNODE_RAW_LOG="${RESULT_DIR}/raw_offnode_q24_r4.log"
     OFFNODE_LOG="${RESULT_DIR}/bulk_async_offnode_q24_r4.log"
-    # With two ranks per node, target 23 pairs ranks across nodes; target 22
-    # remains an on-node comparison in the same matrix.
-    OFFNODE_TARGETS="$(distributed_targets 24 4)"
+    # With two ranks per node, only the highest distributed target (23) pairs
+    # ranks across nodes. Keep this case single-target so its aggregate stats
+    # cannot be diluted by the on-node target 22 from the positive matrix.
+    OFFNODE_TARGETS=23
     run_case raw 24 4 "${OFFNODE_TARGETS}" "${OFFNODE_RAW_LOG}" ppr:2:node
     run_case bulk_async 24 4 "${OFFNODE_TARGETS}" "${OFFNODE_LOG}" ppr:2:node
     python3 "${SCRIPT_DIR}/check_results.py" \
