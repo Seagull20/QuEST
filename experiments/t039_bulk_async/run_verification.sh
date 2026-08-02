@@ -121,12 +121,33 @@ run_pair() {
     python3 "${SCRIPT_DIR}/check_results.py" "${raw_log}" "${window_log}" "${ranks}"
 }
 
+distributed_targets() {
+    local qubits="$1"
+    local ranks="$2"
+    local distributed_rank_bits=0
+    local remaining_ranks="${ranks}"
+    local target
+    local separator=
+
+    while [ "${remaining_ranks}" -gt 1 ]; do
+        distributed_rank_bits=$((distributed_rank_bits + 1))
+        remaining_ranks=$((remaining_ranks >> 1))
+    done
+
+    [ "${remaining_ranks}" -eq 1 ] || die "rank count must be a power of two: ${ranks}"
+
+    for ((target = qubits - distributed_rank_bits; target < qubits; target++)); do
+        printf '%s%s' "${separator}" "${target}"
+        separator=,
+    done
+}
+
 # One node is required for the positive window cases. The map-by clauses keep
 # the 4-rank case on one node when the allocation contains multiple nodes.
-run_pair 24 2 0 ppr:2:node
-run_pair 24 4 0,1 ppr:4:node
-run_pair 26 2 0 ppr:2:node
-run_pair 26 4 0,1 ppr:4:node
+run_pair 24 2 "$(distributed_targets 24 2)" ppr:2:node
+run_pair 24 4 "$(distributed_targets 24 4)" ppr:4:node
+run_pair 26 2 "$(distributed_targets 26 2)" ppr:2:node
+run_pair 26 4 "$(distributed_targets 26 4)" ppr:4:node
 
 # Deliberately make rank 1 ineligible. Both endpoints must agree pairwise and
 # then use the unchanged CPU-staged payload path without hanging.

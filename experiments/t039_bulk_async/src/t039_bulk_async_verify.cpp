@@ -46,7 +46,9 @@ bool parseTargets(const char* text, std::vector<int>& targets) {
     std::string item;
     while (std::getline(stream, item, ',')) {
         int target = -1;
-        if (!parsePositiveInt(item.c_str(), target) && item != "0")
+        if (item == "0")
+            target = 0;
+        else if (!parsePositiveInt(item.c_str(), target))
             return false;
         targets.push_back(target);
     }
@@ -97,9 +99,6 @@ int main(int argc, char** argv) {
 
     initCustomQuESTEnv(1, 1, 0);
     QuESTEnv env = getQuESTEnv();
-    int distributedQubits = 0;
-    for (int nodes = env.numNodes; nodes > 1; nodes >>= 1)
-        distributedQubits++;
 
     if (!env.isDistributed || !env.isGpuAccelerated) {
         std::fprintf(stderr, "T039 requires distributed GPU deployment\n");
@@ -108,16 +107,19 @@ int main(int argc, char** argv) {
     }
 
     for (int target : options.targets) {
-        if (target < 0 || target >= distributedQubits) {
+        Qureg qureg = createCustomQureg(options.numQubits, 0, 1, 1, 0);
+        const int firstDistributedTarget = static_cast<int>(qureg.logNumAmpsPerNode);
+        if (target < firstDistributedTarget || target >= qureg.numQubits) {
             if (env.rank == 0)
                 std::fprintf(stderr,
-                    "target %d is not a distributed qubit for %d ranks\n",
-                    target, env.numNodes);
+                    "target %d is not a distributed qubit for %d ranks "
+                    "(first distributed target is %d)\n",
+                    target, env.numNodes, firstDistributedTarget);
+            destroyQureg(qureg);
             finalizeQuESTEnv();
             return EXIT_FAILURE;
         }
 
-        Qureg qureg = createCustomQureg(options.numQubits, 0, 1, 1, 0);
         initDebugState(qureg);
         syncQuESTEnv();
         applyHadamard(qureg, target);

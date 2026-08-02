@@ -18,6 +18,12 @@ registration-consensus fallback case. The off-node case is run automatically
 when the allocation has at least two nodes; otherwise the script reports that
 case as skipped rather than pretending a one-node allocation exercised it.
 
+The probe targets distributed qubits only. For a statevector with `N` qubits
+and `R` ranks, QuEST stores `2^(N-log2(R))` amplitudes per rank, so the first
+distributed target is `N-log2(R)` (for example, q24/r2 uses target 23 and
+q24/r4 uses targets 22 and 23). The driver generates these target lists rather
+than using low local-qubit indices.
+
 ## Exact cluster command
 
 From the QuEST repository root, inside an already allocated GPU/MPI job, run:
