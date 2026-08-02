@@ -3,6 +3,7 @@
 
 import re
 import sys
+import os
 from pathlib import Path
 
 
@@ -55,8 +56,10 @@ def check_pair(raw_path: Path, window_path: Path, expected_ranks: int, require_w
                 f"rank {rank} reported no raw MPI payload in baseline")
 
     if require_window:
+        expected_mode = os.environ.get("T039_EXPECT_WINDOW_MODE", "bulk_async")
         for rank, stat in window_stats.items():
-            require(stat["mode"] == "bulk_async", f"rank {rank} did not report bulk_async")
+            require(stat["mode"] == expected_mode,
+                    f"rank {rank} did not report {expected_mode}")
             require(int(stat["window"]) > 0, f"rank {rank} used no window exchanges")
             require(int(stat["payload_bytes"]) == 0,
                     f"rank {rank} reported MPI payload bytes on window path")
@@ -95,8 +98,10 @@ def check_offnode(raw_path: Path, window_path: Path, expected_ranks: int):
         require(int(stat["payload_bytes"]) > 0,
                 f"rank {rank} reported no raw MPI payload baseline off-node")
     require(len(window_stats) == expected_ranks, "off-node stats rank count mismatch")
+    expected_mode = os.environ.get("T039_EXPECT_WINDOW_MODE", "bulk_async")
     for rank, stat in window_stats.items():
-        require(stat["mode"] == "bulk_async", f"rank {rank} did not report bulk_async")
+        require(stat["mode"] == expected_mode,
+                f"rank {rank} did not report {expected_mode}")
         require(int(stat["window"]) == 0, f"rank {rank} unexpectedly used a window off-node")
         require(int(stat["offnode"]) > 0, f"rank {rank} did not report off-node fallback")
         require(int(stat["fallback"]) > 0, f"rank {rank} did not report raw fallback off-node")

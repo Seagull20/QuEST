@@ -398,7 +398,7 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
     // bulk_async owns the full exchange's CPU-staged decision, including its
     // off-node and registration-consensus raw fallbacks.  Do not let a
     // CUDA-aware MPI build silently bypass that decision with direct GPU MPI.
-    if (gpu_isDirectGpuCommPossible() && !comm_isBulkAsyncEnabled()) {
+    if (gpu_isDirectGpuCommPossible() && !comm_isWindowStagingEnabled()) {
 
         QuestProfileRange profileRange("quest.communication.exchange.direct_gpu");
 
@@ -419,7 +419,7 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
 #ifdef COMPILE_NVCOMP
         // The old whole-exchange compression hook is retained for raw mode,
         // but is not reused by the selected bulk_async transport.
-        if (!comm_isBulkAsyncEnabled() && comm_compression_tryExchange(
+        if (!comm_isWindowStagingEnabled() && comm_compression_tryExchange(
                 &qureg.gpuAmps[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank))
             return;
 #endif
@@ -428,7 +428,7 @@ void exchangeGpuAmpsToGpuBuffers(Qureg qureg, qindex sendInd, qindex recvInd, qi
         // old whole-exchange compression hook.  A failed pre-protocol
         // eligibility check returns false and falls through to this exact raw
         // CPU-staged exchange, retaining cpuCommBuffer for that fallback.
-        if (comm_isBulkAsyncEnabled() && comm_window_tryExchange(
+        if (comm_isWindowStagingEnabled() && comm_window_tryExchange(
                 qureg, &qureg.gpuAmps[sendInd], &qureg.gpuCommBuffer[recvInd], numAmps, pairRank))
             return;
 

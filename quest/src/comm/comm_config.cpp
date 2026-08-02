@@ -94,6 +94,7 @@ namespace {
 // comm_init(), where every distributed rank is present, so a mismatched
 // environment cannot put one side of a pair into a different protocol.
 bool global_bulk_async_enabled = false;
+bool global_tiled_materialize_enabled = false;
 bool global_force_cpu_staging = false;
 
 bool env_is_one(const char* name) {
@@ -106,39 +107,48 @@ bool env_requests_bulk_async() {
     return value != nullptr && std::strcmp(value, "bulk_async") == 0;
 }
 
+bool env_requests_tiled_materialize() {
+    const char* value = std::getenv("QUEST_GPU_STAGING_MODE");
+    return value != nullptr && std::strcmp(value, "tiled_materialize") == 0;
+}
+
 [[maybe_unused]] void resolve_staging_configuration() {
-    const int local_bulk_async = env_requests_bulk_async() ? 1 : 0;
+    const int local_mode = env_requests_bulk_async()? 1 :
+        (env_requests_tiled_materialize()? 2 : 0);
     const int local_force_cpu = env_is_one("QUEST_FORCE_CPU_STAGING") ? 1 : 0;
 
 #if COMPILE_MPI
     int min_values[2] = {0, 0};
     int max_values[2] = {0, 0};
-    int local_values[2] = {local_bulk_async, local_force_cpu};
+    int local_values[2] = {local_mode, local_force_cpu};
     MPI_Allreduce(local_values, min_values, 2, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(local_values, max_values, 2, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
     if (min_values[0] != max_values[0] || min_values[1] != max_values[1]) {
         std::fprintf(stderr,
             "[quest-staging] rank configuration differs; disabling "
-            "bulk_async and forced CPU staging\n");
+            "window staging and forced CPU staging\n");
         global_bulk_async_enabled = false;
+        global_tiled_materialize_enabled = false;
         global_force_cpu_staging = false;
         return;
     }
 #endif
 
-    global_bulk_async_enabled = local_bulk_async != 0;
+    global_bulk_async_enabled = local_mode == 1;
+    global_tiled_materialize_enabled = local_mode == 2;
     global_force_cpu_staging = local_force_cpu != 0;
 
     // A build that compiled the window implementation out still honours the
-    // request everywhere else: comm_isBulkAsyncEnabled() would return true, the
-    // direct-GPU and compression paths would be skipped, comm_window_tryExchange
-    // would return false, and the run would quietly execute raw CPU staging while
-    // being labelled bulk_async. That corrupts the attribution this transport
-    // exists to measure, so it aborts instead.
-    if (global_bulk_async_enabled && !comm_window_isAvailable()) {
+    // request everywhere else: the direct-GPU and compression paths would be
+    // skipped, comm_window_tryExchange would return false, and the run would
+    // quietly execute raw CPU staging while being labelled as a window arm.
+    // That corrupts the attribution this transport exists to measure, so it
+    // aborts instead.
+    if ((global_bulk_async_enabled || global_tiled_materialize_enabled) &&
+        !comm_window_isAvailable()) {
         std::fprintf(stderr,
-            "[quest-staging] QUEST_GPU_STAGING_MODE=bulk_async was requested but this "
+            "[quest-staging] a window staging mode was requested but this "
             "build contains no window transport (needs CUDA+MPI, and comm_window.cpp "
             "compiled as CUDA). Refusing to run: the arm would silently be raw CPU "
             "staging.\n");
@@ -154,6 +164,16 @@ bool env_requests_bulk_async() {
 
 bool comm_isBulkAsyncEnabled() {
     return global_bulk_async_enabled;
+}
+
+
+bool comm_isTiledMaterializeEnabled() {
+    return global_tiled_materialize_enabled;
+}
+
+
+bool comm_isWindowStagingEnabled() {
+    return global_bulk_async_enabled || global_tiled_materialize_enabled;
 }
 
 

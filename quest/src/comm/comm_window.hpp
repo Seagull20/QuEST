@@ -16,7 +16,9 @@ void comm_window_initForQureg(Qureg qureg);
 void comm_window_destroyForQureg(Qureg qureg);
 
 /**
- * Attempts the T-039 bulk_async exchange for one full-amplitude exchange.
+ * Attempts the selected shared-window exchange for one full-amplitude
+ * exchange. bulk_async uses one full D2H/H2D pair; tiled_materialize uses the
+ * same slot at tile-indexed offsets and still materializes gpuCommBuffer.
  *
  * Returns false before entering the protocol when the peer is off-node, the
  * shared window is unavailable, or pairwise registration consensus fails. In

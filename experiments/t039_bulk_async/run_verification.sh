@@ -10,11 +10,17 @@ CUDA_ARCH="${T039_CUDA_ARCH:-75}"
 MPI_CXX_COMPILER="${T039_MPI_CXX_COMPILER:-/usr/bin/mpicxx}"
 MPI_LAUNCHER="${T039_MPI_LAUNCHER:-mpirun}"
 BUILD_JOBS="${T039_BUILD_JOBS:-4}"
+WINDOW_MODE="${T039_WINDOW_MODE:-bulk_async}"
 
 die() {
     printf 'T039_VERIFY_ERROR: %s\n' "$*" >&2
     exit 1
 }
+
+case "${WINDOW_MODE}" in
+    bulk_async|tiled_materialize) ;;
+    *) die "unsupported window mode: ${WINDOW_MODE}" ;;
+esac
 
 [ -n "${SLURM_JOB_ID:-}" ] || die "run inside an already allocated Slurm job"
 [ -x /usr/bin/cc ] || die "/usr/bin/cc is unavailable"
@@ -61,6 +67,12 @@ export LD_LIBRARY_PATH="${CUDA_LIBRARY_PATH}:${LD_LIBRARY_PATH:-}"
 BINARY="${BUILD_DIR}/t039_bulk_async_verify"
 RESULT_DIR="${T039_RESULT_DIR:-${SCRIPT_DIR}/results/$(date -u +%Y%m%dT%H%M%SZ)}"
 mkdir -p "${RESULT_DIR}"
+MPI_OPTIONAL_EXPORTS=()
+for optional_export in QUEST_GPU_STAGING_TILE_BYTES QUEST_GPU_STAGING_TILE_MB; do
+    if [ -n "${!optional_export:-}" ]; then
+        MPI_OPTIONAL_EXPORTS+=( -x "${optional_export}" )
+    fi
+done
 
 run_case() {
     local mode="$1"
@@ -89,20 +101,21 @@ run_case() {
             "${BINARY}" --qubits "${qubits}" --targets "${targets}" \
             >"${output}" 2>&1
     elif [ -n "${fallback_rank}" ]; then
-        env QUEST_GPU_STAGING_MODE=bulk_async \
+        env QUEST_GPU_STAGING_MODE="${WINDOW_MODE}" \
             QUEST_FORCE_CPU_STAGING=1 QUEST_GPU_STAGING_STATS=1 \
             QUEST_GPU_STAGING_FORCE_WINDOW_FALLBACK_RANK="${fallback_rank}" \
             "${MPI_LAUNCHER}" -np "${ranks}" --oversubscribe "${map_args[@]}" \
             -x QUEST_GPU_STAGING_MODE -x QUEST_FORCE_CPU_STAGING \
             -x QUEST_GPU_STAGING_STATS -x QUEST_GPU_STAGING_FORCE_WINDOW_FALLBACK_RANK \
-            -x LD_LIBRARY_PATH "${BINARY}" --qubits "${qubits}" --targets "${targets}" \
+            -x LD_LIBRARY_PATH "${MPI_OPTIONAL_EXPORTS[@]}" \
+            "${BINARY}" --qubits "${qubits}" --targets "${targets}" \
             >"${output}" 2>&1
     else
-        env QUEST_GPU_STAGING_MODE=bulk_async \
+        env QUEST_GPU_STAGING_MODE="${WINDOW_MODE}" \
             QUEST_FORCE_CPU_STAGING=1 QUEST_GPU_STAGING_STATS=1 \
             "${MPI_LAUNCHER}" -np "${ranks}" --oversubscribe "${map_args[@]}" \
             -x QUEST_GPU_STAGING_MODE -x QUEST_FORCE_CPU_STAGING \
-            -x QUEST_GPU_STAGING_STATS -x LD_LIBRARY_PATH \
+            -x QUEST_GPU_STAGING_STATS -x LD_LIBRARY_PATH "${MPI_OPTIONAL_EXPORTS[@]}" \
             "${BINARY}" --qubits "${qubits}" --targets "${targets}" \
             >"${output}" 2>&1
     fi
@@ -114,10 +127,10 @@ run_pair() {
     local targets="$3"
     local map_mode="$4"
     local raw_log="${RESULT_DIR}/raw_q${qubits}_r${ranks}.log"
-    local window_log="${RESULT_DIR}/bulk_async_q${qubits}_r${ranks}.log"
+    local window_log="${RESULT_DIR}/${WINDOW_MODE}_q${qubits}_r${ranks}.log"
 
     run_case raw "${qubits}" "${ranks}" "${targets}" "${raw_log}" "${map_mode}"
-    run_case bulk_async "${qubits}" "${ranks}" "${targets}" "${window_log}" "${map_mode}"
+    run_case "${WINDOW_MODE}" "${qubits}" "${ranks}" "${targets}" "${window_log}" "${map_mode}"
     python3 "${SCRIPT_DIR}/check_results.py" "${raw_log}" "${window_log}" "${ranks}"
 }
 
@@ -152,22 +165,22 @@ run_pair 26 4 "$(distributed_targets 26 4)" ppr:4:node
 # Deliberately make rank 1 ineligible. Both endpoints must agree pairwise and
 # then use the unchanged CPU-staged payload path without hanging.
 FALLBACK_RAW_LOG="${RESULT_DIR}/raw_fallback_q24_r2.log"
-FALLBACK_LOG="${RESULT_DIR}/bulk_async_registration_fallback_q24_r2.log"
+    FALLBACK_LOG="${RESULT_DIR}/${WINDOW_MODE}_registration_fallback_q24_r2.log"
 FALLBACK_TARGETS="$(distributed_targets 24 2)"
 run_case raw 24 2 "${FALLBACK_TARGETS}" "${FALLBACK_RAW_LOG}" ppr:2:node
-run_case bulk_async 24 2 "${FALLBACK_TARGETS}" "${FALLBACK_LOG}" ppr:2:node 1
+run_case "${WINDOW_MODE}" 24 2 "${FALLBACK_TARGETS}" "${FALLBACK_LOG}" ppr:2:node 1
 python3 "${SCRIPT_DIR}/check_results.py" \
     "${FALLBACK_RAW_LOG}" "${FALLBACK_LOG}" 2 --expect-registration-fallback 2
 
 if [ "${SLURM_NNODES:-1}" -ge 2 ]; then
     OFFNODE_RAW_LOG="${RESULT_DIR}/raw_offnode_q24_r4.log"
-    OFFNODE_LOG="${RESULT_DIR}/bulk_async_offnode_q24_r4.log"
+    OFFNODE_LOG="${RESULT_DIR}/${WINDOW_MODE}_offnode_q24_r4.log"
     # With two ranks per node, only the highest distributed target (23) pairs
     # ranks across nodes. Keep this case single-target so its aggregate stats
     # cannot be diluted by the on-node target 22 from the positive matrix.
     OFFNODE_TARGETS=23
     run_case raw 24 4 "${OFFNODE_TARGETS}" "${OFFNODE_RAW_LOG}" ppr:2:node
-    run_case bulk_async 24 4 "${OFFNODE_TARGETS}" "${OFFNODE_LOG}" ppr:2:node
+    run_case "${WINDOW_MODE}" 24 4 "${OFFNODE_TARGETS}" "${OFFNODE_LOG}" ppr:2:node
     python3 "${SCRIPT_DIR}/check_results.py" \
         "${OFFNODE_RAW_LOG}" "${OFFNODE_LOG}" 4 --expect-offnode
 else

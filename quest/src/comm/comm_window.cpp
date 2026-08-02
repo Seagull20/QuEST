@@ -18,6 +18,7 @@
 #include "quest/src/gpu/gpu_subroutines.hpp"
 
 #include <cstdlib>
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 
@@ -100,7 +101,8 @@ void printStagingStats() {
     if (!stats.initialised || !stats.enabled)
         return;
 
-    const char* mode = comm_isBulkAsyncEnabled()? "bulk_async" : "raw";
+    const char* mode = comm_isBulkAsyncEnabled()? "bulk_async" :
+        (comm_isTiledMaterializeEnabled()? "tiled_materialize" : "raw");
     std::fprintf(stderr,
         "[quest-staging-stats] rank=%d mode=%s "
         "window_exchanges=%llu raw_fallback_exchanges=%llu "
@@ -188,6 +190,8 @@ class CommWindow {
             std::numeric_limits<std::size_t>::max() / sizeof(qcomp))
             return;
         slotBytes_ = static_cast<std::size_t>(qureg.numAmpsPerNode) * sizeof(qcomp);
+        if (!configureTileGeometry())
+            abortWindowProtocol("invalid QUEST_GPU_STAGING_TILE_BYTES/MB");
         setup();
     }
 
@@ -211,6 +215,9 @@ class CommWindow {
         const WindowEntry* peer = findWorldRank(pairRank);
         if (peer == nullptr || peer->slot == nullptr)
             abortWindowProtocol("peer registration table entry disappeared");
+
+        if (comm_isTiledMaterializeEnabled())
+            return tryTiledExchange(qureg, gpuSend, gpuRecv, numAmps, pairRank, peer);
 
         ++sequence_;
 
@@ -327,6 +334,10 @@ class CommWindow {
     int tagClose_ = -1;
     cudaStream_t d2hStream_ = nullptr;
     cudaStream_t h2dStream_ = nullptr;
+    std::size_t tileBytes_ = 0;
+    std::size_t maxTileCount_ = 0;
+    std::vector<cudaEvent_t> d2hDoneEvents_;
+    std::vector<cudaEvent_t> h2dDoneEvents_;
     std::uint64_t sequence_ = 0;
 
     std::vector<WindowEntry> entries_;
@@ -346,6 +357,47 @@ class CommWindow {
         return nullptr;
     }
 
+    bool configureTileGeometry() {
+        if (!comm_isTiledMaterializeEnabled())
+            return true;
+        if (slotBytes_ == 0 || slotBytes_ % sizeof(qcomp) != 0)
+            return false;
+
+        const char* bytesText = std::getenv("QUEST_GPU_STAGING_TILE_BYTES");
+        const char* megabytesText = std::getenv("QUEST_GPU_STAGING_TILE_MB");
+        const bool explicitSize = bytesText != nullptr || megabytesText != nullptr;
+        std::uint64_t requested = 16ULL * 1024ULL * 1024ULL;
+        if (bytesText != nullptr && *bytesText != '\0') {
+            errno = 0;
+            char* end = nullptr;
+            unsigned long long parsed = std::strtoull(bytesText, &end, 10);
+            if (errno == ERANGE || end == bytesText || *end != '\0')
+                return false;
+            requested = static_cast<std::uint64_t>(parsed);
+        } else if (megabytesText != nullptr && *megabytesText != '\0') {
+            errno = 0;
+            char* end = nullptr;
+            unsigned long long parsed = std::strtoull(megabytesText, &end, 10);
+            if (errno == ERANGE || end == megabytesText || *end != '\0' ||
+                parsed > std::numeric_limits<std::uint64_t>::max() / (1024ULL * 1024ULL))
+                return false;
+            requested = static_cast<std::uint64_t>(parsed) * 1024ULL * 1024ULL;
+        } else if (explicitSize) {
+            return false;
+        }
+
+        if (!explicitSize && requested > slotBytes_)
+            requested = slotBytes_;
+        if (requested == 0 || requested > slotBytes_ ||
+            requested % sizeof(qcomp) != 0 ||
+            requested > std::numeric_limits<std::size_t>::max())
+            return false;
+
+        tileBytes_ = static_cast<std::size_t>(requested);
+        maxTileCount_ = slotBytes_ / tileBytes_ + (slotBytes_ % tileBytes_ != 0 ? 1 : 0);
+        return maxTileCount_ > 0;
+    }
+
     bool queryTagUpperBound(MPI_Comm communicator, int& upperBound) {
         int isSet = 0;
         int* upperBoundPtr = nullptr;
@@ -354,6 +406,165 @@ class CommWindow {
         if (!isSet || upperBoundPtr == nullptr)
             return false;
         upperBound = *upperBoundPtr;
+        return true;
+    }
+
+    bool tryTiledExchange(
+        Qureg qureg, qcomp* gpuSend, qcomp* gpuRecv, qindex numAmps, int pairRank,
+        const WindowEntry* peer) {
+        if (tileBytes_ == 0 || maxTileCount_ == 0 ||
+            d2hDoneEvents_.empty() || h2dDoneEvents_.empty())
+            abortWindowProtocol("tiled mode has no prepared tile events");
+
+        const std::size_t payloadBytes = static_cast<std::size_t>(numAmps) * sizeof(qcomp);
+        const std::size_t tileCount = payloadBytes / tileBytes_ +
+            (payloadBytes % tileBytes_ != 0 ? 1 : 0);
+        if (tileCount == 0 || tileCount > maxTileCount_ ||
+            tileCount > d2hDoneEvents_.size() || tileCount > h2dDoneEvents_.size())
+            abortWindowProtocol("payload does not fit the prepared tiled window");
+
+        ++sequence_;
+        gpu_waitForPriorWorkOnStream(reinterpret_cast<void*>(d2hStream_));
+
+        double d2hSeconds = 0;
+        double h2dSeconds = 0;
+        double controlSeconds = 0;
+        cudaError_t result = cudaSuccess;
+        for (std::size_t tile = 0; tile < tileCount; tile++) {
+            const std::size_t byteOffset = tile * tileBytes_;
+            const std::size_t rawBytes = std::min(tileBytes_, payloadBytes - byteOffset);
+            const std::size_t elemOffset = byteOffset / sizeof(qcomp);
+
+            // Launch the previous consumer copy before waiting for this
+            // producer tile.  The previous descriptor was published during
+            // the preceding iteration, so its peer slot range is ready to
+            // read while the next D2H is in flight.
+            if (tile > 0) {
+                const std::size_t previousOffset = (tile - 1) * tileBytes_;
+                const std::size_t previousBytes =
+                    std::min(tileBytes_, payloadBytes - previousOffset);
+                const double h2dLaunchStart = MPI_Wtime();
+                {
+                    QuestProfileRange h2dRange("quest.communication.h2d");
+                    result = cudaMemcpyAsync(
+                        gpuRecv + previousOffset / sizeof(qcomp),
+                        static_cast<const unsigned char*>(peer->slot) + previousOffset,
+                        previousBytes, cudaMemcpyHostToDevice, h2dStream_);
+                    if (result != cudaSuccess)
+                        abortWindowProtocol("tiled cudaMemcpyAsync H2D failed");
+                    result = cudaEventRecord(h2dDoneEvents_[tile - 1], h2dStream_);
+                    if (result != cudaSuccess)
+                        abortWindowProtocol("tiled H2D event record failed");
+                }
+                h2dSeconds += MPI_Wtime() - h2dLaunchStart;
+            }
+
+            const double d2hStart = MPI_Wtime();
+            {
+                QuestProfileRange d2hRange("quest.communication.d2h");
+                result = cudaMemcpyAsync(
+                    static_cast<unsigned char*>(mySlot_) + byteOffset,
+                    gpuSend + elemOffset, rawBytes,
+                    cudaMemcpyDeviceToHost, d2hStream_);
+                if (result != cudaSuccess)
+                    abortWindowProtocol("tiled cudaMemcpyAsync D2H failed");
+                result = cudaEventRecord(d2hDoneEvents_[tile], d2hStream_);
+                if (result != cudaSuccess)
+                    abortWindowProtocol("tiled D2H event record failed");
+            }
+            result = cudaEventSynchronize(d2hDoneEvents_[tile]);
+            if (result != cudaSuccess)
+                abortWindowProtocol("tiled D2H event synchronization failed");
+            d2hSeconds += MPI_Wtime() - d2hStart;
+
+            const double controlStart = MPI_Wtime();
+            if (MPI_Win_sync(window_) != MPI_SUCCESS)
+                abortWindowProtocol("tiled MPI_Win_sync before token failed");
+
+            WindowDescriptor descriptor {
+                WINDOW_PROTOCOL_VERSION,
+                GATED_OFF_ENCODING,
+                sequence_,
+                static_cast<std::uint64_t>(worldRank_),
+                static_cast<std::uint64_t>(rawBytes),
+                static_cast<std::uint64_t>(rawBytes),
+                static_cast<std::uint64_t>(byteOffset)
+            };
+            WindowDescriptor peerDescriptor {};
+            {
+                QuestProfileRange mpiRange("quest.communication.mpi");
+                result = MPI_Sendrecv(
+                    &descriptor, static_cast<int>(sizeof(descriptor)), MPI_BYTE,
+                    peer->nodeRank, tagData_,
+                    &peerDescriptor, static_cast<int>(sizeof(peerDescriptor)), MPI_BYTE,
+                    peer->nodeRank, tagData_, control_, MPI_STATUS_IGNORE);
+                if (result != MPI_SUCCESS)
+                    abortWindowProtocol("tiled pairwise data token exchange failed");
+            }
+
+            if (MPI_Win_sync(window_) != MPI_SUCCESS)
+                abortWindowProtocol("tiled MPI_Win_sync after token failed");
+
+            if (peerDescriptor.version != WINDOW_PROTOCOL_VERSION ||
+                peerDescriptor.encoding != GATED_OFF_ENCODING ||
+                peerDescriptor.sequence != sequence_ ||
+                peerDescriptor.payloadBytes != rawBytes ||
+                peerDescriptor.storedBytes != rawBytes ||
+                peerDescriptor.byteOffset != byteOffset ||
+                peerDescriptor.producerWorldRank != static_cast<std::uint64_t>(pairRank))
+                abortWindowProtocol("tiled peer token does not describe the requested payload");
+            controlSeconds += MPI_Wtime() - controlStart;
+        }
+
+        // The final tile has no following iteration in which to launch its
+        // H2D.  Queue it after its token is published, then wait only for the
+        // dedicated H2D stream.  This is a stream/event wait, never a
+        // device-wide synchronization.
+        const std::size_t lastTile = tileCount - 1;
+        const std::size_t lastOffset = lastTile * tileBytes_;
+        const std::size_t lastBytes = std::min(tileBytes_, payloadBytes - lastOffset);
+        const double h2dWaitStart = MPI_Wtime();
+        {
+            QuestProfileRange h2dRange("quest.communication.h2d");
+            result = cudaMemcpyAsync(
+                gpuRecv + lastOffset / sizeof(qcomp),
+                static_cast<const unsigned char*>(peer->slot) + lastOffset,
+                lastBytes, cudaMemcpyHostToDevice, h2dStream_);
+            if (result != cudaSuccess)
+                abortWindowProtocol("tiled final cudaMemcpyAsync H2D failed");
+            result = cudaEventRecord(h2dDoneEvents_[lastTile], h2dStream_);
+            if (result != cudaSuccess)
+                abortWindowProtocol("tiled final H2D event record failed");
+            result = cudaEventSynchronize(h2dDoneEvents_[lastTile]);
+            if (result != cudaSuccess)
+                abortWindowProtocol("tiled final H2D event synchronization failed");
+        }
+        h2dSeconds += MPI_Wtime() - h2dWaitStart;
+
+        unsigned char closeToken = 1;
+        unsigned char peerCloseToken = 0;
+        const double closeStart = MPI_Wtime();
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            result = MPI_Sendrecv(
+                &closeToken, 1, MPI_BYTE, peer->nodeRank, tagClose_,
+                &peerCloseToken, 1, MPI_BYTE, peer->nodeRank, tagClose_,
+                control_, MPI_STATUS_IGNORE);
+            if (result != MPI_SUCCESS || peerCloseToken != 1)
+                abortWindowProtocol("tiled pairwise close failed");
+        }
+        controlSeconds += MPI_Wtime() - closeStart;
+
+        StagingStats& stats = stagingStats();
+        if (stats.enabled) {
+            stats.windowExchanges++;
+            stats.windowControlBytes += 2 *
+                (tileCount * sizeof(WindowDescriptor) + sizeof(closeToken));
+            stats.windowControlSeconds += controlSeconds;
+            stats.windowPayloadSeconds += d2hSeconds + h2dSeconds;
+        }
+
+        (void) qureg;
         return true;
     }
 
@@ -482,6 +693,36 @@ class CommWindow {
             if (h2dResult != cudaSuccess)
                 cudaGetLastError();
         }
+
+        if (setupReady_ && comm_isTiledMaterializeEnabled()) {
+            bool eventsReady = true;
+            d2hDoneEvents_.reserve(maxTileCount_);
+            h2dDoneEvents_.reserve(maxTileCount_);
+            for (std::size_t tile = 0; tile < maxTileCount_; tile++) {
+                cudaEvent_t d2hEvent = nullptr;
+                cudaEvent_t h2dEvent = nullptr;
+                if (cudaEventCreateWithFlags(&d2hEvent, cudaEventDisableTiming) != cudaSuccess ||
+                    cudaEventCreateWithFlags(&h2dEvent, cudaEventDisableTiming) != cudaSuccess) {
+                    if (d2hEvent != nullptr)
+                        cudaEventDestroy(d2hEvent);
+                    if (h2dEvent != nullptr)
+                        cudaEventDestroy(h2dEvent);
+                    eventsReady = false;
+                    break;
+                }
+                d2hDoneEvents_.push_back(d2hEvent);
+                h2dDoneEvents_.push_back(h2dEvent);
+            }
+            if (!eventsReady) {
+                for (cudaEvent_t event : d2hDoneEvents_)
+                    cudaEventDestroy(event);
+                for (cudaEvent_t event : h2dDoneEvents_)
+                    cudaEventDestroy(event);
+                d2hDoneEvents_.clear();
+                h2dDoneEvents_.clear();
+                setupReady_ = false;
+            }
+        }
     }
 
     bool resolvePair(int pairRank) {
@@ -538,6 +779,13 @@ class CommWindow {
         if (window_ != MPI_WIN_NULL || hasRegisteredMapping)
             gpu_sync();
 
+        for (cudaEvent_t event : d2hDoneEvents_)
+            cudaEventDestroy(event);
+        for (cudaEvent_t event : h2dDoneEvents_)
+            cudaEventDestroy(event);
+        d2hDoneEvents_.clear();
+        h2dDoneEvents_.clear();
+
         if (d2hStream_ != nullptr) {
             cudaStreamDestroy(d2hStream_);
             d2hStream_ = nullptr;
@@ -577,7 +825,7 @@ std::unordered_map<qcomp*, std::unique_ptr<CommWindow>>& windowsByCpuBuffer() {
 
 
 void comm_window_initForQureg(Qureg qureg) {
-    if (!comm_isBulkAsyncEnabled() || !qureg.isDistributed || !qureg.isGpuAccelerated)
+    if (!comm_isWindowStagingEnabled() || !qureg.isDistributed || !qureg.isGpuAccelerated)
         return;
 
     // T-069 deliberately retains cpuCommBuffer for raw fallback.  The
