@@ -46,7 +46,7 @@ points sequentially on the same node.
 
 Environment:
   QUEST_SCALING_GPU_CHOICE=auto|2080ti|a6000
-  QUEST_SCALING_COMPRESSION_MODE=native|off|on
+  QUEST_SCALING_COMPRESSION_MODE=native|off|on|raw   (raw = ON minus the codec, T-075)
 EOF
 }
 
@@ -178,9 +178,20 @@ build_scaling_export_vars() {
             # source for the per-exchange compressibility trend and the coverage
             # share, both of which are currently single-source.
             export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_STATS=1"
+            export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_FORCE_RAW=0"
+            ;;
+        raw)
+            # T-075: the ON arm minus the codec. Identical plumbing (pinned
+            # staging, 64 MiB chunk loop, size handshake, sync structure), so
+            # RAW-vs-ON isolates encoding and OFF-vs-RAW isolates plumbing.
+            export_vars="${export_vars},QUEST_BENCH_ENABLE_NVCOMP=1"
+            export_vars="${export_vars},QUEST_ENABLE_EXCHANGE_COMPRESSION=1"
+            export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_VERIFY=0"
+            export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_STATS=1"
+            export_vars="${export_vars},QUEST_EXCHANGE_COMPRESSION_FORCE_RAW=1"
             ;;
         *)
-            die "QUEST_SCALING_COMPRESSION_MODE must be native, off, or on."
+            die "QUEST_SCALING_COMPRESSION_MODE must be native, off, on, or raw."
             ;;
     esac
 

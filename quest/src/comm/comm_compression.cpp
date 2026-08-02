@@ -57,6 +57,7 @@ struct Config {
     bool enabled = false;
     bool verify = false;
     bool stats = false;
+    bool forceRaw = false; // T-075: encoding-only ablation, see comm_compression_tryExchange
     std::size_t minBytes   = std::size_t(16) << 20; // SIZE_LIMITED boundary
     std::size_t chunkBytes = std::size_t(64) << 20; // campaign's best large-payload chunk
 };
@@ -81,6 +82,8 @@ const Config& getConfig() {
         c.verify = (vf != nullptr && vf[0] == '1');
         const char* sf = std::getenv("QUEST_EXCHANGE_COMPRESSION_STATS");
         c.stats = (sf != nullptr && sf[0] == '1');
+        const char* fr = std::getenv("QUEST_EXCHANGE_COMPRESSION_FORCE_RAW");
+        c.forceRaw = (fr != nullptr && fr[0] == '1');
         c.minBytes = readEnvBytes("QUEST_EXCHANGE_COMPRESSION_MIN_BYTES", c.minBytes);
         c.chunkBytes = readEnvBytes("QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES", c.chunkBytes);
         // chunk must be an amp multiple, sane, and single-MPI-message safe (< INT_MAX)
@@ -90,8 +93,14 @@ const Config& getConfig() {
         if (c.enabled) {
             std::fprintf(stderr,
                 "[quest-nvcomp] exchange compression ENABLED (bitcomp, chunk=%zu MiB, "
-                "threshold=%zu MiB, verify=%d, stats=%d)\n",
-                c.chunkBytes >> 20, c.minBytes >> 20, (int) c.verify, (int) c.stats);
+                "threshold=%zu MiB, verify=%d, stats=%d, force_raw=%d)\n",
+                c.chunkBytes >> 20, c.minBytes >> 20, (int) c.verify, (int) c.stats,
+                (int) c.forceRaw);
+        }
+        if (c.enabled && c.forceRaw) {
+            std::fprintf(stderr,
+                "[quest-nvcomp] FORCE_RAW arm: codec never invoked; every chunk takes the "
+                "raw fallback through the same pinned buffers and chunk loop (T-075)\n");
         }
         return c;
     }();
@@ -252,7 +261,7 @@ Context& getContext() {
 
 // Global agreement that every rank sees the same configuration, performed
 // once by comm_compression_init(). A per-rank env mismatch
-// (enabled/threshold/chunk/verify) would otherwise desynchronise the pair —
+// (enabled/threshold/chunk/verify/force_raw) would otherwise desynchronise the pair —
 // one rank in the compressed protocol, its peer in the raw one (deadlock).
 //
 // This MUST run from a rank-symmetric point, which the exchange path is not:
@@ -263,20 +272,21 @@ Context& getContext() {
 // only a subset of ranks.
 bool agreeOnConfig() {
     const Config& cfg = getConfig();
-    long long vals[5] = {
+    long long vals[6] = {
         (long long) cfg.enabled, (long long) cfg.minBytes,
-        (long long) cfg.chunkBytes, (long long) cfg.verify, 0 };
-    // 5th field: this rank can create the private communicator
-    vals[4] = (MPI_Comm_dup(MPI_COMM_WORLD, &g_comm) == MPI_SUCCESS) ? 1 : 0;
-    long long mins[5], maxs[5];
-    MPI_Allreduce(vals, mins, 5, MPI_LONG_LONG, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(vals, maxs, 5, MPI_LONG_LONG, MPI_MAX, MPI_COMM_WORLD);
-    if (mins[4] != 1) {
+        (long long) cfg.chunkBytes, (long long) cfg.verify,
+        (long long) cfg.forceRaw, 0 };
+    // last field: this rank can create the private communicator
+    vals[5] = (MPI_Comm_dup(MPI_COMM_WORLD, &g_comm) == MPI_SUCCESS) ? 1 : 0;
+    long long mins[6], maxs[6];
+    MPI_Allreduce(vals, mins, 6, MPI_LONG_LONG, MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(vals, maxs, 6, MPI_LONG_LONG, MPI_MAX, MPI_COMM_WORLD);
+    if (mins[5] != 1) {
         std::fprintf(stderr, "[quest-nvcomp] MPI_Comm_dup failed on some rank — "
                              "compression disabled on ALL ranks\n");
         return false;
     }
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         if (mins[i] != maxs[i]) {
             std::fprintf(stderr,
                 "[quest-nvcomp] config differs across ranks (field %d) — "
@@ -360,7 +370,15 @@ bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, in
         const std::size_t bytes = std::min(cfg.chunkBytes, payloadBytes - offset);
         std::uint64_t localCompSize = 0, peerCompSize = 0;
 
-        {
+        if (cfg.forceRaw) {
+            // T-075 encoding-only ablation: the codec is never invoked, so the
+            // incompressible-chunk branch below claims every chunk. Everything
+            // else is untouched — same chunk loop, same pinned hRawSend/hRawRecv
+            // staging, same size handshake, same sync structure — so RAW differs
+            // from ON in encoding ALONE, and from OFF in the plumbing alone.
+            // Bit-identical by construction: raw bytes on both arms.
+            localCompSize = 0;
+        } else {
             QuestProfileRange r("quest.communication.compress");
             auto compCfg = ctx.manager->configure_compression(bytes);
             ctx.manager->compress(src + offset, ctx.dCompSend, compCfg, ctx.dCompSize);
