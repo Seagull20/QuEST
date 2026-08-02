@@ -607,17 +607,26 @@ main() {
     info "Running 25 timing points"
     run_timing_points
 
-    info "Building profiling executables"
-    build_targets 1
-    rm -f \
-        "${RUN_DIR}/procedure_breakdown_rank.tsv" \
-        "${RUN_DIR}/procedure_breakdown.tsv" \
-        "${RUN_DIR}/communication_breakdown_rank.tsv" \
-        "${RUN_DIR}/computation_breakdown_rank.tsv" \
-        "${RUN_DIR}/lifecycle_breakdown_rank.tsv" \
-        "${RUN_DIR}/cuda_runtime_summary_rank.tsv"
-    info "Running 13 profile points"
-    run_profile_points
+    # profile-none skips the ENTIRE profiling stage, not just nsys checks:
+    # the profiling build needs nvtx3 headers that only arrive via
+    # ensure_nsys_available's cuda-module side effect, which profile-none
+    # correctly skips — job 3580909 died exactly there after all 25 timing
+    # points had already banked (the 39af01b gate was half of the fix).
+    if [ "${QUEST_SCALING_PROFILE_QUBITS:-}" != "none" ]; then
+        info "Building profiling executables"
+        build_targets 1
+        rm -f \
+            "${RUN_DIR}/procedure_breakdown_rank.tsv" \
+            "${RUN_DIR}/procedure_breakdown.tsv" \
+            "${RUN_DIR}/communication_breakdown_rank.tsv" \
+            "${RUN_DIR}/computation_breakdown_rank.tsv" \
+            "${RUN_DIR}/lifecycle_breakdown_rank.tsv" \
+            "${RUN_DIR}/cuda_runtime_summary_rank.tsv"
+        info "Running 13 profile points"
+        run_profile_points
+    else
+        info "Profiling stage skipped (QUEST_SCALING_PROFILE_QUBITS=none)"
+    fi
 
     run_logged python3 "${SCRIPT_DIR}/scaling_analysis.py" \
         --campaign-dir "${RUN_DIR}" \
