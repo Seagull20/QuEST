@@ -168,12 +168,12 @@ build_scaling_export_vars() {
     case "${SCALING_STAGING_MODE}" in
         none)
             ;;
-        bulk_async)
-            export_vars="${export_vars},QUEST_GPU_STAGING_MODE=bulk_async"
+        bulk_async|tiled_materialize)
+            export_vars="${export_vars},QUEST_GPU_STAGING_MODE=${SCALING_STAGING_MODE}"
             export_vars="${export_vars},QUEST_GPU_STAGING_STATS=1"
             ;;
         *)
-            die "QUEST_SCALING_STAGING_MODE must be none or bulk_async."
+            die "QUEST_SCALING_STAGING_MODE must be none, bulk_async or tiled_materialize."
             ;;
     esac
     export_vars="${export_vars},QUEST_SCALING_STAGING_MODE=${SCALING_STAGING_MODE}"
@@ -282,8 +282,17 @@ main() {
     # build_scaling_export_vars (a subshell variable never reaches sbatch).
     SCALING_COMPRESSION_MODE="${QUEST_SCALING_COMPRESSION_MODE:-${SCALING_COMPRESSION_MODE:-native}}"
     SCALING_STAGING_MODE="${QUEST_SCALING_STAGING_MODE:-none}"
-    SCALING_ARM_TAG="${SCALING_COMPRESSION_MODE}"
-    [ "${SCALING_STAGING_MODE}" = "none" ] || SCALING_ARM_TAG="${SCALING_COMPRESSION_MODE}_window"
+    # Mirror the payload's run-tag scheme EXACTLY (gpu_type, then _<mode>
+    # unless native, then the staging suffix) so the collector always finds
+    # the Slurm log siblings beside the run dir. The historical `_native`
+    # launcher suffix never matched the payload and is dropped here.
+    SCALING_NAME_TAG="${SCALING_GPU_TYPE}"
+    [ "${SCALING_COMPRESSION_MODE}" = "native" ] || SCALING_NAME_TAG="${SCALING_NAME_TAG}_${SCALING_COMPRESSION_MODE}"
+    case "${SCALING_STAGING_MODE}" in
+        none) ;;
+        tiled_materialize) SCALING_NAME_TAG="${SCALING_NAME_TAG}_tiledwin" ;;
+        *) SCALING_NAME_TAG="${SCALING_NAME_TAG}_window" ;;
+    esac
     export_vars="$(build_scaling_export_vars)"
 
     job_id="$(
@@ -299,9 +308,9 @@ main() {
             --mem="${SCALING_MEM}" \
             ${SCALING_DEP_FLAG} \
             --time="${SCALING_WALLTIME}" \
-            --job-name="quest-scaling-${SCALING_GPU_TYPE}-${SCALING_ARM_TAG:-${SCALING_COMPRESSION_MODE}}" \
-            --output="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_ARM_TAG:-${SCALING_COMPRESSION_MODE}}_%j.out" \
-            --error="experiments/results/raw/gpu_mpi_scaling_${SCALING_GPU_TYPE}_${SCALING_ARM_TAG:-${SCALING_COMPRESSION_MODE}}_%j.err" \
+            --job-name="quest-scaling-${SCALING_NAME_TAG}" \
+            --output="experiments/results/raw/gpu_mpi_scaling_${SCALING_NAME_TAG}_%j.out" \
+            --error="experiments/results/raw/gpu_mpi_scaling_${SCALING_NAME_TAG}_%j.err" \
             --export="${export_vars}" \
             "${payload}"
     )"

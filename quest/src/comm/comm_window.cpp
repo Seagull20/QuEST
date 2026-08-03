@@ -13,6 +13,7 @@
 
 #include "quest/src/comm/comm_window.hpp"
 #include "quest/src/comm/comm_config.hpp"
+#include "quest/src/comm/comm_compression.hpp"
 #include "quest/src/core/profiling.hpp"
 #include "quest/src/gpu/gpu_config.hpp"
 #include "quest/src/gpu/gpu_subroutines.hpp"
@@ -38,6 +39,7 @@ namespace {
 
 constexpr std::uint32_t WINDOW_PROTOCOL_VERSION = 1;
 constexpr std::uint32_t GATED_OFF_ENCODING = 0;
+constexpr std::uint32_t BITCOMP_ENCODING = 1;
 constexpr int MPI_CONTROL_TAG_COUNT = 3;
 
 struct WindowDescriptor {
@@ -219,6 +221,28 @@ class CommWindow {
         if (comm_isTiledMaterializeEnabled())
             return tryTiledExchange(qureg, gpuSend, gpuRecv, numAmps, pairRank, peer);
 
+#ifdef COMPILE_NVCOMP
+        // T-040 A3 (codec-over-window): the vote below is gated on the
+        // rank-uniform candidacy check, so compression-off runs never pay for
+        // (or even see) the extra control message and A1 stays byte-identical
+        // to its measured form. The vote itself carries per-rank context
+        // health, which is NOT uniform: a one-sided nvcomp init failure makes
+        // the pair agree on the raw protocol instead of desynchronising.
+        if (comm_compression_windowCodecCandidate(static_cast<qindex>(numAmps))) {
+            std::uint8_t localCodec = comm_compression_windowCodecUsable(
+                static_cast<qindex>(numAmps)) ? 1 : 0;
+            std::uint8_t peerCodec = 0;
+            if (MPI_Sendrecv(
+                    &localCodec, 1, MPI_BYTE, peer->nodeRank, tagNegotiate_,
+                    &peerCodec, 1, MPI_BYTE, peer->nodeRank, tagNegotiate_,
+                    control_, MPI_STATUS_IGNORE) != MPI_SUCCESS)
+                abortWindowProtocol("codec vote exchange failed");
+            comm_compression_recordControl(sizeof(localCodec));
+            if (localCodec && peerCodec)
+                return tryEncodedBulkExchange(gpuSend, gpuRecv, payloadBytes, pairRank, peer);
+        }
+#endif
+
         ++sequence_;
 
         // Default-stream work and, when enabled, cuQuantum work must be made
@@ -317,6 +341,166 @@ class CommWindow {
 
         return true;
     }
+
+#ifdef COMPILE_NVCOMP
+    // T-040 A3: chunked codec-over-window bulk exchange. Mirrors the MPI
+    // codec path's 64 MiB chunk loop, but every payload byte crosses through
+    // the shared-host slot: compressed chunks land at their raw chunk offset
+    // (regions are disjoint since stored <= raw), each chunk publishes one
+    // descriptor whose encoding/storedBytes fields carry what the old MPI
+    // size handshake carried, and ONE close pair ends the exchange. The two
+    // directions decide encoding independently — the window protocol has no
+    // Sendrecv symmetry constraint, so an incompressible chunk on one side
+    // gates only that side off (GATED_OFF through the slot, never MPI).
+    // mpi_payload_bytes therefore stays 0 on this path by construction.
+    bool tryEncodedBulkExchange(qcomp* gpuSend, qcomp* gpuRecv,
+            std::size_t payloadBytes, int pairRank, const WindowEntry* peer) {
+
+        const std::size_t chunkBytes = comm_compression_chunkBytes();
+        if (chunkBytes == 0)
+            abortWindowProtocol("codec chunk size is zero after a successful vote");
+
+        ++sequence_;
+
+        // The codec runs on its own stream; make all prior gate work visible
+        // to it the same way the MPI codec path does. This is the evidence
+        // arm, priced for correctness first (same sync the A2 arm pays).
+        cudaError_t syncResult = cudaDeviceSynchronize();
+        if (syncResult != cudaSuccess)
+            abortWindowProtocol("device synchronize before encoded exchange failed");
+
+        auto* src = reinterpret_cast<const std::uint8_t*>(gpuSend);
+        auto* dst = reinterpret_cast<std::uint8_t*>(gpuRecv);
+        auto* slotBase = static_cast<std::uint8_t*>(mySlot_);
+
+        StagingStats& stats = stagingStats();
+        double controlSeconds = 0;
+        double payloadSeconds = 0;
+        std::size_t controlBytes = 0;
+
+        for (std::size_t offset = 0; offset < payloadBytes; offset += chunkBytes) {
+            const std::size_t bytes = std::min(chunkBytes, payloadBytes - offset);
+
+            // encode (or gate off) this direction's chunk
+            const double encodeStart = MPI_Wtime();
+            const std::size_t compSize = comm_compression_compressChunk(src + offset, bytes);
+            const bool encoded = compSize > 0;
+            const std::size_t storedBytes = encoded ? compSize : bytes;
+            const void* d2hSource = encoded ?
+                comm_compression_deviceCompressedSend() :
+                static_cast<const void*>(src + offset);
+
+            {
+                QuestProfileRange d2hRange("quest.communication.d2h");
+                cudaError_t result = cudaMemcpyAsync(slotBase + offset, d2hSource,
+                    storedBytes, cudaMemcpyDeviceToHost, d2hStream_);
+                if (result != cudaSuccess)
+                    abortWindowProtocol("encoded D2H into window slot failed");
+                result = cudaStreamSynchronize(d2hStream_);
+                if (result != cudaSuccess)
+                    abortWindowProtocol("encoded D2H stream synchronization failed");
+            }
+            const double d2hFinished = MPI_Wtime();
+            payloadSeconds += d2hFinished - encodeStart;
+
+            const double controlStart = MPI_Wtime();
+            if (MPI_Win_sync(window_) != MPI_SUCCESS)
+                abortWindowProtocol("MPI_Win_sync before encoded token failed");
+
+            WindowDescriptor descriptor {
+                WINDOW_PROTOCOL_VERSION,
+                encoded ? BITCOMP_ENCODING : GATED_OFF_ENCODING,
+                sequence_,
+                static_cast<std::uint64_t>(worldRank_),
+                static_cast<std::uint64_t>(bytes),
+                static_cast<std::uint64_t>(storedBytes),
+                static_cast<std::uint64_t>(offset)
+            };
+            WindowDescriptor peerDescriptor {};
+            {
+                QuestProfileRange mpiRange("quest.communication.mpi");
+                int result = MPI_Sendrecv(
+                    &descriptor, static_cast<int>(sizeof(descriptor)), MPI_BYTE,
+                    peer->nodeRank, tagData_,
+                    &peerDescriptor, static_cast<int>(sizeof(peerDescriptor)), MPI_BYTE,
+                    peer->nodeRank, tagData_, control_, MPI_STATUS_IGNORE);
+                if (result != MPI_SUCCESS)
+                    abortWindowProtocol("encoded chunk token exchange failed");
+            }
+
+            if (MPI_Win_sync(window_) != MPI_SUCCESS)
+                abortWindowProtocol("MPI_Win_sync after encoded token failed");
+
+            const bool peerEncoded = peerDescriptor.encoding == BITCOMP_ENCODING;
+            // NOTE: sequence_ is a per-rank counter and pairs change with the
+            // distributed target, so the two sides of a pair legitimately
+            // disagree on it — the raw bulk path omits the check for the same
+            // reason. Do not validate it.
+            if (peerDescriptor.version != WINDOW_PROTOCOL_VERSION ||
+                (!peerEncoded && peerDescriptor.encoding != GATED_OFF_ENCODING) ||
+                peerDescriptor.producerWorldRank != static_cast<std::uint64_t>(pairRank) ||
+                peerDescriptor.payloadBytes != bytes ||
+                peerDescriptor.byteOffset != offset ||
+                peerDescriptor.storedBytes == 0 ||
+                peerDescriptor.storedBytes > bytes ||
+                (!peerEncoded && peerDescriptor.storedBytes != bytes))
+                abortWindowProtocol("peer token does not describe the requested encoded chunk");
+
+            const double peerReady = MPI_Wtime();
+            controlSeconds += peerReady - controlStart;
+            controlBytes += 2 * sizeof(descriptor);
+
+            const std::size_t peerStored = static_cast<std::size_t>(peerDescriptor.storedBytes);
+            const std::uint8_t* peerChunk = static_cast<const std::uint8_t*>(peer->slot) + offset;
+            {
+                QuestProfileRange h2dRange("quest.communication.h2d");
+                void* h2dTarget = peerEncoded ?
+                    comm_compression_deviceCompressedRecv() :
+                    static_cast<void*>(dst + offset);
+                cudaError_t result = cudaMemcpyAsync(h2dTarget, peerChunk,
+                    peerStored, cudaMemcpyHostToDevice, h2dStream_);
+                if (result != cudaSuccess)
+                    abortWindowProtocol("encoded H2D from peer slot failed");
+                result = cudaStreamSynchronize(h2dStream_);
+                if (result != cudaSuccess)
+                    abortWindowProtocol("encoded H2D stream synchronization failed");
+            }
+            if (peerEncoded)
+                comm_compression_decompressChunk(dst + offset, bytes);
+            payloadSeconds += MPI_Wtime() - peerReady;
+
+            // this rank's send accounting (peer records its own side)
+            comm_compression_recordChunk(bytes, storedBytes, !encoded);
+        }
+
+        // one close pair for the whole exchange: chunk regions are disjoint,
+        // so the producer never rewrites a slot region the peer still reads;
+        // the close only guards the NEXT exchange's slot reuse.
+        const double closeStart = MPI_Wtime();
+        unsigned char closeToken = 1;
+        unsigned char peerCloseToken = 0;
+        {
+            QuestProfileRange mpiRange("quest.communication.mpi");
+            int result = MPI_Sendrecv(
+                &closeToken, 1, MPI_BYTE, peer->nodeRank, tagClose_,
+                &peerCloseToken, 1, MPI_BYTE, peer->nodeRank, tagClose_,
+                control_, MPI_STATUS_IGNORE);
+            if (result != MPI_SUCCESS || peerCloseToken != 1)
+                abortWindowProtocol("encoded exchange close failed");
+        }
+        controlSeconds += MPI_Wtime() - closeStart;
+        controlBytes += 2 * sizeof(closeToken);
+
+        if (stats.enabled) {
+            stats.windowExchanges++;
+            stats.windowControlBytes += controlBytes;
+            stats.windowControlSeconds += controlSeconds;
+            stats.windowPayloadSeconds += payloadSeconds;
+        }
+
+        return true;
+    }
+#endif // COMPILE_NVCOMP
 
   private:
     MPI_Comm node_ = MPI_COMM_NULL;

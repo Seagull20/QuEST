@@ -167,16 +167,19 @@ validate_campaign_preconditions() {
             ;;
     esac
 
-    # T-044 window arm: same loud-failure contract as the compression arms —
-    # an arm whose window never engaged while the metadata claims bulk_async
-    # is the 944041d failure shape.
-    if [ "${QUEST_SCALING_STAGING_MODE:-none}" = "bulk_async" ]; then
-        [ "${QUEST_GPU_STAGING_MODE:-}" = "bulk_async" ] || die "staging mode 'bulk_async' but QUEST_GPU_STAGING_MODE='${QUEST_GPU_STAGING_MODE:-unset}'."
+    # T-044 window arms: same loud-failure contract as the compression arms —
+    # an arm whose window never engaged while the metadata claims a window
+    # staging mode is the 944041d failure shape. Applies to bulk_async (A1/A3)
+    # and tiled_materialize (I1) alike.
+    case "${QUEST_SCALING_STAGING_MODE:-none}" in
+    bulk_async|tiled_materialize)
+        [ "${QUEST_GPU_STAGING_MODE:-}" = "${QUEST_SCALING_STAGING_MODE}" ] || die "staging mode '${QUEST_SCALING_STAGING_MODE}' but QUEST_GPU_STAGING_MODE='${QUEST_GPU_STAGING_MODE:-unset}'."
         if [ "${QUEST_GPU_STAGING_STATS:-}" != "1" ]; then
             warn "QUEST_GPU_STAGING_STATS='${QUEST_GPU_STAGING_STATS:-unset}' on the window arm; forcing to 1."
             export QUEST_GPU_STAGING_STATS=1
         fi
-    fi
+        ;;
+    esac
 
     info "Campaign preconditions OK: ${total} points, ${distinct} distinct, $(awk -F'\t' 'NR>1 && $11==1' "${manifest}" | grep -c . || true) profiled."
 }
@@ -372,15 +375,15 @@ configure_staging_environment() {
             fi
             unset QUEST_GPU_STAGING_MODE QUEST_GPU_STAGING_STATS
             ;;
-        bulk_async)
-            export QUEST_GPU_STAGING_MODE=bulk_async
-            # The window arm without its counters cannot prove the window
+        bulk_async|tiled_materialize)
+            export QUEST_GPU_STAGING_MODE="${QUEST_SCALING_STAGING_MODE}"
+            # A window arm without its counters cannot prove the window
             # actually engaged (window_exchanges=0 would look identical to a
             # healthy raw run) — same 944041d logic as the compression stats.
             export QUEST_GPU_STAGING_STATS=1
             ;;
         *)
-            die "QUEST_SCALING_STAGING_MODE must be none or bulk_async."
+            die "QUEST_SCALING_STAGING_MODE must be none, bulk_async or tiled_materialize."
             ;;
     esac
 }
@@ -398,7 +401,9 @@ configure_mpirun_prefix() {
         QUEST_EXCHANGE_COMPRESSION_MIN_BYTES \
         QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES \
         QUEST_GPU_STAGING_MODE \
-        QUEST_GPU_STAGING_STATS; do
+        QUEST_GPU_STAGING_STATS \
+        QUEST_GPU_STAGING_TILE_BYTES \
+        QUEST_GPU_STAGING_TILE_MB; do
         if [ -n "${!var:-}" ]; then
             MPIRUN_PREFIX+=(-x "${var}")
         fi
@@ -574,8 +579,10 @@ main() {
     if [ "${compression_mode}" != "native" ]; then
         run_tag="${gpu_type}_${compression_mode}"
     fi
-    if [ "${QUEST_SCALING_STAGING_MODE:-none}" != "none" ]; then
+    if [ "${QUEST_SCALING_STAGING_MODE:-none}" = "bulk_async" ]; then
         run_tag="${run_tag}_window"
+    elif [ "${QUEST_SCALING_STAGING_MODE:-none}" = "tiled_materialize" ]; then
+        run_tag="${run_tag}_tiledwin"
     fi
     RUN_DIR="$(current_raw_results_dir)/gpu_mpi_scaling_${run_tag}_${job_id}"
     POINT_MANIFEST="${RUN_DIR}/point_manifest.tsv"
@@ -600,17 +607,26 @@ main() {
     info "Running 25 timing points"
     run_timing_points
 
-    info "Building profiling executables"
-    build_targets 1
-    rm -f \
-        "${RUN_DIR}/procedure_breakdown_rank.tsv" \
-        "${RUN_DIR}/procedure_breakdown.tsv" \
-        "${RUN_DIR}/communication_breakdown_rank.tsv" \
-        "${RUN_DIR}/computation_breakdown_rank.tsv" \
-        "${RUN_DIR}/lifecycle_breakdown_rank.tsv" \
-        "${RUN_DIR}/cuda_runtime_summary_rank.tsv"
-    info "Running 13 profile points"
-    run_profile_points
+    # profile-none skips the ENTIRE profiling stage, not just nsys checks:
+    # the profiling build needs nvtx3 headers that only arrive via
+    # ensure_nsys_available's cuda-module side effect, which profile-none
+    # correctly skips — job 3580909 died exactly there after all 25 timing
+    # points had already banked (the 39af01b gate was half of the fix).
+    if [ "${QUEST_SCALING_PROFILE_QUBITS:-}" != "none" ]; then
+        info "Building profiling executables"
+        build_targets 1
+        rm -f \
+            "${RUN_DIR}/procedure_breakdown_rank.tsv" \
+            "${RUN_DIR}/procedure_breakdown.tsv" \
+            "${RUN_DIR}/communication_breakdown_rank.tsv" \
+            "${RUN_DIR}/computation_breakdown_rank.tsv" \
+            "${RUN_DIR}/lifecycle_breakdown_rank.tsv" \
+            "${RUN_DIR}/cuda_runtime_summary_rank.tsv"
+        info "Running 13 profile points"
+        run_profile_points
+    else
+        info "Profiling stage skipped (QUEST_SCALING_PROFILE_QUBITS=none)"
+    fi
 
     run_logged python3 "${SCRIPT_DIR}/scaling_analysis.py" \
         --campaign-dir "${RUN_DIR}" \

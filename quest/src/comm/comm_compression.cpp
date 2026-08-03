@@ -434,7 +434,7 @@ bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, in
 
         if (cfg.verify) {
             // debug shadow: raw-exchange the same chunk and byte-compare with
-            // what the codec delivered (hRawRecv holds the peer's raw chunk)
+            // what the codec delivered (hRawRecv holds the peer raw chunk)
             exchangeRawChunk(src + offset, ctx.hRawSend, ctx.hRawRecv, bytes,
                              pairRank, TAG_VERIFY, ctx.stream);
             COMM_COMPRESSION_CUDA_ABORT(cudaMemcpy(ctx.hVerify, dst + offset, bytes, cudaMemcpyDeviceToHost));
@@ -448,6 +448,105 @@ bool comm_compression_tryExchange(qcomp* dSend, qcomp* dRecv, qindex numAmps, in
     }
 
     return true;
+}
+
+
+/*
+ * Chunk-codec API for the window transport (T-040 A3). Thin process-local
+ * wrappers over the module's context; no MPI in here — pair agreement and
+ * transport belong to comm_window.cpp. See comm_compression.hpp.
+ */
+
+bool comm_compression_windowCodecCandidate(qindex numAmps) {
+
+    const Config& cfg = getConfig();
+    if (!g_uniform || !cfg.enabled)
+        return false;
+
+    // The debug verify mode shadows every chunk with a raw MPI exchange; that
+    // shape cannot ride the window protocol, so verify keeps the MPI path.
+    if (cfg.verify)
+        return false;
+
+    if (numAmps <= 0 || (std::size_t) numAmps > SIZE_MAX / sizeof(qcomp))
+        return false;
+
+    const std::size_t payloadBytes = (std::size_t) numAmps * sizeof(qcomp);
+    if (payloadBytes < cfg.minBytes)
+        return false;
+
+    return true;
+}
+
+bool comm_compression_windowCodecUsable(qindex numAmps) {
+
+    if (!comm_compression_windowCodecCandidate(numAmps))
+        return false;
+
+    if (getConfig().stats)
+        ensureStatsRank(getStats());
+
+    return getContext().ok;
+}
+
+std::size_t comm_compression_chunkBytes() {
+    return getConfig().chunkBytes;
+}
+
+std::size_t comm_compression_compressChunk(const void* dSrc, std::size_t bytes) {
+
+    const Config& cfg = getConfig();
+    if (cfg.forceRaw)
+        return 0; // T-075 ablation: same meaning as on the MPI path
+
+    Context& ctx = getContext();
+    std::uint64_t compSize = 0;
+    {
+        QuestProfileRange r("quest.communication.compress");
+        auto compCfg = ctx.manager->configure_compression(bytes);
+        ctx.manager->compress(static_cast<const std::uint8_t*>(dSrc),
+            ctx.dCompSend, compCfg, ctx.dCompSize);
+        COMM_COMPRESSION_CUDA_ABORT(cudaStreamSynchronize(ctx.stream));
+        COMM_COMPRESSION_CUDA_ABORT(cudaMemcpy(&compSize, ctx.dCompSize,
+            sizeof(std::size_t), cudaMemcpyDeviceToHost));
+    }
+
+    // incompressible chunk: caller stages it raw (through the window, not MPI)
+    if (compSize == 0 || compSize >= bytes)
+        return 0;
+
+    return static_cast<std::size_t>(compSize);
+}
+
+const void* comm_compression_deviceCompressedSend() {
+    return getContext().dCompSend;
+}
+
+void* comm_compression_deviceCompressedRecv() {
+    return getContext().dCompRecv;
+}
+
+void comm_compression_decompressChunk(void* dDst, std::size_t bytes) {
+
+    Context& ctx = getContext();
+    QuestProfileRange r("quest.communication.decompress");
+    auto decompCfg = ctx.manager->configure_decompression(ctx.dCompRecv);
+    if (decompCfg.decomp_data_size != bytes) {
+        std::fprintf(stderr,
+            "[quest-nvcomp] window chunk decode size mismatch (%zu != %zu) — aborting\n",
+            static_cast<std::size_t>(decompCfg.decomp_data_size), bytes);
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    ctx.manager->decompress(static_cast<std::uint8_t*>(dDst), ctx.dCompRecv, decompCfg);
+    COMM_COMPRESSION_CUDA_ABORT(cudaStreamSynchronize(ctx.stream));
+}
+
+void comm_compression_recordChunk(std::size_t rawBytes, std::size_t sentBytes, bool fallback) {
+    addChunkStats(rawBytes, static_cast<std::uint64_t>(sentBytes), fallback);
+}
+
+void comm_compression_recordControl(std::size_t bytes) {
+    addControlBytes(bytes);
 }
 
 #endif // COMPILE_NVCOMP
