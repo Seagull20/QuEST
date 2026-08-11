@@ -7,21 +7,28 @@
 #     bash experiments/t079_a3_pipeline/run_verification.sh
 #
 # Legs, in order:
+#   0. provenance — commit, working-tree state, build configuration, nvcomp
+#      version and the complete driver transcript are written into the results
+#      directory, so the archive is bound to the code that produced it
 #   1. build the fork with ENABLE_NVCOMP=ON
 #   2. bit-identity gate — A3 against the raw CPU-staged exchange at q24 and
-#      q26 on 2 and 4 ranks, plus a non-power-of-two unit that exercises the
-#      short final unit.  The states must hash identically; nothing is timed
-#      until this passes.
-#   3. counter engagement — the reported mode names the fused path, no payload
-#      byte crossed MPI, no exchange fell back, the codec counters moved, and
-#      the effective unit is the one the run claims.
-#   4. per-unit raw fallback — the force-raw ablation drives every unit down
-#      the incompressible branch inside the same pipeline, still bit-identical.
-#   5. mode regression — win/off/tiled and win/on/bulk still behave as before,
-#      since T-079 reordered the dispatch they both pass through.
-#   6. timing smoke — A3 against win/off/tiled at q26 on a compressible state,
-#      to show the codec is executing inside the pipeline rather than being
-#      voted off.
+#      q26 on 2 and 4 ranks and at four unit sizes. States must hash
+#      identically and the record key set must be exactly the expected one.
+#      Nothing is timed until this passes.
+#   3. per-unit gate + counter engagement — the reported mode names the fused
+#      path, no payload byte crossed MPI, no exchange fell back, and the codec
+#      was invoked on exactly the units the per-unit minimum-size gate should
+#      have let through. The 4 MiB leg is BELOW the gate and must therefore
+#      encode nothing; the 20,000,000-byte leg straddles it and must encode all
+#      but its short final unit.
+#   4. per-unit raw staging — the force-raw ablation drives every unit down the
+#      un-encoded branch inside the same pipeline, still bit-identical.
+#   5. mode regressions — win/off/tiled and win/on/bulk still behave as before,
+#      since T-079 reordered the dispatch they both pass through, and the
+#      win/on/bulk leg must still show its own codec engaged.
+#   6. engagement smoke — A3 and win/off/tiled at q26, run back to back. This
+#      records wall times; it does not assert anything about them. Codec
+#      engagement is proved by the counters in leg 3, not by a clock.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,6 +44,11 @@ MPI_CXX_COMPILER="${T079_MPI_CXX_COMPILER:-/usr/bin/mpicxx}"
 MPI_LAUNCHER="${T079_MPI_LAUNCHER:-mpirun}"
 BUILD_JOBS="${T079_BUILD_JOBS:-4}"
 NVCOMP_ROOT="${NVCOMP_ROOT:-$HOME/miniconda3/envs/quest_compression}"
+
+mkdir -p "${RESULT_DIR}"
+# Everything from here on is captured, so the archive holds the full transcript
+# and not just the per-case logs.
+exec > >(tee -a "${RESULT_DIR}/driver.log") 2>&1
 
 die() {
     printf 'T079_VERIFY_ERROR: %s\n' "$*" >&2
@@ -65,8 +77,42 @@ case "${CONDA_DEFAULT_ENV:-}:${CONDA_PREFIX:-}" in
         ;;
 esac
 
+# ----------------------------------------------------------- 0. provenance ---
+MANIFEST="${RESULT_DIR}/manifest.txt"
+{
+    printf 't079_verification_started_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'slurm_job_id=%s\n' "${SLURM_JOB_ID:-unset}"
+    printf 'slurm_nodelist=%s\n' "${SLURM_NODELIST:-unset}"
+    printf 'host=%s\n' "$(hostname)"
+    printf 'repo_root=%s\n' "${REPO_ROOT}"
+    printf 'quest_commit=%s\n' "$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo unknown)"
+    printf 'quest_branch=%s\n' "$(git -C "${REPO_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+    printf 'quest_describe=%s\n' "$(git -C "${REPO_ROOT}" describe --always --dirty 2>/dev/null || echo unknown)"
+    # A dirty tree does not stop the run, but the archive must say so: a number
+    # produced from uncommitted source is not bound to a commit.
+    if [ -n "$(git -C "${REPO_ROOT}" status --porcelain 2>/dev/null || true)" ]; then
+        printf 'quest_worktree=DIRTY\n'
+    else
+        printf 'quest_worktree=clean\n'
+    fi
+    printf 'nvcomp_root=%s\n' "${NVCOMP_ROOT}"
+    printf 'cuda_root=%s\n' "${CUDA_ROOT}"
+    printf 'cuda_arch=%s\n' "${CUDA_ARCH}"
+    printf 'nvcc_version=%s\n' "$("${CUDA_COMPILER}" --version 2>/dev/null | tr '\n' ' ' || echo unknown)"
+    printf 'mpi_launcher_version=%s\n' "$("${MPI_LAUNCHER}" --version 2>/dev/null | head -1 || echo unknown)"
+    printf 'gpus=%s\n' "$(nvidia-smi -L | tr '\n' ';')"
+} > "${MANIFEST}"
+git -C "${REPO_ROOT}" status --porcelain > "${RESULT_DIR}/git_status.txt" 2>/dev/null || true
+git -C "${REPO_ROOT}" diff > "${RESULT_DIR}/git_worktree.diff" 2>/dev/null || true
+# nvcomp ships no version symbol we can query portably, so record what is
+# actually on the link line.
+{
+    ls -l "${NVCOMP_ROOT}/lib" 2>/dev/null | grep -i nvcomp || true
+    find "${NVCOMP_ROOT}" -name 'nvcomp*version*' -o -name 'nvcomp_version*' 2>/dev/null || true
+} > "${RESULT_DIR}/nvcomp_version.txt"
+
 # ---------------------------------------------------------------- 1. build ---
-mkdir -p "${BUILD_DIR}" "${RESULT_DIR}"
+mkdir -p "${BUILD_DIR}"
 cmake -S "${REPO_ROOT}" -B "${BUILD_DIR}" \
     -DENABLE_NVCOMP=ON "-DNVCOMP_ROOT=${NVCOMP_ROOT}" \
     -DCMAKE_BUILD_TYPE=Release \
@@ -85,11 +131,13 @@ cmake -S "${REPO_ROOT}" -B "${BUILD_DIR}" \
     -DENABLE_TESTING=OFF \
     -DBUILD_EXAMPLES=OFF \
     -DUSER_SOURCE="${T039_DIR}/src/t039_bulk_async_verify.cpp" \
-    -DOUTPUT_EXE=t079_a3_pipeline_verify
-cmake --build "${BUILD_DIR}" --parallel "${BUILD_JOBS}" --target t079_a3_pipeline_verify
+    -DOUTPUT_EXE=t079_a3_pipeline_verify 2>&1 | tee "${RESULT_DIR}/cmake_configure.log"
+cmake --build "${BUILD_DIR}" --parallel "${BUILD_JOBS}" --target t079_a3_pipeline_verify \
+    2>&1 | tee "${RESULT_DIR}/cmake_build.log"
 
 BINARY="${BUILD_DIR}/t079_a3_pipeline_verify"
 [ -x "${BINARY}" ] || die "probe binary was not produced at ${BINARY}"
+cp "${BUILD_DIR}/CMakeCache.txt" "${RESULT_DIR}/CMakeCache.txt" 2>/dev/null || true
 
 export LD_LIBRARY_PATH="${NVCOMP_ROOT}/lib:${CUDA_ROOT}/targets/x86_64-linux/lib:${CUDA_ROOT}/lib:${LD_LIBRARY_PATH:-}"
 
@@ -184,7 +232,6 @@ check_states() {
         python3 "${T039_DIR}/check_results.py" "${raw_log}" "${window_log}" "${ranks}"
 }
 
-# ------------------------------------------------- 2/3. bit identity + counters ---
 # The raw baseline for a (qubits, ranks) point is reused by every window case
 # at that point, so it is produced once.  RAW_LOG is set as a side effect
 # rather than printed: run_case writes progress to stdout, which a command
@@ -197,78 +244,125 @@ raw_baseline() {
     RAW_LOG="${RESULT_DIR}/raw_q${qubits}_r${ranks}.log"
     if [ ! -s "${RAW_LOG}" ]; then
         run_case raw off "${qubits}" "${ranks}" "${RAW_LOG}"
+        python3 "${SCRIPT_DIR}/check_counters.py" "${RAW_LOG}" \
+            --ranks "${ranks}" --qubits "${qubits}" \
+            --targets "$(distributed_targets "${qubits}" "${ranks}")" \
+            --expect-mode raw --window none --codec none
     fi
 }
 
+# ---------------------------------- 2/3. bit identity, per-unit gate, counters ---
+# a3_case <qubits> <ranks> <label> <unit_bytes> <units_per_exchange>
+#         <gated_per_exchange> [tile_mib] [tile_bytes]
+#
+# unit_bytes is the exact unit the run must announce.  units/gated per exchange
+# are ceil(payload_per_rank / unit) and the number of those units that fall
+# below the 16 MiB minimum-size gate; the checker multiplies them by each
+# rank's own observed exchange count.
 a3_case() {
     local qubits="$1"
     local ranks="$2"
     local label="$3"
-    local tile_mib="${4:-}"
-    local tile_bytes="${5:-}"
+    local unit_bytes="$4"
+    local units="$5"
+    local gated="$6"
+    local tile_mib="${7:-}"
+    local tile_bytes="${8:-}"
     local a3_log="${RESULT_DIR}/a3_${label}_q${qubits}_r${ranks}.log"
-    local unit_args=()
-
-    if [ -n "${tile_mib}" ]; then
-        unit_args=( --expect-unit-mib "${tile_mib}" )
-    fi
 
     raw_baseline "${qubits}" "${ranks}"
     run_case tiled_materialize on "${qubits}" "${ranks}" "${a3_log}" "${tile_mib}" "${tile_bytes}"
     check_states "${RAW_LOG}" "${a3_log}" "${ranks}" tiled_materialize_codec
-    python3 "${SCRIPT_DIR}/check_counters.py" "${a3_log}" --ranks "${ranks}" "${unit_args[@]}"
+    python3 "${SCRIPT_DIR}/check_counters.py" "${a3_log}" \
+        --ranks "${ranks}" --qubits "${qubits}" \
+        --targets "$(distributed_targets "${qubits}" "${ranks}")" \
+        --expect-mode tiled_materialize_codec --window required --codec required \
+        --expect-unit-bytes "${unit_bytes}" \
+        --units-per-exchange "${units}" --gated-per-exchange "${gated}"
 }
 
-a3_case 24 2 default
-a3_case 24 4 default
-a3_case 26 2 default
-a3_case 26 4 default
+# payload per rank = 2^q / ranks * 16 B.  Default unit is 16 MiB = the gate
+# exactly, so every default unit is encoded (the gate is `bytes < minBytes`).
+a3_case 24 2 default 16777216 8 0     # 128 MiB / 16 MiB
+a3_case 24 4 default 16777216 4 0     #  64 MiB / 16 MiB
+a3_case 26 2 default 16777216 32 0    # 512 MiB / 16 MiB
+a3_case 26 4 default 16777216 16 0    # 256 MiB / 16 MiB
 
-# 128 MiB is the unit the campaign intends to run; 4 MiB deepens the pipeline
-# so the double-buffer and two-back slot dependencies are exercised many times
-# in one exchange.
-a3_case 26 4 unit4 4
-a3_case 26 4 unit128 128
+# 4 MiB is BELOW the 16 MiB gate: the fused path still runs, and every unit
+# must reach the wire GATED_OFF with the codec never invoked.  Round 1 passed
+# bit identity here while compressing all 128 units, which is the defect this
+# leg now catches.
+a3_case 26 4 unit4-below-gate 4194304 64 64 4
 
-# A unit that does not divide the payload leaves a short final unit, which is
-# the one the drain handles outside the loop.
-a3_case 24 2 partial-tail "" 20000000
+# 128 MiB is the unit the campaign intends to run.
+a3_case 26 4 unit128 134217728 2 0 128
 
-# --------------------------------------------- 4. per-unit raw fallback ---
+# 20,000,000 bytes straddles the gate: six full units above it, and a
+# 14,217,728-byte final unit below it that must be gated off.  This exercises
+# the short-tail drain and the mixed encoded/raw sequence together.
+a3_case 24 2 partial-tail-straddles-gate 20000000 7 1 "" 20000000
+
+# ------------------------------------------- 4. per-unit raw staging ---
+# The force-raw ablation never invokes the codec, so every unit is GATED_OFF
+# and the staged bytes must equal the raw bytes exactly.
 FORCE_RAW_LOG="${RESULT_DIR}/a3_force_raw_q24_r2.log"
 raw_baseline 24 2
 run_case tiled_materialize force_raw 24 2 "${FORCE_RAW_LOG}"
 check_states "${RAW_LOG}" "${FORCE_RAW_LOG}" 2 tiled_materialize_codec
-python3 "${SCRIPT_DIR}/check_counters.py" "${FORCE_RAW_LOG}" --ranks 2 --expect-all-fallback
+python3 "${SCRIPT_DIR}/check_counters.py" "${FORCE_RAW_LOG}" \
+    --ranks 2 --qubits 24 --targets "$(distributed_targets 24 2)" \
+    --expect-mode tiled_materialize_codec --window required --codec required \
+    --expect-unit-bytes 16777216 --units-per-exchange 8 --gated-per-exchange 8
 
 # ------------------------------------------------- 5. mode regressions ---
 # T-079 reordered the dispatch these two arms pass through, so both are
-# re-proved against the same raw baseline.
+# re-proved against the same raw baseline — and neither may prepare the fused
+# pipeline, which the checker asserts by the absence of its start-up record.
 raw_baseline 26 4
 RAW_Q26_R4="${RAW_LOG}"
+Q26_R4_TARGETS="$(distributed_targets 26 4)"
 
 I1_LOG="${RESULT_DIR}/i1_q26_r4.log"
 run_case tiled_materialize off 26 4 "${I1_LOG}"
 I1_SECONDS="${LAST_CASE_SECONDS}"
 check_states "${RAW_Q26_R4}" "${I1_LOG}" 4 tiled_materialize
+python3 "${SCRIPT_DIR}/check_counters.py" "${I1_LOG}" \
+    --ranks 4 --qubits 26 --targets "${Q26_R4_TARGETS}" \
+    --expect-mode tiled_materialize --window required --codec none
 
+# win/on/bulk keeps its own chunk axis: 256 MiB payload / 64 MiB default chunk
+# = 4 chunks per exchange, none of them gated (the bulk path's gate is
+# per-exchange and unchanged by T-079).
 A2_LOG="${RESULT_DIR}/a2_q26_r4.log"
 run_case bulk_async on 26 4 "${A2_LOG}"
 check_states "${RAW_Q26_R4}" "${A2_LOG}" 4 bulk_async
+python3 "${SCRIPT_DIR}/check_counters.py" "${A2_LOG}" \
+    --ranks 4 --qubits 26 --targets "${Q26_R4_TARGETS}" \
+    --expect-mode bulk_async --window required --codec required \
+    --units-per-exchange 4 --gated-per-exchange 0
 
-# ---------------------------------------------------- 6. timing smoke ---
-# Same state, same schedule, same unit: the only difference is whether the
-# codec runs inside the pipeline.  A3 must differ measurably from I1 on this
-# highly compressible state; equality would mean the codec was voted off.
+# ------------------------------------------------ 6. engagement smoke ---
+# Same state, same schedule, same unit; the only difference is whether the
+# codec runs inside the pipeline.  These wall times are recorded, not asserted:
+# this is a correctness probe, one Hadamard per distributed target inside a
+# whole process lifetime, and it is not a benchmark.  Codec engagement is
+# established by the counters above.
 A3_TIMED_LOG="${RESULT_DIR}/a3_timed_q26_r4.log"
 run_case tiled_materialize on 26 4 "${A3_TIMED_LOG}"
 A3_SECONDS="${LAST_CASE_SECONDS}"
 check_states "${RAW_Q26_R4}" "${A3_TIMED_LOG}" 4 tiled_materialize_codec
-python3 "${SCRIPT_DIR}/check_counters.py" "${A3_TIMED_LOG}" --ranks 4
+python3 "${SCRIPT_DIR}/check_counters.py" "${A3_TIMED_LOG}" \
+    --ranks 4 --qubits 26 --targets "${Q26_R4_TARGETS}" \
+    --expect-mode tiled_materialize_codec --window required --codec required \
+    --expect-unit-bytes 16777216 --units-per-exchange 16 --gated-per-exchange 0
 
-printf 'T079_TIMING_SMOKE i1_seconds=%s a3_seconds=%s ratio_i1_over_a3=%s\n' \
-    "${I1_SECONDS}" "${A3_SECONDS}" \
-    "$(awk -v i="${I1_SECONDS}" -v a="${A3_SECONDS}" 'BEGIN {printf "%.3f", (a > 0)? i / a : 0}')"
-printf 'T079_TIMING_NOTE whole-process wall time on a correctness probe, not a benchmark: it includes build-independent set-up and one Hadamard per distributed target. Treat it as engagement evidence only.\n'
+{
+    printf 'i1_wall_seconds=%s\n' "${I1_SECONDS}"
+    printf 'a3_wall_seconds=%s\n' "${A3_SECONDS}"
+    printf 't079_verification_finished_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} >> "${MANIFEST}"
 
-printf 'T079_VERIFICATION_PASS results=%s\n' "${RESULT_DIR}"
+printf 'T079_ENGAGEMENT_SMOKE i1_wall_seconds=%s a3_wall_seconds=%s (recorded, not asserted: whole-process wall time on a correctness probe)\n' \
+    "${I1_SECONDS}" "${A3_SECONDS}"
+printf 'T079_VERIFICATION_PASS results=%s commit=%s\n' \
+    "${RESULT_DIR}" "$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo unknown)"

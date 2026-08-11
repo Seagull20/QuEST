@@ -42,6 +42,12 @@ constexpr std::size_t NO_PRIOR_UNIT = std::numeric_limits<std::size_t>::max();
 constexpr std::uint32_t WINDOW_PROTOCOL_VERSION = 1;
 constexpr std::uint32_t GATED_OFF_ENCODING = 0;
 constexpr std::uint32_t BITCOMP_ENCODING = 1;
+// T-079: the sink contract's third per-unit state — "the codec was attempted
+// and did not shrink this unit", as against GATED_OFF's "never attempted".
+// Both mean stored == raw and a plain H2D at the receiver; the distinction is
+// provenance.  Only the fused path ever writes it, so the descriptor LAYOUT is
+// unchanged and every other path's validation stays exactly as it was.
+constexpr std::uint32_t RAW_FALLBACK_ENCODING = 2;
 constexpr int MPI_CONTROL_TAG_COUNT = 3;
 
 struct WindowDescriptor {
@@ -202,7 +208,6 @@ class CommWindow {
         if (!configureTileGeometry())
             abortWindowProtocol("invalid QUEST_GPU_STAGING_TILE_BYTES/MB");
         setup();
-        prepareFusedPipeline(qureg.numAmpsPerNode);
     }
 
     ~CommWindow() {
@@ -244,6 +249,13 @@ class CommWindow {
         // branch below.
         if (comm_compression_windowCodecCandidate(static_cast<qindex>(numAmps))) {
             const bool fused = comm_isTiledMaterializeEnabled();
+            // The fused arm's streams, managers, device staging and events are
+            // built HERE, not at window set-up: only past resolvePair is the
+            // pair known to be on-node, registered and eligible, so a run that
+            // never reaches the fused path never pays for it — and never risks
+            // its memory abort.  The attempt is made once and cached.
+            if (fused)
+                ensureFusedPipeline();
             std::uint8_t localCodec = (fused?
                 (fusedReady_ && comm_compression_windowPipelineUsable(
                     static_cast<qindex>(numAmps))) :
@@ -562,9 +574,12 @@ class CommWindow {
         ++sequence_;
 
         // The pipeline is fully drained before this routine returns, so the
-        // slot occupancy is per-exchange state and must not survive one.
+        // slot occupancy and the retained-configuration ownership are both
+        // per-exchange state and must not survive one.
         recvSlotOccupant_[0] = NO_PRIOR_UNIT;
         recvSlotOccupant_[1] = NO_PRIOR_UNIT;
+        decodeConfigOwner_[0] = NO_PRIOR_UNIT;
+        decodeConfigOwner_[1] = NO_PRIOR_UNIT;
 
         auto* src = reinterpret_cast<const std::uint8_t*>(gpuSend);
         auto* dst = reinterpret_cast<std::uint8_t*>(gpuRecv);
@@ -608,9 +623,23 @@ class CommWindow {
             result = cudaEventSynchronize(encodeDoneEvents_[unit]);
             if (result != cudaSuccess)
                 abortWindowProtocol("fused encode event synchronization failed");
-            const std::size_t compSize = comm_compression_encodedSize(parity, rawBytes);
-            const bool encoded = compSize > 0;
-            const std::size_t storedBytes = encoded? compSize : rawBytes;
+
+            // Classify the unit into the sink contract's three states.  The
+            // gate lives inside the codec and was applied before any nvcomp
+            // call, so a below-gate unit is GATED_OFF, an attempted-but-lost
+            // one is RAW_FALLBACK, and only the encoded case reads the slot.
+            std::size_t storedBytes = 0;
+            const unsigned unitState =
+                comm_compression_unitEncoding(parity, rawBytes, &storedBytes);
+            const bool encoded = unitState == COMM_COMPRESSION_UNIT_ENCODED;
+            const std::uint32_t unitEncoding = encoded? BITCOMP_ENCODING :
+                (unitState == COMM_COMPRESSION_UNIT_RAW_FALLBACK?
+                    RAW_FALLBACK_ENCODING : GATED_OFF_ENCODING);
+
+            // The encode event has fired, so nvcomp is done with this unit's
+            // configuration object and it may be released before the next unit
+            // on this parity replaces it.
+            comm_compression_releaseEncodeConfig(parity);
 
             {
                 QuestProfileRange d2hRange("quest.communication.d2h");
@@ -659,7 +688,7 @@ class CommWindow {
 
             WindowDescriptor descriptor {
                 WINDOW_PROTOCOL_VERSION,
-                encoded ? BITCOMP_ENCODING : GATED_OFF_ENCODING,
+                unitEncoding,
                 sequence_,
                 static_cast<std::uint64_t>(worldRank_),
                 static_cast<std::uint64_t>(rawBytes),
@@ -682,12 +711,18 @@ class CommWindow {
                 abortWindowProtocol("fused MPI_Win_sync after token failed");
 
             const bool peerEncoded = peerDescriptor.encoding == BITCOMP_ENCODING;
+            // Both raw states are accepted and treated identically on receipt:
+            // stored == raw, plain H2D, no decode.  Only their provenance
+            // differs.
+            const bool peerStagedRaw =
+                peerDescriptor.encoding == GATED_OFF_ENCODING ||
+                peerDescriptor.encoding == RAW_FALLBACK_ENCODING;
             // NOTE: sequence_ is a per-rank counter and pairs change with the
             // distributed target, so the two sides of a pair legitimately
             // disagree on it — the bulk codec path omits the check for the
             // same reason. Do not validate it.
             if (peerDescriptor.version != WINDOW_PROTOCOL_VERSION ||
-                (!peerEncoded && peerDescriptor.encoding != GATED_OFF_ENCODING) ||
+                (!peerEncoded && !peerStagedRaw) ||
                 peerDescriptor.producerWorldRank != static_cast<std::uint64_t>(pairRank) ||
                 peerDescriptor.payloadBytes != rawBytes ||
                 peerDescriptor.byteOffset != byteOffset ||
@@ -734,6 +769,11 @@ class CommWindow {
             reinterpret_cast<cudaStream_t>(comm_compression_decodeStream()));
         if (result != cudaSuccess)
             abortWindowProtocol("fused decode stream synchronization failed");
+        // Every decode has now completed, so the two retained decode
+        // configurations are provably unused and nothing survives the
+        // exchange.
+        comm_compression_releaseDecodeConfig(0);
+        comm_compression_releaseDecodeConfig(1);
         payloadSeconds += MPI_Wtime() - drainStart;
 
         // one close pair for the whole exchange, as on the bulk codec path:
@@ -801,6 +841,11 @@ class CommWindow {
     // straight into gpuRecv and never touches a slot, so the decode that must
     // finish before a slot is refilled can lie further back.
     std::size_t recvSlotOccupant_[2] = { NO_PRIOR_UNIT, NO_PRIOR_UNIT };
+    // Which unit owns each parity's retained nvcomp decode configuration.
+    // Tracked separately from recvSlotOccupant_ because the inbound copy
+    // updates that one before the decode of the same unit is launched.
+    std::size_t decodeConfigOwner_[2] = { NO_PRIOR_UNIT, NO_PRIOR_UNIT };
+    bool fusedAttempted_ = false;
 
     std::vector<WindowEntry> entries_;
     std::unordered_map<int, PairDecision> pairDecisions_;
@@ -906,6 +951,21 @@ class CommWindow {
         const std::size_t byteOffset = unit * tileBytes_;
         const unsigned parity = static_cast<unsigned>(unit & 1u);
 
+        // nvcomp keeps its decode configuration alive across the work it
+        // enqueues, so the one retained for this parity may only be released
+        // once its own decode has finished.  That decode belongs to a unit at
+        // least two back, launched at least two iterations ago, and is already
+        // an ordering prerequisite of the inbound copy issued earlier in THIS
+        // iteration — so this wait is expected to be satisfied on arrival, and
+        // it is the only place the invariant is enforced rather than assumed.
+        const std::size_t previousConfigOwner = decodeConfigOwner_[parity];
+        if (previousConfigOwner != NO_PRIOR_UNIT) {
+            if (cudaEventSynchronize(decodeDoneEvents_[previousConfigOwner]) != cudaSuccess)
+                abortWindowProtocol("fused decode configuration release wait failed");
+            comm_compression_releaseDecodeConfig(parity);
+        }
+        decodeConfigOwner_[parity] = unit;
+
         if (cudaStreamWaitEvent(decodeStream, h2dDoneEvents_[unit], 0) != cudaSuccess)
             abortWindowProtocol("fused decode wait on inbound copy failed");
         comm_compression_launchDecode(dst + byteOffset, rawBytes, parity);
@@ -914,21 +974,45 @@ class CommWindow {
     }
 #endif // COMPILE_NVCOMP
 
-    // T-079: the fused arm's double-buffered codec allocation is sized and
-    // validated here, at window set-up, so a configuration that cannot fit
-    // fails with its arithmetic instead of inside the first exchange.  A
-    // rank that cannot prepare simply votes the codec down and the pair runs
-    // the uncompressed tiled path, which is the existing fallback shape.
-    void prepareFusedPipeline(qindex numAmps) {
+    // T-079: a rank that cannot bring the fused arm up votes the codec down
+    // and the pair runs the uncompressed tiled path — the existing fallback
+    // shape, and the only consensus-safe answer to a one-sided failure. That
+    // silence is itself the hazard: a campaign would then measure win/off/tiled
+    // while believing it measured win/on/tiled. So the fallback names itself,
+    // per rank and with its cause, in a form the verification harness rejects
+    // outright. The reported staging mode is the second, independent tell: it
+    // stays `tiled_materialize` when no fused exchange ran.
+    void reportFusedDisabled(const char* reason) {
+        std::fprintf(stderr,
+            "[quest-staging] A3_INIT_FALLBACK rank=%d reason=%s — the fused "
+            "win/on/tiled arm is DISABLED on this rank; the pair will vote the "
+            "codec down and run win/off/tiled instead\n",
+            worldRank_, reason);
+        std::fflush(stderr);
+    }
+
+    // Builds the fused arm on first use, once the pair is already known to be
+    // eligible for the window.  Cached: one attempt per window, success or
+    // failure, so the vote is stable for the lifetime of the Qureg.
+    void ensureFusedPipeline() {
 #ifdef COMPILE_NVCOMP
-        if (!setupReady_ || !comm_isTiledMaterializeEnabled() || tileBytes_ == 0)
+        if (fusedAttempted_)
             return;
-        if (!comm_compression_windowCodecCandidate(numAmps))
+        fusedAttempted_ = true;
+
+        if (!setupReady_ || tileBytes_ == 0 || maxTileCount_ == 0) {
+            reportFusedDisabled("window set-up did not complete on this rank");
             return;
-        fusedReady_ = comm_compression_prepareWindowPipeline(tileBytes_) &&
-            createFusedPipelineEvents();
-#else
-        (void) numAmps;
+        }
+        if (!comm_compression_prepareWindowPipeline(tileBytes_)) {
+            reportFusedDisabled("nvcomp pipeline initialisation failed "
+                "(see the preceding [quest-nvcomp] line for the cause)");
+            return;
+        }
+        if (!createFusedPipelineEvents())
+            return; // reports its own CUDA error
+
+        fusedReady_ = true;
 #endif
     }
 
@@ -941,8 +1025,13 @@ class CommWindow {
             if (cudaEventCreateWithFlags(&encodeEvent, cudaEventDisableTiming) != cudaSuccess ||
                 cudaEventCreateWithFlags(&decodeEvent, cudaEventDisableTiming) != cudaSuccess) {
                 // Clear the creation error before the vote is allowed to gate
-                // this rank's codec off.
-                cudaGetLastError();
+                // this rank's codec off, and say what it was.
+                char reason[256];
+                std::snprintf(reason, sizeof(reason),
+                    "CUDA event creation failed after %zu of %zu unit events: %s",
+                    encodeDoneEvents_.size(), maxTileCount_,
+                    cudaGetErrorString(cudaGetLastError()));
+                reportFusedDisabled(reason);
                 if (encodeEvent != nullptr)
                     cudaEventDestroy(encodeEvent);
                 if (decodeEvent != nullptr)

@@ -28,6 +28,19 @@
 
 #include <cstddef>
 
+/// The three per-unit encoding states of the T-069 sink contract
+/// (`materialize-sink-contract.md` §8), used by the fused window pipeline.
+/// GATED_OFF means the codec was never attempted for this unit: the force-raw
+/// ablation, or a unit below the minimum-size gate. RAW_FALLBACK means it was
+/// attempted and did not shrink the unit. Both stage the raw bytes and both
+/// require a plain H2D with no decode at the receiver; the distinction is
+/// provenance, which the counters and any later analysis depend on. Testing
+/// the gate once per EXCHANGE instead of once per unit was the T-079 round-1
+/// defect.
+constexpr unsigned COMM_COMPRESSION_UNIT_ENCODED = 0;
+constexpr unsigned COMM_COMPRESSION_UNIT_GATED_OFF = 1;
+constexpr unsigned COMM_COMPRESSION_UNIT_RAW_FALLBACK = 2;
+
 #ifdef COMPILE_NVCOMP
 
 /// Performs this module's one-time collective setup: duplicates the private
@@ -112,14 +125,14 @@ void comm_compression_recordControl(std::size_t bytes);
 
 /// Sizes the fused pipeline for a `unitBytes` unit, creates its two codec
 /// streams and allocates its double-buffered device staging. Call once per
-/// process before any fused exchange; later calls are satisfied from the
-/// existing allocation and only re-check that the unit still fits.
+/// process, on the first exchange whose pair is already known to be eligible
+/// for the window; later calls are satisfied from the existing allocation and
+/// only re-check that the unit still fits.
 /// Returns false when the codec is unavailable for a reason a peer may not
 /// share (config gated off, nvcomp init failure) — the caller's pairwise vote
 /// then falls back to the uncompressed tiled path. A device allocation that
-/// does not fit is instead a fatal startup error carrying the arithmetic,
-/// because silently running the uncompressed arm would mislabel a
-/// measurement.
+/// does not fit is instead fatal, carrying the arithmetic, because silently
+/// running the uncompressed arm would mislabel a measurement.
 bool comm_compression_prepareWindowPipeline(std::size_t unitBytes);
 
 /// Candidate AND this rank's fused pipeline is ready. Not rank-uniform; use
@@ -146,21 +159,34 @@ void* comm_compression_decodeStream();
 const void* comm_compression_pipelineSendSlot(unsigned parity);
 void* comm_compression_pipelineRecvSlot(unsigned parity);
 
-/// Launches the encode of `bytes` device bytes at dSrc into send slot
-/// `parity`, followed by the read-back of the encoded length, both on the
-/// encode stream. Nothing is synchronised: the caller records its own event
-/// on that stream and reads the length once the event has fired.
+/// Applies the per-unit minimum-size gate and, when the unit passes it,
+/// launches the encode of `bytes` device bytes at dSrc into send slot `parity`
+/// followed by the read-back of the encoded length, both on the encode stream.
+/// A gated or force-raw unit touches neither nvcomp nor the device. Nothing is
+/// synchronised: the caller records its own event on that stream and
+/// classifies the unit once the event has fired.
 void comm_compression_launchEncode(const void* dSrc, std::size_t bytes, unsigned parity);
 
-/// The encoded length for `parity`, or 0 when the unit must be staged raw
-/// (force-raw ablation, or the codec did not shrink it). Only meaningful once
-/// the caller's encode event has fired.
-std::size_t comm_compression_encodedSize(unsigned parity, std::size_t bytes);
+/// Classifies unit `parity` into one of the three sink-contract states and
+/// writes the number of bytes to stage into *storedBytes — the encoded length
+/// for ENCODED, `rawBytes` for either raw state. Only meaningful once the
+/// caller's encode event has fired.
+unsigned comm_compression_unitEncoding(unsigned parity, std::size_t rawBytes,
+    std::size_t* storedBytes);
 
 /// Launches the decode of recv slot `parity` into `bytes` device bytes at
 /// dDst on the decode stream. The caller must already have made that stream
 /// wait on the inbound copy: nvcomp reads the unit header from the slot here.
 void comm_compression_launchDecode(void* dDst, std::size_t bytes, unsigned parity);
+
+/// Releases the nvcomp configuration object retained for `parity`. nvcomp's
+/// configurations must outlive the work they configure — every other call site
+/// in this module keeps one alive until a stream synchronise — so the fused
+/// pipeline retains them per parity instead of letting them die at enqueue,
+/// and the caller must have waited on the corresponding completion event
+/// before releasing.
+void comm_compression_releaseEncodeConfig(unsigned parity);
+void comm_compression_releaseDecodeConfig(unsigned parity);
 
 #else
 
@@ -187,8 +213,12 @@ static inline void* comm_compression_decodeStream() { return nullptr; }
 static inline const void* comm_compression_pipelineSendSlot(unsigned) { return nullptr; }
 static inline void* comm_compression_pipelineRecvSlot(unsigned) { return nullptr; }
 static inline void comm_compression_launchEncode(const void*, std::size_t, unsigned) { }
-static inline std::size_t comm_compression_encodedSize(unsigned, std::size_t) { return 0; }
+static inline unsigned comm_compression_unitEncoding(unsigned, std::size_t, std::size_t*) {
+    return COMM_COMPRESSION_UNIT_GATED_OFF;
+}
 static inline void comm_compression_launchDecode(void*, std::size_t, unsigned) { }
+static inline void comm_compression_releaseEncodeConfig(unsigned) { }
+static inline void comm_compression_releaseDecodeConfig(unsigned) { }
 
 #endif // COMPILE_NVCOMP
 

@@ -30,6 +30,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -302,6 +303,19 @@ bool agreeOnConfig() {
 // win/on/bulk arms, so neither its allocation nor its synchronisation
 // structure may move underneath them. Heap-allocated once and leaked whole
 // for the same teardown reason as Context.
+// The nvcomp configuration types, named through the manager rather than
+// spelled out, so this stays correct across nvcomp releases that rename or
+// re-namespace them. A configuration must outlive the work it configures —
+// every other call site in this file keeps one alive until a stream
+// synchronise — so the pipeline retains them per parity rather than letting
+// them die at enqueue. C++17's guaranteed copy elision constructs them
+// directly on the heap, so neither type needs to be copyable or movable.
+using PipelineEncodeConfig = decltype(
+    std::declval<nvcomp::nvcompManagerBase&>().configure_compression(std::size_t(0)));
+using PipelineDecodeConfig = decltype(
+    std::declval<nvcomp::nvcompManagerBase&>().configure_decompression(
+        std::declval<std::uint8_t*>()));
+
 struct PipelineContext {
     cudaStream_t encodeStream = nullptr;
     cudaStream_t decodeStream = nullptr;
@@ -313,10 +327,26 @@ struct PipelineContext {
     std::uint8_t* dRecv[2] = { nullptr, nullptr };
     std::size_t* dSize[2] = { nullptr, nullptr };
     std::size_t* hSize[2] = { nullptr, nullptr }; // pinned
+    // whether the codec was invoked at all for the unit occupying each parity;
+    // this is what separates GATED_OFF from RAW_FALLBACK
+    unsigned char attempted[2] = { 0, 0 };
+    PipelineEncodeConfig* encodeConfig[2] = { nullptr, nullptr };
+    PipelineDecodeConfig* decodeConfig[2] = { nullptr, nullptr };
     bool ok = false;
 };
 
 PipelineContext* g_pipeline = nullptr;
+
+int currentWorldRank() {
+    int initialised = 0;
+    int finalised = 0;
+    int rank = -1;
+    MPI_Initialized(&initialised);
+    MPI_Finalized(&finalised);
+    if (initialised && !finalised)
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    return rank;
+}
 
 // Device headroom left for nvcomp's own lazily-allocated scratch and for the
 // allocator's granularity, so the arithmetic below refuses a unit that would
@@ -699,15 +729,19 @@ bool comm_compression_prepareWindowPipeline(std::size_t unitBytes) {
     *c.hSize[1] = 0;
     c.ok = true;
 
-    // The effective unit is recorded here so a campaign can prove from the
-    // job log which unit actually ran (D-032: unit = tile = chunk).
+    // The effective unit is recorded here, per rank and in exact bytes, so a
+    // campaign can prove from the job log which unit actually ran (D-032:
+    // unit = tile = chunk). Floored MiB would be lossy — a 20,000,000-byte
+    // unit and a 19 MiB unit are not the same run.
     std::fprintf(stderr,
-        "[quest-nvcomp] fused window pipeline ENABLED (T-079 spec A3, win/on/tiled): "
-        "unit=%zu MiB (tile = chunk; CHUNK_BYTES is not consulted on this path), "
-        "encoded slot capacity=%zu MiB, double-buffered device staging=%zu MiB, "
-        "device free before staging=%zu MiB of %zu MiB\n",
-        c.unitBytes >> 20, c.slotCapacity >> 20, required >> 20,
-        freeBytes >> 20, totalBytes >> 20);
+        "[quest-nvcomp] fused window pipeline ENABLED (T-079 spec A3, win/on/tiled) "
+        "rank=%d unit_bytes=%zu gate_bytes=%zu slot_capacity_bytes=%zu "
+        "device_staging_bytes=%zu device_free_bytes=%zu device_total_bytes=%zu "
+        "(tile = chunk; CHUNK_BYTES is not consulted on this path; the gate is "
+        "applied per unit, not per exchange)\n",
+        currentWorldRank(), c.unitBytes, cfg.minBytes, c.slotCapacity,
+        required, freeBytes, totalBytes);
+    std::fflush(stderr);
     return true;
 }
 
@@ -748,37 +782,61 @@ void* comm_compression_pipelineRecvSlot(unsigned parity) {
 
 void comm_compression_launchEncode(const void* dSrc, std::size_t bytes, unsigned parity) {
 
+    const Config& cfg = getConfig();
     PipelineContext& c = *g_pipeline;
     const unsigned slot = parity & 1u;
 
-    if (getConfig().forceRaw) {
-        // T-075 encoding-only ablation, same meaning as on the bulk paths:
-        // the codec is never invoked, so every unit takes the raw fallback
-        // through the same slot region, descriptor and loop.
+    // The minimum-size gate is applied PER UNIT here. The exchange-wide check
+    // in windowCodecCandidate only decides whether the protocol is worth
+    // entering; a unit below the gate must reach the wire as GATED_OFF with
+    // the codec never called, which is what the sink contract's stage_tile
+    // specifies and what round 1 got wrong. The force-raw ablation is the same
+    // state by construction: T-075's arm is "the codec is never invoked".
+    if (cfg.forceRaw || bytes < cfg.minBytes) {
+        c.attempted[slot] = 0;
         *c.hSize[slot] = 0;
         return;
     }
 
+    c.attempted[slot] = 1;
     QuestProfileRange r("quest.communication.compress");
-    auto compCfg = c.encodeManager->configure_compression(bytes);
+    // The configuration must outlive the compress it configures, so it is
+    // retained here and released by the caller once this unit's encode event
+    // has fired. Deleting first is a no-op after that release and keeps the
+    // slot from leaking if a caller ever skips it.
+    delete c.encodeConfig[slot];
+    c.encodeConfig[slot] = new PipelineEncodeConfig(
+        c.encodeManager->configure_compression(bytes));
     c.encodeManager->compress(static_cast<const std::uint8_t*>(dSrc),
-        c.dSend[slot], compCfg, c.dSize[slot]);
+        c.dSend[slot], *c.encodeConfig[slot], c.dSize[slot]);
     // The length lands in pinned host memory on the same stream, so the
     // caller's encode event covers it and no extra synchronisation is needed.
     COMM_COMPRESSION_CUDA_ABORT(cudaMemcpyAsync(c.hSize[slot], c.dSize[slot],
         sizeof(std::size_t), cudaMemcpyDeviceToHost, c.encodeStream));
 }
 
-std::size_t comm_compression_encodedSize(unsigned parity, std::size_t bytes) {
+unsigned comm_compression_unitEncoding(unsigned parity, std::size_t rawBytes,
+        std::size_t* storedBytes) {
 
     const PipelineContext& c = *g_pipeline;
-    const std::size_t stored = *c.hSize[parity & 1u];
+    const unsigned slot = parity & 1u;
 
-    // incompressible unit: the caller stages it raw through the same slot
-    if (stored == 0 || stored >= bytes || stored > c.slotCapacity)
-        return 0;
+    // codec never attempted for this unit: below the gate, or force-raw
+    if (!c.attempted[slot]) {
+        *storedBytes = rawBytes;
+        return COMM_COMPRESSION_UNIT_GATED_OFF;
+    }
 
-    return stored;
+    // attempted but lost: the encode ran and did not shrink the unit, or
+    // returned something the staging slot could not have held
+    const std::size_t stored = *c.hSize[slot];
+    if (stored == 0 || stored >= rawBytes || stored > c.slotCapacity) {
+        *storedBytes = rawBytes;
+        return COMM_COMPRESSION_UNIT_RAW_FALLBACK;
+    }
+
+    *storedBytes = stored;
+    return COMM_COMPRESSION_UNIT_ENCODED;
 }
 
 void comm_compression_launchDecode(void* dDst, std::size_t bytes, unsigned parity) {
@@ -789,14 +847,35 @@ void comm_compression_launchDecode(void* dDst, std::size_t bytes, unsigned parit
     QuestProfileRange r("quest.communication.decompress");
     // nvcomp reads the unit header out of the recv slot here, so the decode
     // stream must already be waiting on the inbound copy — the caller's job.
-    auto decompCfg = c.decodeManager->configure_decompression(c.dRecv[slot]);
-    if (decompCfg.decomp_data_size != bytes) {
+    // The configuration is retained for the same lifetime reason as the encode
+    // one, and released by the caller once this unit's decode event has fired.
+    delete c.decodeConfig[slot];
+    c.decodeConfig[slot] = new PipelineDecodeConfig(
+        c.decodeManager->configure_decompression(c.dRecv[slot]));
+    if (c.decodeConfig[slot]->decomp_data_size != bytes) {
         std::fprintf(stderr,
             "[quest-nvcomp] fused unit decode size mismatch (%zu != %zu) — aborting\n",
-            static_cast<std::size_t>(decompCfg.decomp_data_size), bytes);
+            static_cast<std::size_t>(c.decodeConfig[slot]->decomp_data_size), bytes);
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
-    c.decodeManager->decompress(static_cast<std::uint8_t*>(dDst), c.dRecv[slot], decompCfg);
+    c.decodeManager->decompress(static_cast<std::uint8_t*>(dDst), c.dRecv[slot],
+        *c.decodeConfig[slot]);
+}
+
+void comm_compression_releaseEncodeConfig(unsigned parity) {
+    if (g_pipeline == nullptr)
+        return;
+    const unsigned slot = parity & 1u;
+    delete g_pipeline->encodeConfig[slot];
+    g_pipeline->encodeConfig[slot] = nullptr;
+}
+
+void comm_compression_releaseDecodeConfig(unsigned parity) {
+    if (g_pipeline == nullptr)
+        return;
+    const unsigned slot = parity & 1u;
+    delete g_pipeline->decodeConfig[slot];
+    g_pipeline->decodeConfig[slot] = nullptr;
 }
 
 #endif // COMPILE_NVCOMP
