@@ -225,8 +225,12 @@ run_case() {
     # "fallback_registration_cons[quest-staging-stats] rank=1 ...").  Per-rank
     # files make interleaving impossible; order of concatenation is irrelevant
     # because every parsed line carries its rank.
-    cat "${output}.d"/*/rank.*/stdout "${output}.launcher" > "${output}" 2>/dev/null \
-        || cat "${output}.d"/*/*/stdout "${output}.launcher" > "${output}" 2>/dev/null \
+    # Rank files ONLY: OpenMPI 4.1's --output-filename DUPLICATES output (per-rank
+    # files AND the launcher's stdout), so merging both doubles every line —
+    # job 3592487 failed with "announced the pipeline 2 times".  The launcher
+    # capture stays in the results dir for diagnostics but is never parsed.
+    cat "${output}.d"/*/rank.*/stdout > "${output}" 2>/dev/null \
+        || cat "${output}.d"/*/*/stdout > "${output}" 2>/dev/null \
         || die "per-rank output files not found under ${output}.d"
     finished="$(date +%s.%N)"
     LAST_CASE_SECONDS="$(awk -v a="${started}" -v b="${finished}" 'BEGIN {printf "%.3f", b - a}')"
