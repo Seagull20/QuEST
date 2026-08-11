@@ -215,9 +215,19 @@ run_case() {
         -u QUEST_GPU_STAGING_FORCE_WINDOW_FALLBACK_RANK \
         "${env_pairs[@]}" \
         "${MPI_LAUNCHER}" -np "${ranks}" --oversubscribe --map-by "ppr:${ranks}:node" \
+        --output-filename "${output}.d" --merge-stderr-to-stdout \
         "${exports[@]}" \
         "${BINARY}" --qubits "${qubits}" --targets "${targets}" \
-        >"${output}" 2>&1
+        >"${output}.launcher" 2>&1
+    # Per-rank capture, then concatenate: a rank's long stats line through the
+    # merged mpirun pipe is not an atomic write, and job 3592475 caught rank
+    # 0's staging-stats line spliced mid-token by rank 1's (raw_q26_r2 leg,
+    # "fallback_registration_cons[quest-staging-stats] rank=1 ...").  Per-rank
+    # files make interleaving impossible; order of concatenation is irrelevant
+    # because every parsed line carries its rank.
+    cat "${output}.d"/*/rank.*/stdout "${output}.launcher" > "${output}" 2>/dev/null \
+        || cat "${output}.d"/*/*/stdout "${output}.launcher" > "${output}" 2>/dev/null \
+        || die "per-rank output files not found under ${output}.d"
     finished="$(date +%s.%N)"
     LAST_CASE_SECONDS="$(awk -v a="${started}" -v b="${finished}" 'BEGIN {printf "%.3f", b - a}')"
 }
