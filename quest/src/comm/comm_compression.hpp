@@ -96,6 +96,72 @@ void comm_compression_decompressChunk(void* dDst, std::size_t bytes);
 void comm_compression_recordChunk(std::size_t rawBytes, std::size_t sentBytes, bool fallback);
 void comm_compression_recordControl(std::size_t bytes);
 
+/*
+ * Fused pipeline API for the tiled window transport (T-079 spec A3,
+ * win/on/tiled). Here the codec runs INSIDE the tiled loop, so the window
+ * owns every ordering decision and the codec may not synchronise anything on
+ * its own: each entry point below launches work and returns. D-032 merges the
+ * tile and chunk axes — the pipeline unit IS the tile, and
+ * QUEST_EXCHANGE_COMPRESSION_CHUNK_BYTES keeps its meaning only on the bulk
+ * paths above.
+ *
+ * This machinery is deliberately disjoint from the chunk API: the bulk arms
+ * are measured, so neither their device allocation nor their synchronisation
+ * structure may move underneath them.
+ */
+
+/// Sizes the fused pipeline for a `unitBytes` unit, creates its two codec
+/// streams and allocates its double-buffered device staging. Call once per
+/// process before any fused exchange; later calls are satisfied from the
+/// existing allocation and only re-check that the unit still fits.
+/// Returns false when the codec is unavailable for a reason a peer may not
+/// share (config gated off, nvcomp init failure) — the caller's pairwise vote
+/// then falls back to the uncompressed tiled path. A device allocation that
+/// does not fit is instead a fatal startup error carrying the arithmetic,
+/// because silently running the uncompressed arm would mislabel a
+/// measurement.
+bool comm_compression_prepareWindowPipeline(std::size_t unitBytes);
+
+/// Candidate AND this rank's fused pipeline is ready. Not rank-uniform; use
+/// as the pairwise vote payload exactly as windowCodecUsable is used for the
+/// bulk path, never as a silent branch condition.
+bool comm_compression_windowPipelineUsable(qindex numAmps);
+
+/// The pipeline unit actually in force, in bytes (0 before preparation), and
+/// the capacity of one encoded-staging slot. The window records the first in
+/// its start-up line so a campaign can prove which unit ran, and bounds the
+/// peer's declared stored length against the second.
+std::size_t comm_compression_windowPipelineUnitBytes();
+std::size_t comm_compression_windowPipelineSlotCapacity();
+
+/// The pipeline's two codec streams, shaped as cudaStream_t. Encode and
+/// decode never share one: nvcomp inspects the inbound unit's header from the
+/// host when a decode is configured, and on a shared stream that host wait
+/// would drag onto the next unit's encode and collapse the pipeline.
+void* comm_compression_encodeStream();
+void* comm_compression_decodeStream();
+
+/// Double-buffered device staging, selected by unit parity. Unit k encodes
+/// into send slot k&1 while unit k-1's outbound copy still reads slot (k-1)&1.
+const void* comm_compression_pipelineSendSlot(unsigned parity);
+void* comm_compression_pipelineRecvSlot(unsigned parity);
+
+/// Launches the encode of `bytes` device bytes at dSrc into send slot
+/// `parity`, followed by the read-back of the encoded length, both on the
+/// encode stream. Nothing is synchronised: the caller records its own event
+/// on that stream and reads the length once the event has fired.
+void comm_compression_launchEncode(const void* dSrc, std::size_t bytes, unsigned parity);
+
+/// The encoded length for `parity`, or 0 when the unit must be staged raw
+/// (force-raw ablation, or the codec did not shrink it). Only meaningful once
+/// the caller's encode event has fired.
+std::size_t comm_compression_encodedSize(unsigned parity, std::size_t bytes);
+
+/// Launches the decode of recv slot `parity` into `bytes` device bytes at
+/// dDst on the decode stream. The caller must already have made that stream
+/// wait on the inbound copy: nvcomp reads the unit header from the slot here.
+void comm_compression_launchDecode(void* dDst, std::size_t bytes, unsigned parity);
+
 #else
 
 static inline void comm_compression_init() { }
@@ -111,6 +177,18 @@ static inline void* comm_compression_deviceCompressedRecv() { return nullptr; }
 static inline void comm_compression_decompressChunk(void*, std::size_t) { }
 static inline void comm_compression_recordChunk(std::size_t, std::size_t, bool) { }
 static inline void comm_compression_recordControl(std::size_t) { }
+
+static inline bool comm_compression_prepareWindowPipeline(std::size_t) { return false; }
+static inline bool comm_compression_windowPipelineUsable(qindex) { return false; }
+static inline std::size_t comm_compression_windowPipelineUnitBytes() { return 0; }
+static inline std::size_t comm_compression_windowPipelineSlotCapacity() { return 0; }
+static inline void* comm_compression_encodeStream() { return nullptr; }
+static inline void* comm_compression_decodeStream() { return nullptr; }
+static inline const void* comm_compression_pipelineSendSlot(unsigned) { return nullptr; }
+static inline void* comm_compression_pipelineRecvSlot(unsigned) { return nullptr; }
+static inline void comm_compression_launchEncode(const void*, std::size_t, unsigned) { }
+static inline std::size_t comm_compression_encodedSize(unsigned, std::size_t) { return 0; }
+static inline void comm_compression_launchDecode(void*, std::size_t, unsigned) { }
 
 #endif // COMPILE_NVCOMP
 

@@ -297,6 +297,60 @@ bool agreeOnConfig() {
     return true;
 }
 
+// T-079 spec A3 (win/on/tiled): the fused window pipeline's own context.
+// Deliberately separate from Context above — that one backs the measured
+// win/on/bulk arms, so neither its allocation nor its synchronisation
+// structure may move underneath them. Heap-allocated once and leaked whole
+// for the same teardown reason as Context.
+struct PipelineContext {
+    cudaStream_t encodeStream = nullptr;
+    cudaStream_t decodeStream = nullptr;
+    std::unique_ptr<nvcomp::nvcompManagerBase> encodeManager;
+    std::unique_ptr<nvcomp::nvcompManagerBase> decodeManager;
+    std::size_t unitBytes = 0;
+    std::size_t slotCapacity = 0;
+    std::uint8_t* dSend[2] = { nullptr, nullptr };
+    std::uint8_t* dRecv[2] = { nullptr, nullptr };
+    std::size_t* dSize[2] = { nullptr, nullptr };
+    std::size_t* hSize[2] = { nullptr, nullptr }; // pinned
+    bool ok = false;
+};
+
+PipelineContext* g_pipeline = nullptr;
+
+// Device headroom left for nvcomp's own lazily-allocated scratch and for the
+// allocator's granularity, so the arithmetic below refuses a unit that would
+// only just fit and then fail inside the first encode.
+constexpr std::size_t PIPELINE_DEVICE_MARGIN = std::size_t(64) << 20;
+
+[[noreturn]] void abortPipelineMemory(const PipelineContext& c, std::size_t required) {
+    std::size_t freeBytes = 0;
+    std::size_t totalBytes = 0;
+    if (cudaMemGetInfo(&freeBytes, &totalBytes) != cudaSuccess)
+        cudaGetLastError();
+    std::fprintf(stderr,
+        "[quest-nvcomp] FATAL fused window pipeline does not fit: unit=%zu MiB, "
+        "encoded slot capacity=%zu MiB, double-buffered device staging = "
+        "2 send + 2 recv = %zu MiB (+%zu MiB reserved margin), device free=%zu MiB "
+        "of %zu MiB. Lower QUEST_GPU_STAGING_TILE_MB or use fewer qubits per rank; "
+        "refusing to downgrade silently to the uncompressed tiled arm\n",
+        c.unitBytes >> 20, c.slotCapacity >> 20, required >> 20,
+        PIPELINE_DEVICE_MARGIN >> 20, freeBytes >> 20, totalBytes >> 20);
+    std::fflush(stderr);
+    MPI_Abort(MPI_COMM_WORLD, 1);
+    std::abort();
+}
+
+[[noreturn]] void abortPipelineUnitGrew(const PipelineContext& c, std::size_t unitBytes) {
+    std::fprintf(stderr,
+        "[quest-nvcomp] FATAL fused window pipeline was sized for a %zu MiB unit and "
+        "a second window asked for %zu MiB; the staging slots would overrun\n",
+        c.unitBytes >> 20, unitBytes >> 20);
+    std::fflush(stderr);
+    MPI_Abort(MPI_COMM_WORLD, 1);
+    std::abort();
+}
+
 // One raw chunk exchange through pinned host staging (fallback + verify path).
 void exchangeRawChunk(const std::uint8_t* dSrc, std::uint8_t* hSend, std::uint8_t* hRecv,
                       std::size_t bytes, int pairRank, int tag, cudaStream_t stream) {
@@ -547,6 +601,202 @@ void comm_compression_recordChunk(std::size_t rawBytes, std::size_t sentBytes, b
 
 void comm_compression_recordControl(std::size_t bytes) {
     addControlBytes(bytes);
+}
+
+
+/*
+ * Fused pipeline API for the tiled window transport (T-079 spec A3). Every
+ * entry point below launches work and returns: the window owns the ordering
+ * through its own events, so nothing here synchronises a stream. The one
+ * unavoidable host wait lives inside nvcomp's decode configuration, which
+ * reads the inbound unit's header — which is why the decode has its own
+ * stream and its own manager. See comm_compression.hpp.
+ */
+
+bool comm_compression_prepareWindowPipeline(std::size_t unitBytes) {
+
+    const Config& cfg = getConfig();
+    if (!g_uniform || !cfg.enabled || cfg.verify || unitBytes == 0)
+        return false;
+
+    if (g_pipeline != nullptr) {
+        // one process may open several windows; the staging was sized by the
+        // first, and a larger later unit would overrun it
+        if (g_pipeline->ok && unitBytes > g_pipeline->unitBytes)
+            abortPipelineUnitGrew(*g_pipeline, unitBytes);
+        return g_pipeline->ok;
+    }
+
+    auto* pipeline = new PipelineContext(); // leaked by design (see struct comment)
+    g_pipeline = pipeline;
+    PipelineContext& c = *pipeline;
+    c.unitBytes = unitBytes;
+
+    try {
+        // Non-blocking streams: the size read-back and the codec launches must
+        // never be ordered against the legacy default stream, which the gate
+        // kernels use.
+        if (!cudaOk(cudaStreamCreateWithFlags(&c.encodeStream, cudaStreamNonBlocking),
+                "cudaStreamCreateWithFlags encodeStream")) return false;
+        if (!cudaOk(cudaStreamCreateWithFlags(&c.decodeStream, cudaStreamNonBlocking),
+                "cudaStreamCreateWithFlags decodeStream")) return false;
+
+        auto opts = nvcompBatchedBitcompCompressDefaultOpts;
+        // same lane choice as the campaign benchmark and the chunk API above
+#ifdef NVCOMP_TYPE_DOUBLE
+        opts.data_type = NVCOMP_TYPE_DOUBLE;
+#else
+        opts.data_type = NVCOMP_TYPE_ULONGLONG;
+#endif
+        // One manager per stream: a manager is bound to the stream it was
+        // constructed with, and this pipeline's whole point is that a unit's
+        // encode may run while an earlier unit's decode is still running.
+        c.encodeManager = std::make_unique<nvcomp::BitcompManager>(
+            NVCOMP_INTERNAL_CHUNK, opts, nvcompBatchedBitcompDecompressDefaultOpts,
+            c.encodeStream, nvcomp::NoComputeNoVerify, nvcomp::BitstreamKind::NVCOMP_NATIVE);
+        c.decodeManager = std::make_unique<nvcomp::BitcompManager>(
+            NVCOMP_INTERNAL_CHUNK, opts, nvcompBatchedBitcompDecompressDefaultOpts,
+            c.decodeStream, nvcomp::NoComputeNoVerify, nvcomp::BitstreamKind::NVCOMP_NATIVE);
+
+        c.slotCapacity =
+            c.encodeManager->configure_compression(unitBytes).max_compressed_buffer_size;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr,
+            "[quest-nvcomp] fused pipeline init failed: %s — fused window arm disabled\n",
+            e.what());
+        return false;
+    }
+
+    // D-032's memory arithmetic, checked BEFORE allocating so a configuration
+    // that cannot fit fails at window setup with the numbers in the message,
+    // not inside the first exchange.
+    const std::size_t required = 4 * c.slotCapacity + 2 * sizeof(std::size_t);
+    std::size_t freeBytes = 0;
+    std::size_t totalBytes = 0;
+    if (cudaMemGetInfo(&freeBytes, &totalBytes) != cudaSuccess) {
+        cudaGetLastError();
+        freeBytes = 0;
+        totalBytes = 0;
+    }
+    if (totalBytes > 0 && required + PIPELINE_DEVICE_MARGIN > freeBytes)
+        abortPipelineMemory(c, required);
+
+    // Past the arithmetic, an allocation failure is a surprise rather than a
+    // configuration error — still fatal, for the same mislabelling reason.
+    if (cudaMalloc(&c.dSend[0], c.slotCapacity) != cudaSuccess ||
+        cudaMalloc(&c.dSend[1], c.slotCapacity) != cudaSuccess ||
+        cudaMalloc(&c.dRecv[0], c.slotCapacity) != cudaSuccess ||
+        cudaMalloc(&c.dRecv[1], c.slotCapacity) != cudaSuccess ||
+        cudaMalloc(&c.dSize[0], sizeof(std::size_t)) != cudaSuccess ||
+        cudaMalloc(&c.dSize[1], sizeof(std::size_t)) != cudaSuccess ||
+        cudaMallocHost(&c.hSize[0], sizeof(std::size_t)) != cudaSuccess ||
+        cudaMallocHost(&c.hSize[1], sizeof(std::size_t)) != cudaSuccess) {
+        cudaGetLastError();
+        abortPipelineMemory(c, required);
+    }
+
+    *c.hSize[0] = 0;
+    *c.hSize[1] = 0;
+    c.ok = true;
+
+    // The effective unit is recorded here so a campaign can prove from the
+    // job log which unit actually ran (D-032: unit = tile = chunk).
+    std::fprintf(stderr,
+        "[quest-nvcomp] fused window pipeline ENABLED (T-079 spec A3, win/on/tiled): "
+        "unit=%zu MiB (tile = chunk; CHUNK_BYTES is not consulted on this path), "
+        "encoded slot capacity=%zu MiB, double-buffered device staging=%zu MiB, "
+        "device free before staging=%zu MiB of %zu MiB\n",
+        c.unitBytes >> 20, c.slotCapacity >> 20, required >> 20,
+        freeBytes >> 20, totalBytes >> 20);
+    return true;
+}
+
+bool comm_compression_windowPipelineUsable(qindex numAmps) {
+
+    if (!comm_compression_windowCodecCandidate(numAmps))
+        return false;
+
+    if (getConfig().stats)
+        ensureStatsRank(getStats());
+
+    return g_pipeline != nullptr && g_pipeline->ok;
+}
+
+std::size_t comm_compression_windowPipelineUnitBytes() {
+    return g_pipeline != nullptr ? g_pipeline->unitBytes : 0;
+}
+
+std::size_t comm_compression_windowPipelineSlotCapacity() {
+    return g_pipeline != nullptr ? g_pipeline->slotCapacity : 0;
+}
+
+void* comm_compression_encodeStream() {
+    return g_pipeline != nullptr ? reinterpret_cast<void*>(g_pipeline->encodeStream) : nullptr;
+}
+
+void* comm_compression_decodeStream() {
+    return g_pipeline != nullptr ? reinterpret_cast<void*>(g_pipeline->decodeStream) : nullptr;
+}
+
+const void* comm_compression_pipelineSendSlot(unsigned parity) {
+    return g_pipeline->dSend[parity & 1u];
+}
+
+void* comm_compression_pipelineRecvSlot(unsigned parity) {
+    return g_pipeline->dRecv[parity & 1u];
+}
+
+void comm_compression_launchEncode(const void* dSrc, std::size_t bytes, unsigned parity) {
+
+    PipelineContext& c = *g_pipeline;
+    const unsigned slot = parity & 1u;
+
+    if (getConfig().forceRaw) {
+        // T-075 encoding-only ablation, same meaning as on the bulk paths:
+        // the codec is never invoked, so every unit takes the raw fallback
+        // through the same slot region, descriptor and loop.
+        *c.hSize[slot] = 0;
+        return;
+    }
+
+    QuestProfileRange r("quest.communication.compress");
+    auto compCfg = c.encodeManager->configure_compression(bytes);
+    c.encodeManager->compress(static_cast<const std::uint8_t*>(dSrc),
+        c.dSend[slot], compCfg, c.dSize[slot]);
+    // The length lands in pinned host memory on the same stream, so the
+    // caller's encode event covers it and no extra synchronisation is needed.
+    COMM_COMPRESSION_CUDA_ABORT(cudaMemcpyAsync(c.hSize[slot], c.dSize[slot],
+        sizeof(std::size_t), cudaMemcpyDeviceToHost, c.encodeStream));
+}
+
+std::size_t comm_compression_encodedSize(unsigned parity, std::size_t bytes) {
+
+    const PipelineContext& c = *g_pipeline;
+    const std::size_t stored = *c.hSize[parity & 1u];
+
+    // incompressible unit: the caller stages it raw through the same slot
+    if (stored == 0 || stored >= bytes || stored > c.slotCapacity)
+        return 0;
+
+    return stored;
+}
+
+void comm_compression_launchDecode(void* dDst, std::size_t bytes, unsigned parity) {
+
+    PipelineContext& c = *g_pipeline;
+    const unsigned slot = parity & 1u;
+
+    QuestProfileRange r("quest.communication.decompress");
+    // nvcomp reads the unit header out of the recv slot here, so the decode
+    // stream must already be waiting on the inbound copy — the caller's job.
+    auto decompCfg = c.decodeManager->configure_decompression(c.dRecv[slot]);
+    if (decompCfg.decomp_data_size != bytes) {
+        std::fprintf(stderr,
+            "[quest-nvcomp] fused unit decode size mismatch (%zu != %zu) — aborting\n",
+            static_cast<std::size_t>(decompCfg.decomp_data_size), bytes);
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    c.decodeManager->decompress(static_cast<std::uint8_t*>(dDst), c.dRecv[slot], decompCfg);
 }
 
 #endif // COMPILE_NVCOMP
