@@ -1,0 +1,14 @@
+run_tag=q26_distributed_strong_scaling_20260409_235752
+benchmark=qft
+num_qubits=26
+topology=1_rank_per_node_128_threads
+nodes_existing=1,2,4
+submission_failed_at=8
+failed_n8=1
+failed_n16=1
+failed_n32=1
+failed_n64=1
+failed_n128=1
+failed_short_n8=1
+failed_short_n16=1
+failed_short_n32=1

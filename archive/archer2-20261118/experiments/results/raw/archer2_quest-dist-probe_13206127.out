@@ -1,0 +1,7 @@
+>>> ARCHER2 distributed probe
+>>> Node count: 2
+>>> OMP_NUM_THREADS=128
+>>> Validation kind: alloc_only
+>>> Exact probe qubit: 33
+>>> Search range: 33..33
+>>> Output: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/probe_archer2_cpu_mpi_on_n2_q33_t128_alloc_only.tsv

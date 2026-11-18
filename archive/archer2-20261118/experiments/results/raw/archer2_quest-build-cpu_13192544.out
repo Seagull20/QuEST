@@ -1,0 +1,303 @@
+>>> ARCHER2 build-only job
+>>> Node: nid002348
+>>> OMP_NUM_THREADS=32
+>>> Building probe (cpu_mpi)
+>>> Configuring probe (cpu_mpi, Release)
+-- The CXX compiler identification is GNU 7.5.0
+-- The C compiler identification is GNU 7.5.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Shared library is turned ON. Set BUILD_SHARED_LIBS to modify.
+-- Library will be named libQuEST. Set LIB_NAME to modify.
+-- Verbose library naming is turned OFF. Set VERBOSE_LIB_NAME to modify.
+-- Precision set to 2. Set FLOAT_PRECISION to modify.
+-- Examples are turned OFF. Set BUILD_EXAMPLES to modify.
+-- Testing is turned OFF. Set ENABLE_TESTING to modify.
+-- Multithreading is turned ON. Set ENABLE_MULTITHREADING to modify.
+-- Distribution is turned ON. Set ENABLE_DISTRIBUTION to modify.
+-- NVIDIA GPU acceleration is turned OFF. Set ENABLE_CUDA to modify.
+-- CuQuantum support is turned OFF. Set ENABLE_CUQUANTUM to modify.
+-- AMD GPU acceleration is turned OFF. Set ENABLE_HIP to modify.
+-- Deprecated API support is turned OFF. Set ENABLE_DEPRECATED_API to modify.
+-- Disabling of deprecated API warnings is turned OFF. Set DISABLE_DEPRECATION_WARNINGS to modify.
+-- Found PkgConfig: /usr/bin/pkg-config (found version "0.29.2")
+-- Checking for one of the modules 'numa'
+-- NUMA awareness is enabled.
+-- Found MPI_CXX: /opt/cray/pe/mpich/8.1.27/ofi/cray/14.0/lib/libmpi_cray.so (found version "3.1")
+-- Found MPI: TRUE (found version "3.1") found components: CXX
+-- Compiling /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/benchmarks/probe/main.c to executable probe.
+-- Configuring done (4.8s)
+-- Generating done (0.1s)
+-- Build files have been written to: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/probe/cpu_mpi
+>>> Building executable probe
+[  2%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/calculations.cpp.o
+[  5%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/channels.cpp.o
+[  8%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/debug.cpp.o
+[ 11%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/decoherence.cpp.o
+[ 14%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/environment.cpp.o
+[ 17%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/initialisations.cpp.o
+[ 20%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/matrices.cpp.o
+[ 22%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/modes.cpp.o
+[ 25%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/multiplication.cpp.o
+[ 28%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/operations.cpp.o
+[ 31%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/paulis.cpp.o
+[ 34%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/qureg.cpp.o
+[ 37%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/trotterisation.cpp.o
+[ 40%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/types.cpp.o
+[ 42%] Building CXX object CMakeFiles/QuEST.dir/quest/src/comm/comm_config.cpp.o
+[ 45%] Building CXX object CMakeFiles/QuEST.dir/quest/src/comm/comm_routines.cpp.o
+[ 48%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/accelerator.cpp.o
+[ 51%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/autodeployer.cpp.o
+[ 54%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/envvars.cpp.o
+[ 57%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/errors.cpp.o
+[ 60%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/localiser.cpp.o
+[ 62%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/memory.cpp.o
+[ 65%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/parser.cpp.o
+[ 68%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/paulilogic.cpp.o
+[ 71%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/printer.cpp.o
+[ 74%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/randomiser.cpp.o
+[ 77%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/utilities.cpp.o
+[ 80%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/validation.cpp.o
+[ 82%] Building CXX object CMakeFiles/QuEST.dir/quest/src/cpu/cpu_config.cpp.o
+[ 85%] Building CXX object CMakeFiles/QuEST.dir/quest/src/cpu/cpu_subroutines.cpp.o
+[ 88%] Building CXX object CMakeFiles/QuEST.dir/quest/src/gpu/gpu_config.cpp.o
+[ 91%] Building CXX object CMakeFiles/QuEST.dir/quest/src/gpu/gpu_subroutines.cpp.o
+[ 94%] Linking CXX shared library libQuEST.so
+[ 94%] Built target QuEST
+[ 97%] Building C object CMakeFiles/probe.dir/experiments/benchmarks/probe/main.c.o
+[100%] Linking C executable probe
+[100%] Built target probe
+>>> Build complete: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/probe/cpu_mpi/probe
+>>> Building qft (cpu_mpi)
+>>> Configuring qft (cpu_mpi, Release)
+-- The CXX compiler identification is GNU 7.5.0
+-- The C compiler identification is GNU 7.5.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Shared library is turned ON. Set BUILD_SHARED_LIBS to modify.
+-- Library will be named libQuEST. Set LIB_NAME to modify.
+-- Verbose library naming is turned OFF. Set VERBOSE_LIB_NAME to modify.
+-- Precision set to 2. Set FLOAT_PRECISION to modify.
+-- Examples are turned OFF. Set BUILD_EXAMPLES to modify.
+-- Testing is turned OFF. Set ENABLE_TESTING to modify.
+-- Multithreading is turned ON. Set ENABLE_MULTITHREADING to modify.
+-- Distribution is turned ON. Set ENABLE_DISTRIBUTION to modify.
+-- NVIDIA GPU acceleration is turned OFF. Set ENABLE_CUDA to modify.
+-- CuQuantum support is turned OFF. Set ENABLE_CUQUANTUM to modify.
+-- AMD GPU acceleration is turned OFF. Set ENABLE_HIP to modify.
+-- Deprecated API support is turned OFF. Set ENABLE_DEPRECATED_API to modify.
+-- Disabling of deprecated API warnings is turned OFF. Set DISABLE_DEPRECATION_WARNINGS to modify.
+-- Found PkgConfig: /usr/bin/pkg-config (found version "0.29.2")
+-- Checking for one of the modules 'numa'
+-- NUMA awareness is enabled.
+-- Found MPI_CXX: /opt/cray/pe/mpich/8.1.27/ofi/cray/14.0/lib/libmpi_cray.so (found version "3.1")
+-- Found MPI: TRUE (found version "3.1") found components: CXX
+-- Compiling /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/benchmarks/qft/main.c to executable qft.
+-- Configuring done (1.8s)
+-- Generating done (0.1s)
+-- Build files have been written to: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/qft/cpu_mpi
+>>> Building executable qft
+[  2%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/calculations.cpp.o
+[  5%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/channels.cpp.o
+[  8%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/debug.cpp.o
+[ 11%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/decoherence.cpp.o
+[ 14%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/environment.cpp.o
+[ 17%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/initialisations.cpp.o
+[ 20%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/matrices.cpp.o
+[ 22%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/modes.cpp.o
+[ 25%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/multiplication.cpp.o
+[ 28%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/operations.cpp.o
+[ 31%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/paulis.cpp.o
+[ 34%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/qureg.cpp.o
+[ 37%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/trotterisation.cpp.o
+[ 40%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/types.cpp.o
+[ 42%] Building CXX object CMakeFiles/QuEST.dir/quest/src/comm/comm_config.cpp.o
+[ 45%] Building CXX object CMakeFiles/QuEST.dir/quest/src/comm/comm_routines.cpp.o
+[ 48%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/accelerator.cpp.o
+[ 51%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/autodeployer.cpp.o
+[ 54%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/envvars.cpp.o
+[ 57%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/errors.cpp.o
+[ 60%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/localiser.cpp.o
+[ 62%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/memory.cpp.o
+[ 65%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/parser.cpp.o
+[ 68%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/paulilogic.cpp.o
+[ 71%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/printer.cpp.o
+[ 74%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/randomiser.cpp.o
+[ 77%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/utilities.cpp.o
+[ 80%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/validation.cpp.o
+[ 82%] Building CXX object CMakeFiles/QuEST.dir/quest/src/cpu/cpu_config.cpp.o
+[ 85%] Building CXX object CMakeFiles/QuEST.dir/quest/src/cpu/cpu_subroutines.cpp.o
+[ 88%] Building CXX object CMakeFiles/QuEST.dir/quest/src/gpu/gpu_config.cpp.o
+[ 91%] Building CXX object CMakeFiles/QuEST.dir/quest/src/gpu/gpu_subroutines.cpp.o
+[ 94%] Linking CXX shared library libQuEST.so
+[ 94%] Built target QuEST
+[ 97%] Building C object CMakeFiles/qft.dir/experiments/benchmarks/qft/main.c.o
+[100%] Linking C executable qft
+[100%] Built target qft
+>>> Build complete: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/qft/cpu_mpi/qft
+>>> Building h_sweep (cpu_mpi)
+>>> Configuring h_sweep (cpu_mpi, Release)
+-- The CXX compiler identification is GNU 7.5.0
+-- The C compiler identification is GNU 7.5.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Shared library is turned ON. Set BUILD_SHARED_LIBS to modify.
+-- Library will be named libQuEST. Set LIB_NAME to modify.
+-- Verbose library naming is turned OFF. Set VERBOSE_LIB_NAME to modify.
+-- Precision set to 2. Set FLOAT_PRECISION to modify.
+-- Examples are turned OFF. Set BUILD_EXAMPLES to modify.
+-- Testing is turned OFF. Set ENABLE_TESTING to modify.
+-- Multithreading is turned ON. Set ENABLE_MULTITHREADING to modify.
+-- Distribution is turned ON. Set ENABLE_DISTRIBUTION to modify.
+-- NVIDIA GPU acceleration is turned OFF. Set ENABLE_CUDA to modify.
+-- CuQuantum support is turned OFF. Set ENABLE_CUQUANTUM to modify.
+-- AMD GPU acceleration is turned OFF. Set ENABLE_HIP to modify.
+-- Deprecated API support is turned OFF. Set ENABLE_DEPRECATED_API to modify.
+-- Disabling of deprecated API warnings is turned OFF. Set DISABLE_DEPRECATION_WARNINGS to modify.
+-- Found PkgConfig: /usr/bin/pkg-config (found version "0.29.2")
+-- Checking for one of the modules 'numa'
+-- NUMA awareness is enabled.
+-- Found MPI_CXX: /opt/cray/pe/mpich/8.1.27/ofi/cray/14.0/lib/libmpi_cray.so (found version "3.1")
+-- Found MPI: TRUE (found version "3.1") found components: CXX
+-- Compiling /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/benchmarks/h_sweep/main.c to executable h_sweep.
+-- Configuring done (1.9s)
+-- Generating done (0.1s)
+-- Build files have been written to: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/h_sweep/cpu_mpi
+>>> Building executable h_sweep
+[  2%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/calculations.cpp.o
+[  5%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/channels.cpp.o
+[  8%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/debug.cpp.o
+[ 11%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/decoherence.cpp.o
+[ 14%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/environment.cpp.o
+[ 17%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/initialisations.cpp.o
+[ 20%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/matrices.cpp.o
+[ 22%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/modes.cpp.o
+[ 25%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/multiplication.cpp.o
+[ 28%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/operations.cpp.o
+[ 31%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/paulis.cpp.o
+[ 34%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/qureg.cpp.o
+[ 37%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/trotterisation.cpp.o
+[ 40%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/types.cpp.o
+[ 42%] Building CXX object CMakeFiles/QuEST.dir/quest/src/comm/comm_config.cpp.o
+[ 45%] Building CXX object CMakeFiles/QuEST.dir/quest/src/comm/comm_routines.cpp.o
+[ 48%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/accelerator.cpp.o
+[ 51%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/autodeployer.cpp.o
+[ 54%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/envvars.cpp.o
+[ 57%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/errors.cpp.o
+[ 60%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/localiser.cpp.o
+[ 62%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/memory.cpp.o
+[ 65%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/parser.cpp.o
+[ 68%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/paulilogic.cpp.o
+[ 71%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/printer.cpp.o
+[ 74%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/randomiser.cpp.o
+[ 77%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/utilities.cpp.o
+[ 80%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/validation.cpp.o
+[ 82%] Building CXX object CMakeFiles/QuEST.dir/quest/src/cpu/cpu_config.cpp.o
+[ 85%] Building CXX object CMakeFiles/QuEST.dir/quest/src/cpu/cpu_subroutines.cpp.o
+[ 88%] Building CXX object CMakeFiles/QuEST.dir/quest/src/gpu/gpu_config.cpp.o
+[ 91%] Building CXX object CMakeFiles/QuEST.dir/quest/src/gpu/gpu_subroutines.cpp.o
+[ 94%] Linking CXX shared library libQuEST.so
+[ 94%] Built target QuEST
+[ 97%] Building C object CMakeFiles/h_sweep.dir/experiments/benchmarks/h_sweep/main.c.o
+[100%] Linking C executable h_sweep
+[100%] Built target h_sweep
+>>> Build complete: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/h_sweep/cpu_mpi/h_sweep
+>>> Building random (cpu_mpi)
+>>> Configuring random (cpu_mpi, Release)
+-- The CXX compiler identification is GNU 7.5.0
+-- The C compiler identification is GNU 7.5.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Shared library is turned ON. Set BUILD_SHARED_LIBS to modify.
+-- Library will be named libQuEST. Set LIB_NAME to modify.
+-- Verbose library naming is turned OFF. Set VERBOSE_LIB_NAME to modify.
+-- Precision set to 2. Set FLOAT_PRECISION to modify.
+-- Examples are turned OFF. Set BUILD_EXAMPLES to modify.
+-- Testing is turned OFF. Set ENABLE_TESTING to modify.
+-- Multithreading is turned ON. Set ENABLE_MULTITHREADING to modify.
+-- Distribution is turned ON. Set ENABLE_DISTRIBUTION to modify.
+-- NVIDIA GPU acceleration is turned OFF. Set ENABLE_CUDA to modify.
+-- CuQuantum support is turned OFF. Set ENABLE_CUQUANTUM to modify.
+-- AMD GPU acceleration is turned OFF. Set ENABLE_HIP to modify.
+-- Deprecated API support is turned OFF. Set ENABLE_DEPRECATED_API to modify.
+-- Disabling of deprecated API warnings is turned OFF. Set DISABLE_DEPRECATION_WARNINGS to modify.
+-- Found PkgConfig: /usr/bin/pkg-config (found version "0.29.2")
+-- Checking for one of the modules 'numa'
+-- NUMA awareness is enabled.
+-- Found MPI_CXX: /opt/cray/pe/mpich/8.1.27/ofi/cray/14.0/lib/libmpi_cray.so (found version "3.1")
+-- Found MPI: TRUE (found version "3.1") found components: CXX
+-- Compiling /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/benchmarks/random/main.c to executable random.
+-- Configuring done (1.8s)
+-- Generating done (0.1s)
+-- Build files have been written to: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/random/cpu_mpi
+>>> Building executable random
+[  2%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/calculations.cpp.o
+[  5%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/channels.cpp.o
+[  8%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/debug.cpp.o
+[ 11%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/decoherence.cpp.o
+[ 14%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/environment.cpp.o
+[ 17%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/initialisations.cpp.o
+[ 20%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/matrices.cpp.o
+[ 22%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/modes.cpp.o
+[ 25%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/multiplication.cpp.o
+[ 28%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/operations.cpp.o
+[ 31%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/paulis.cpp.o
+[ 34%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/qureg.cpp.o
+[ 37%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/trotterisation.cpp.o
+[ 40%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/types.cpp.o
+[ 42%] Building CXX object CMakeFiles/QuEST.dir/quest/src/comm/comm_config.cpp.o
+[ 45%] Building CXX object CMakeFiles/QuEST.dir/quest/src/comm/comm_routines.cpp.o
+[ 48%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/accelerator.cpp.o
+[ 51%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/autodeployer.cpp.o
+[ 54%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/envvars.cpp.o
+[ 57%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/errors.cpp.o
+[ 60%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/localiser.cpp.o
+[ 62%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/memory.cpp.o
+[ 65%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/parser.cpp.o
+[ 68%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/paulilogic.cpp.o
+[ 71%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/printer.cpp.o
+[ 74%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/randomiser.cpp.o
+[ 77%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/utilities.cpp.o
+[ 80%] Building CXX object CMakeFiles/QuEST.dir/quest/src/core/validation.cpp.o
+[ 82%] Building CXX object CMakeFiles/QuEST.dir/quest/src/cpu/cpu_config.cpp.o
+[ 85%] Building CXX object CMakeFiles/QuEST.dir/quest/src/cpu/cpu_subroutines.cpp.o
+[ 88%] Building CXX object CMakeFiles/QuEST.dir/quest/src/gpu/gpu_config.cpp.o
+[ 91%] Building CXX object CMakeFiles/QuEST.dir/quest/src/gpu/gpu_subroutines.cpp.o
+[ 94%] Linking CXX shared library libQuEST.so
+[ 94%] Built target QuEST
+[ 97%] Building C object CMakeFiles/random.dir/experiments/benchmarks/random/main.c.o
+[100%] Linking C executable random
+[100%] Built target random
+>>> Build complete: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/random/cpu_mpi/random

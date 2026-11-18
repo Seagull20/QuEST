@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/usr/bin/rocm-smi", line 3169, in <module>
+    showProductName(deviceList)
+  File "/usr/bin/rocm-smi", line 2000, in showProductName
+    if rsmi_ret_ok(ret, device) and series.value.decode():
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte

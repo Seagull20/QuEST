@@ -1,0 +1,5 @@
+platform	backend	deployment	benchmark	label	num_qubits	rep	warmup	status	sync_mode	total_prob	env_num_nodes	env_num_threads	preheat_mode	preheat_qubits	validation_kind	max_qubits	probe_attempts	search_min	search_max	alloc_time_s	validation_time_s
+archer2	cpu_mpi	on	probe	probe_h_last	34	0	0	PASS	benchmark	1.000000000000	4	128	off	24	h_last	34	4	32	35	9.201021910	46.278780937
+archer2	cpu_mpi	on	probe	probe_h_last	34	0	0	PASS	benchmark	1.000000000000	4	128	off	24	h_last	34	4	32	35	9.242748022	46.237066031
+archer2	cpu_mpi	on	probe	probe_h_last	34	0	0	PASS	benchmark	1.000000000000	4	128	off	24	h_last	34	4	32	35	9.226223946	46.253554821
+archer2	cpu_mpi	on	probe	probe_h_last	34	0	0	PASS	benchmark	1.000000000000	4	128	off	24	h_last	34	4	32	35	9.203562021	46.276244879

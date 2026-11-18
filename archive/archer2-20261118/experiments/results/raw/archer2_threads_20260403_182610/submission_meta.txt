@@ -1,0 +1,16 @@
+run_tag=archer2_threads_20260403_182610
+backend=cpu_mpi
+deployment=off
+sync_mode=benchmark
+preheat_mode=light
+preheat_qubits=24
+threads=32 64 128
+qft_qubits=26 29 31 33
+h_qubits=26 33
+random_small_qubits=26 29
+random_large_qubits=33
+build_job=13124920
+qft_jobs=13124921,13124924,13124926
+h_jobs=13124923,13124925,13124927
+random_small_jobs=13124930,13124932,13124934
+random_large_jobs=13124931,13124933,13124935

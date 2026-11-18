@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/scripts/run_suite.py", line 508, in <module>
+    raise SystemExit(main())
+  File "/mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/scripts/run_suite.py", line 502, in main
+    parser = build_parser()
+  File "/mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/scripts/run_suite.py", line 471, in build_parser
+    subparsers = parser.add_subparsers(dest="command", required=True)
+  File "/usr/lib64/python3.6/argparse.py", line 1707, in add_subparsers
+    action = parsers_class(option_strings=[], **kwargs)
+TypeError: __init__() got an unexpected keyword argument 'required'

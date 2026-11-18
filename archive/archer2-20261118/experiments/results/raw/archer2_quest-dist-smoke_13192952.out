@@ -1,0 +1,4 @@
+>>> ARCHER2 distributed QFT smoke
+>>> Node count: 2
+>>> OMP_NUM_THREADS=128
+>>> Output: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_distributed_2node_20260407/qft_archer2_cpu_mpi_on_n2_q26_t128_smoke.tsv

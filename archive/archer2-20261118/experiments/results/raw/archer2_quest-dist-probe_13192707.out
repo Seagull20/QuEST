@@ -1,0 +1,5 @@
+>>> ARCHER2 distributed H-last probe
+>>> Node count: 4
+>>> OMP_NUM_THREADS=128
+>>> Search range: 32..35
+>>> Output: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_distributed_20260407_1911/probe_archer2_cpu_mpi_on_n4_t128.tsv

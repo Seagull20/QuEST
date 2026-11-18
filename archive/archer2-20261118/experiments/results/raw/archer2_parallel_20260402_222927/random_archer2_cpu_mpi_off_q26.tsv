@@ -1,0 +1,5 @@
+platform	backend	deployment	benchmark	label	num_qubits	rep	warmup	status	sync_mode	total_prob	env_num_nodes	depth	seed	gate_count	total_time_s
+archer2	cpu_mpi	off	random	random	26	0	1	PASS	benchmark	1.000000000000	1	52	20260402	2028	47.318362951
+archer2	cpu_mpi	off	random	random	26	1	0	PASS	benchmark	1.000000000000	1	52	20260402	2028	47.141083002
+archer2	cpu_mpi	off	random	random	26	2	0	PASS	benchmark	1.000000000000	1	52	20260402	2028	47.201351166
+archer2	cpu_mpi	off	random	random	26	3	0	PASS	benchmark	1.000000000000	1	52	20260402	2028	47.265797853

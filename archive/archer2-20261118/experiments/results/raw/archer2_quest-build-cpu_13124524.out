@@ -1,0 +1,50 @@
+>>> ARCHER2 build-only job
+>>> Node: nid001994
+>>> OMP_NUM_THREADS=32
+>>> Building probe (cpu_mpi)
+>>> Configuring probe (cpu_mpi, Release)
+-- The CXX compiler identification is GNU 7.5.0
+-- The C compiler identification is GNU 7.5.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Shared library is turned ON. Set BUILD_SHARED_LIBS to modify.
+-- Library will be named libQuEST. Set LIB_NAME to modify.
+-- Verbose library naming is turned OFF. Set VERBOSE_LIB_NAME to modify.
+-- Precision set to 2. Set FLOAT_PRECISION to modify.
+-- Examples are turned OFF. Set BUILD_EXAMPLES to modify.
+-- Testing is turned OFF. Set ENABLE_TESTING to modify.
+-- Multithreading is turned ON. Set ENABLE_MULTITHREADING to modify.
+-- Distribution is turned ON. Set ENABLE_DISTRIBUTION to modify.
+-- NVIDIA GPU acceleration is turned OFF. Set ENABLE_CUDA to modify.
+-- CuQuantum support is turned OFF. Set ENABLE_CUQUANTUM to modify.
+-- AMD GPU acceleration is turned OFF. Set ENABLE_HIP to modify.
+-- Deprecated API support is turned OFF. Set ENABLE_DEPRECATED_API to modify.
+-- Disabling of deprecated API warnings is turned OFF. Set DISABLE_DEPRECATION_WARNINGS to modify.
+-- Found PkgConfig: /usr/bin/pkg-config (found version "0.29.2")
+-- Checking for one of the modules 'numa'
+-- NUMA awareness is enabled.
+-- Found MPI_CXX: /opt/cray/pe/mpich/8.1.27/ofi/cray/14.0/lib/libmpi_cray.so (found version "3.1")
+-- Found MPI: TRUE (found version "3.1") found components: CXX
+-- Compiling /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/benchmarks/probe/main.c to executable probe.
+-- Configuring done (6.7s)
+-- Generating done (0.1s)
+-- Build files have been written to: /mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/build/probe/cpu_mpi
+>>> Building executable probe
+[  2%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/calculations.cpp.o
+[  5%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/channels.cpp.o
+[  8%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/debug.cpp.o
+[ 11%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/decoherence.cpp.o
+[ 14%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/environment.cpp.o
+[ 17%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/initialisations.cpp.o
+[ 20%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/matrices.cpp.o
+[ 22%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/modes.cpp.o
+[ 25%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/multiplication.cpp.o
+[ 28%] Building CXX object CMakeFiles/QuEST.dir/quest/src/api/operations.cpp.o

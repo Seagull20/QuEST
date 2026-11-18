@@ -1,0 +1,8 @@
+>>> ARCHER2 distributed suite point
+>>> Benchmark: h_sweep
+>>> Qubit: 33
+>>> Nodes: 32
+>>> Distribution mode: on
+>>> OMP_NUM_THREADS=128
+>>> H target: 32
+>>> Output: experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n32_q33_t128_hprefix32.tsv

@@ -1,0 +1,36 @@
+>>> Cancelling existing ARCHER2 CPU benchmark jobs: 13104453
+>>> ARCHER2 parallel submission
+>>> Run tag: archer2_parallel_20260402_222927
+>>> Run raw dir: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_parallel_20260402_222927
+>>> Submitted build job 13104769
+>>> Submitted probe job 13104771
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=PENDING; waiting 15s
+>>> Job 13104771 state=RUNNING; waiting 15s
+>>> Job 13104771 state=RUNNING; waiting 15s
+>>> Job 13104771 state=RUNNING; waiting 15s
+>>> Job 13104771 state=RUNNING; waiting 15s
+>>> Job 13104771 state=RUNNING; waiting 15s
+>>> Job 13104771 state=RUNNING; waiting 15s
+>>> Job 13104771 state=RUNNING; waiting 15s
+>>> Job 13104771 completed
+>>> Probe maximum qubits: 33
+>>> Sample points: 26,29,33
+>>> Submitted QFT array job 13104847
+>>> Submitted H sweep array job 13104849
+>>> Submitted random array job 13104853
+>>> Metadata written to /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_parallel_20260402_222927/submission_meta.txt

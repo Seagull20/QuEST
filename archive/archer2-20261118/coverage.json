@@ -1,0 +1,2078 @@
+[
+  {
+    "path": "experiments/scripts/sbatch_archer2_distributed_point.sh",
+    "bytes": 4816,
+    "git_blob": "3d61065eaf7afa1d7f4b16935070747afcdf4248",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/.gitkeep",
+    "bytes": 1,
+    "git_blob": "8b137891791fe96927ad78e64b0aad7bded08bdc",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_182303/submission_meta.txt",
+    "bytes": 186,
+    "git_blob": "01a423716e0a8a46c2e25f281773d1b3907d82bf",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_182644/manifest_distributed_qubits.txt",
+    "bytes": 6,
+    "git_blob": "b257908ad49c829859d7574307ec04d6d2e582f8",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_182644/probe_archer2_cpu_mpi_on_n4_t128.tsv",
+    "bytes": 771,
+    "git_blob": "58ebae63774992fce9020a5e1bb1ffe6dc7f63cc",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_182644/qft_archer2_cpu_mpi_on_n4_q26_t128_smoke.tsv",
+    "bytes": 14908,
+    "git_blob": "f5bc1777a9de3a268460a51163b7fb7a36b43702",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_182644/qft_archer2_cpu_mpi_on_n4_q33_t128.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_182644/qft_archer2_cpu_mpi_on_n4_q34_t128.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_182644/submission_meta.txt",
+    "bytes": 325,
+    "git_blob": "26d3f893116388f12bfc345e186862b957813eee",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/h_sweep_archer2_cpu_mpi_on_n4_q33_t128.tsv",
+    "bytes": 3712,
+    "git_blob": "bcd8c4d69c6119647098c99caf531b1291123790",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/h_sweep_archer2_cpu_mpi_on_n4_q34_t128.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/manifest_distributed_qubits.txt",
+    "bytes": 6,
+    "git_blob": "b257908ad49c829859d7574307ec04d6d2e582f8",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/qft_archer2_cpu_mpi_on_n4_q26_t128_smoke.tsv",
+    "bytes": 3727,
+    "git_blob": "edd7c17ecdfba2ccddd0e3c5ca582d9e23958194",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/qft_archer2_cpu_mpi_on_n4_q33_t128.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/qft_archer2_cpu_mpi_on_n4_q34_t128.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/random_archer2_cpu_mpi_on_n4_q33_t128.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/random_archer2_cpu_mpi_on_n4_q34_t128.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_183611/submission_meta.txt",
+    "bytes": 186,
+    "git_blob": "c0b49b414f5ac17d40288dabeb65e82a576dff00",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_1911/qft_archer2_cpu_mpi_on_n4_q26_t128_smoke.tsv",
+    "bytes": 3727,
+    "git_blob": "b6664e66321b232a8fd5e02a72b313991b11e945",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_20260407_1911/submission_meta.txt",
+    "bytes": 184,
+    "git_blob": "605d57f008b1ab7ac9040d7f1bfc1b06697c9dcc",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_2node_20260407/qft_archer2_cpu_mpi_on_n2_q26_t128_smoke.tsv",
+    "bytes": 3727,
+    "git_blob": "d4131a0908af350bf1ddd0cd666219b4a8073367",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/probe_archer2_cpu_mpi_on_n2_q33_t128_alloc_only.tsv",
+    "bytes": 389,
+    "git_blob": "b9be31932018140ed5bf38a66542ae5aec18dca0",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_off_n1_q33_t128_rep1_strong_scaling.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_off_n1_q33_t128_rep1_strong_scaling_retry1.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_off_n1_q33_t128_rep1_strong_scaling_retry2.tsv",
+    "bytes": 4894,
+    "git_blob": "59d6f25e936a38b00f295bd2c96a74597d1b4539",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n128_q33_t128_rep1_strong_scaling.tsv",
+    "bytes": 4616,
+    "git_blob": "619c42a979a6110aca5795b35e202d33d263ca75",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n16_q33_t128_rep1_strong_scaling.tsv",
+    "bytes": 4573,
+    "git_blob": "5b4a0a6c7c61cc5a5bbb9e6958c04d7ef1a8667f",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n2_q33_t128_rep1_pilot.tsv",
+    "bytes": 4815,
+    "git_blob": "a1d38ac1b01ec6855a75aca1ef668463dd610b15",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n2_q33_t128_rep1_strong_scaling.tsv",
+    "bytes": 4570,
+    "git_blob": "1a0b1e83ee2aef51e9a7b8ede8f8cfdfe9b93b24",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n2_q33_t128_rep2_pilot.tsv",
+    "bytes": 4815,
+    "git_blob": "e57f803fa5fcfe95b2396f27c4d30a6a9f459272",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n32_q33_t128_rep1_strong_scaling.tsv",
+    "bytes": 4565,
+    "git_blob": "e4e1baf7b34cafacd79ef874b58a9c3fb5a1e53a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n4_q33_t128_rep1_strong_scaling.tsv",
+    "bytes": 4559,
+    "git_blob": "af903996d0a2cb19c758e5d6f80a3b601a59e730",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n64_q33_t128_rep1_strong_scaling.tsv",
+    "bytes": 4553,
+    "git_blob": "782a46d16a1a4e1b195489fa19353ec42e66fec2",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n8_q33_t128_rep1_strong_scaling.tsv",
+    "bytes": 4549,
+    "git_blob": "23db4320cf95a7c7c47a4c22d467b20ae670cd30",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/submission_meta.txt",
+    "bytes": 972,
+    "git_blob": "9c5c56e75420c40ec4f9eb40df4d80d9ae471315",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_extension_20260414_000218/qft_archer2_cpu_mpi_on_n256_q33_t128_rep1_strong_scaling_ext256.tsv",
+    "bytes": 5141,
+    "git_blob": "7ad50ba38f069af8b43b42dc878a1ba636f6ad06",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_strong_scaling_extension_20260414_000218/qft_archer2_cpu_mpi_on_n512_q33_t128_rep1_strong_scaling_ext512.tsv",
+    "bytes": 5141,
+    "git_blob": "443514cc1dfb62b3ae33fc7e1b9d85f3a8aaa01b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_distributed_submit.log",
+    "bytes": 319,
+    "git_blob": "ec26bc7310037020ccd245ec450a41c6571f282b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_gpu_check_13104345.err",
+    "bytes": 326,
+    "git_blob": "e9bcdff516412894d4fc82cb6d41a23b3eea22b8",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_gpu_check_13104345.out",
+    "bytes": 9505,
+    "git_blob": "c262a37480819983a81f5945f0886e9436184406",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n128_13281007_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n128_13281007_4294967294.out",
+    "bytes": 282,
+    "git_blob": "5af8d2d295fb7dc3ab99074a7128d0fd52f72779",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n16_13331757_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n16_13331757_4294967294.out",
+    "bytes": 280,
+    "git_blob": "9e34e620c71211fde4a4b9d548f24b2224bed1b9",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n1_13281006_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n1_13281006_4294967294.out",
+    "bytes": 280,
+    "git_blob": "c0ecc4609f3c8638bca2fd3b3ed800362f446b7f",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n256_13281008_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n256_13281008_4294967294.out",
+    "bytes": 282,
+    "git_blob": "0ef68eb3d6268031828190a9c4034b89af2e8ec0",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n2_13331754_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n2_13331754_4294967294.out",
+    "bytes": 278,
+    "git_blob": "6a4c709bd3d5df1721f3f30086921ab580cc412d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n32_13331758_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n32_13331758_4294967294.out",
+    "bytes": 280,
+    "git_blob": "5bb75aa733d1b18ddcee3634334b6efd7ce7a096",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n4_13331755_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n4_13331755_4294967294.out",
+    "bytes": 278,
+    "git_blob": "0b678248d2e9c59cd8dbcf03e3ec95b82598d3a5",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n64_13281126_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n64_13281126_4294967294.out",
+    "bytes": 280,
+    "git_blob": "070ce2e91c5c6bd3b8137d5a36f8b236d0b953bf",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n8_13331756_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-q33-n8_13331756_4294967294.out",
+    "bytes": 278,
+    "git_blob": "eda8b47bdc1751d1b88489d9d86686f2c103ddb5",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-smoke-128_13280964_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_hpfx-smoke-128_13280964_4294967294.out",
+    "bytes": 288,
+    "git_blob": "07c0919b76c26fe20759eeb1c1fcf7c6661a95cf",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_off_n1_q33_t128_hprefix32.tsv",
+    "bytes": 287,
+    "git_blob": "afd1767e3aeeb3aca39b2938c9c9be74d0c14bc7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n128_q33_t128_hprefix32.tsv",
+    "bytes": 287,
+    "git_blob": "d13c5ed4bc85d05748294e426154985c1e88c128",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n128_q33_t128_smoke_hprefix32.tsv",
+    "bytes": 287,
+    "git_blob": "d685a9004215827654afede321387e0aabe29eb4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n16_q33_t128_hprefix32.tsv",
+    "bytes": 286,
+    "git_blob": "22d8c6c0bf02eb88236ec9096d11af04b3e87a36",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n256_q33_t128_hprefix32.tsv",
+    "bytes": 287,
+    "git_blob": "6190885a026c16ead78faf712838745a472f265d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n2_q33_t128_hprefix32.tsv",
+    "bytes": 286,
+    "git_blob": "33ebe90b5d2b531da15b2bc9bdcb1e37e83a9271",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n32_q33_t128_hprefix32.tsv",
+    "bytes": 286,
+    "git_blob": "5cc649a7fa63e8fc7ffea9ce3f8e2b5fabcb69ef",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n4_q33_t128_hprefix32.tsv",
+    "bytes": 286,
+    "git_blob": "af5f2fde1c592c216dabba2813ac06d823b0e3ac",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n64_q33_t128_hprefix32.tsv",
+    "bytes": 286,
+    "git_blob": "09938baf0112faab049d4ca41417d5025a23d7b5",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_hprefix_q33_20260415_011421/h_sweep_archer2_cpu_mpi_on_n8_q33_t128_hprefix32.tsv",
+    "bytes": 285,
+    "git_blob": "90fadf207e3848ba8c6d7494d9ed9d910f5f63fd",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/h_sweep_archer2_cpu_mpi_off_q26.tsv",
+    "bytes": 9453,
+    "git_blob": "5b18f9a17d145243f0b0ce80fe68bed12c6a0fcd",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/h_sweep_archer2_cpu_mpi_off_q29.tsv",
+    "bytes": 10533,
+    "git_blob": "a6c3cd5d4ab29573ec1663363b88348d30e94253",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/h_sweep_archer2_cpu_mpi_off_q33.tsv",
+    "bytes": 11973,
+    "git_blob": "97e285062255476cf7b4be526be87d7925af8b91",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/probe_archer2_cpu_mpi_off.tsv",
+    "bytes": 294,
+    "git_blob": "09c21eb0fe79dc9b0c971952e59fb29b79175a7d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q26.tsv",
+    "bytes": 11588,
+    "git_blob": "05dddb6e3771308d28d99a2a90f0a763695cd76a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q27.tsv",
+    "bytes": 12116,
+    "git_blob": "30c238a4bc5ff659692600170ca2a377504e0609",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q28.tsv",
+    "bytes": 12532,
+    "git_blob": "1e2038f0ca1096f3a2ee0349ef86e826bbc893ce",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q29.tsv",
+    "bytes": 12948,
+    "git_blob": "9041f4d3da3134ed7c3156983520d649d5b784e4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q30.tsv",
+    "bytes": 13500,
+    "git_blob": "b1d279dd69735c27266adfdd004e9289017a1938",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q31.tsv",
+    "bytes": 13948,
+    "git_blob": "2b86f93505b32d2d01a321df3ccf957fdcf55cae",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q32.tsv",
+    "bytes": 14416,
+    "git_blob": "ce8d9868fdda67f5c286fd712ce6ade53b01c440",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q33.tsv",
+    "bytes": 15012,
+    "git_blob": "2a7c6e374b9a9c19cb72a349efc17643a0eb4131",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/random_archer2_cpu_mpi_off_q26.tsv",
+    "bytes": 555,
+    "git_blob": "6368f25361c61e7fe9b7c0240a3836b2c7778fec",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/random_archer2_cpu_mpi_off_q29.tsv",
+    "bytes": 559,
+    "git_blob": "acdae3bbf6bce339373c2580b5948e5c1ff8cd6b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/random_archer2_cpu_mpi_off_q33_rep1.tsv",
+    "bytes": 353,
+    "git_blob": "770c316593e14e0022f8b7350ec457b698aa8573",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/random_archer2_cpu_mpi_off_q33_rep2.tsv",
+    "bytes": 353,
+    "git_blob": "72619059e3cf055d8b4d6df4e5c027716ad1eb9e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/random_archer2_cpu_mpi_off_q33_rep3.tsv",
+    "bytes": 353,
+    "git_blob": "8e17f5fc1d1f00ed69fb454008509a2b820f2372",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_20260402_222927/submission_meta.txt",
+    "bytes": 584,
+    "git_blob": "bd36f1e9ae9991c9fcecf20b265323940b4b9ef7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_parallel_submit.log",
+    "bytes": 1692,
+    "git_blob": "44c9395cd69a917e17b997958290d8cb6afac24c",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13104769.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13104769.out",
+    "bytes": 20030,
+    "git_blob": "27ecf7f724af38ddd44d1f6e35f16a93da85caa7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13124524.err",
+    "bytes": 553,
+    "git_blob": "506e954b80cb9a34afbaf1153cca65986c91d923",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13124524.out",
+    "bytes": 2973,
+    "git_blob": "a516733589690ba6751a11925d9390320b5119f3",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13124540.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13124540.out",
+    "bytes": 20030,
+    "git_blob": "848b6a2097295d5979f597542498c05e6c9e1c27",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13124904.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13124904.out",
+    "bytes": 20030,
+    "git_blob": "77dc02246f1b13f0c725e968c8549f15e72b59b3",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13124920.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13124920.out",
+    "bytes": 20030,
+    "git_blob": "6615d25b6122f0899ef699f673fee5c368903a17",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13192181.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13192181.out",
+    "bytes": 20030,
+    "git_blob": "86c129eaeeb1b34cf16f6ba5a49cf27a7faade6f",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13192256.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13192256.out",
+    "bytes": 20030,
+    "git_blob": "5521fa9e38825db73ba71f322dfe9e53dbcfe136",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13192544.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13192544.out",
+    "bytes": 20030,
+    "git_blob": "445fed104254efaefc17f04dfd74494be9d2a620",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13206066.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-build-cpu_13206066.out",
+    "bytes": 20030,
+    "git_blob": "2f7f954d0fba8948dec822bd185fb74ed284422e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-h_13192365_1.err",
+    "bytes": 248,
+    "git_blob": "1e3b8191bc0c89717aaa5fb149216ffbc6579c66",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-h_13192365_1.out",
+    "bytes": 274,
+    "git_blob": "04dc1ef442ef1e5398ebc9c4a5740b4573e3556d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-h_13192365_2.err",
+    "bytes": 175,
+    "git_blob": "42538f173f3d261040004c4d02663396ab53d631",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-h_13192365_2.out",
+    "bytes": 274,
+    "git_blob": "1279503101f38ad303610e5325ba3762a1eea1aa",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13206138_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13206138_4294967294.out",
+    "bytes": 318,
+    "git_blob": "1bc9b31dc39f1eb218133a668a01c04e293e2967",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13206139_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13206139_4294967294.out",
+    "bytes": 318,
+    "git_blob": "6875a69251eab89e76246e2a44e2a726435f7a36",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207103_4294967294.err",
+    "bytes": 211,
+    "git_blob": "5020946b96b294aa204d2a86601509e037b233f9",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207103_4294967294.out",
+    "bytes": 329,
+    "git_blob": "495898ce98b4bd68d6294aa200e9f8ce5ab9d4d0",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207104_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207104_4294967294.out",
+    "bytes": 327,
+    "git_blob": "5cdc3788a11629d859d4c18827e306130a5562e2",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207105_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207105_4294967294.out",
+    "bytes": 327,
+    "git_blob": "a2919cd7fb1a1b37becb13afd88b63e5849e6b6f",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207106_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207106_4294967294.out",
+    "bytes": 327,
+    "git_blob": "8c8c706289bcbfde3a5ec96ee8b09820a89793a1",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207107_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207107_4294967294.out",
+    "bytes": 329,
+    "git_blob": "d28c334d33064c7e6fce24db35f30124d7a20d5e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207108_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207108_4294967294.out",
+    "bytes": 329,
+    "git_blob": "22e561a1a7cbda702eaa5ee2c1968fdcc9ef25ea",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207109_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207109_4294967294.out",
+    "bytes": 329,
+    "git_blob": "03617167d8a5ce45c19e76ee2c6187d127f93cdc",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207110_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13207110_4294967294.out",
+    "bytes": 331,
+    "git_blob": "5830f22aadb712f5cd53f84718ad38f80c192144",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13211641_4294967294.err",
+    "bytes": 248,
+    "git_blob": "04929c96f22fdf8e2602630dbeaf537cc9efcc5f",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13211641_4294967294.out",
+    "bytes": 336,
+    "git_blob": "0bfd070748e555f2be63f41b472522c0a978a451",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13211673_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13211673_4294967294.out",
+    "bytes": 336,
+    "git_blob": "50313bb091c7ab0f50001d36d4b80c2576896df7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218204_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218204_4294967294.out",
+    "bytes": 322,
+    "git_blob": "1abbabffe5d1a972a45c193d2ea65b2085df9bef",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218206_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218206_4294967294.out",
+    "bytes": 324,
+    "git_blob": "c506eea8dac50f6ebb375d4e284a80911accc410",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218207_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218207_4294967294.out",
+    "bytes": 324,
+    "git_blob": "273d9e8efec18275059763e1ae22411b468ef562",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218222_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218222_4294967294.out",
+    "bytes": 324,
+    "git_blob": "2fe7a881070be6bc625036657e4b070854ca2cdb",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218223_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13218223_4294967294.out",
+    "bytes": 326,
+    "git_blob": "e2c7af3c84ee2929c24302664104fc3cce7dfecf",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13266898_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13266898_4294967294.out",
+    "bytes": 348,
+    "git_blob": "2f7ead3fa236403103e274cdd985931d4facb103",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13266990_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-point_13266990_4294967294.out",
+    "bytes": 348,
+    "git_blob": "fc09fb32963fe2cd21f3e232544641ebb78a3e06",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-probe_13192223.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-probe_13192223.out",
+    "bytes": 262,
+    "git_blob": "a11fad00d2d5e9e16cf0148c24d25f4271ced9b0",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-probe_13192290.err",
+    "bytes": 175,
+    "git_blob": "12bbf6e18d4acaa17673990d9b85ac7ee7ab8abf",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-probe_13192290.out",
+    "bytes": 262,
+    "git_blob": "54f6a4a8043096a925715f0fc64eb20b08f9b44e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-probe_13192707.err",
+    "bytes": 248,
+    "git_blob": "222d83d5f2eb9611f248092adcf590a2615c2b07",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-probe_13192707.out",
+    "bytes": 260,
+    "git_blob": "93204e6b1eb61d20a995285641e0e4eb2ded9cd9",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-probe_13206127.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-probe_13206127.out",
+    "bytes": 343,
+    "git_blob": "002fea52222449bce3eaa2b35357856c95fa0bbc",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-qft_13192240_1.err",
+    "bytes": 248,
+    "git_blob": "e624649561912fb02b338b4a59455e973f062b13",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-qft_13192240_1.out",
+    "bytes": 266,
+    "git_blob": "23231296b8189c0c4565050593cccb24fb908563",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-qft_13192240_2.err",
+    "bytes": 175,
+    "git_blob": "845f34361598a65e3237c88853e4fc9ede595cac",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-qft_13192240_2.out",
+    "bytes": 266,
+    "git_blob": "3ad0eea04fa03497f27c65802dbb072bee00d7b1",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-qft_13192364_1.err",
+    "bytes": 248,
+    "git_blob": "4fc6e515e79d496c5022578f81891f60807f4305",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-qft_13192364_1.out",
+    "bytes": 266,
+    "git_blob": "23f485f912fa88ce634c40c8e3df5697ea5c981d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-qft_13192364_2.err",
+    "bytes": 175,
+    "git_blob": "e01d9b32dc18a7b042e7f04da23fd90336188286",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-qft_13192364_2.out",
+    "bytes": 266,
+    "git_blob": "20cee298068a3d09e88995d498639e10220e74a7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-random_13192243_1.err",
+    "bytes": 248,
+    "git_blob": "412b6e1db420607a892cb52fee0e934a69f738ba",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-random_13192243_1.out",
+    "bytes": 272,
+    "git_blob": "809474d212caf0560ed96e5cbc9da3d44b1be762",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-random_13192243_2.err",
+    "bytes": 175,
+    "git_blob": "bec34f5484e01cadbc8abf09b625e4aced10a291",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-random_13192243_2.out",
+    "bytes": 272,
+    "git_blob": "471b4f5a295828b754feb31300f232070e6e6310",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-random_13192366_1.err",
+    "bytes": 248,
+    "git_blob": "3bc74475489367f7625e2346e663be6bc449fa5a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-random_13192366_1.out",
+    "bytes": 272,
+    "git_blob": "e8bdd33735975c46e87739f1aa7728ebc8818e2a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-random_13192366_2.err",
+    "bytes": 175,
+    "git_blob": "7abb3de8a5ccc8eecab2c1580b8e674e8701abf6",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-random_13192366_2.out",
+    "bytes": 272,
+    "git_blob": "3b5ee87a064391f60ddfe465f3dadf478cf50cc2",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-smoke_13192213.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-smoke_13192213.out",
+    "bytes": 242,
+    "git_blob": "cb84af0edac70d4f85d7a40ffc8bb47324560f50",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-smoke_13192288.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-smoke_13192288.out",
+    "bytes": 242,
+    "git_blob": "730f6e526f09b349b16ef738987c5220e466325f",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-smoke_13192704.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-smoke_13192704.out",
+    "bytes": 240,
+    "git_blob": "800be08fc1d554aabd326c227a41ce817b1d3ef3",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-smoke_13192952.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-dist-smoke_13192952.out",
+    "bytes": 241,
+    "git_blob": "529800ae51d4b5ff3e510c51dc7b99dd5ba97773",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-cpu_13104849_26.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-cpu_13104849_26.out",
+    "bytes": 243,
+    "git_blob": "c9c2261279d605504abebc61b3e77b400a365177",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-cpu_13104849_29.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-cpu_13104849_29.out",
+    "bytes": 243,
+    "git_blob": "1be10a03ba8d8deed55e20457c250b1d5ab577af",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-cpu_13104849_33.err",
+    "bytes": 104,
+    "git_blob": "e6e770267bd4ec97084cd934fe40ee7b082bf155",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-cpu_13104849_33.out",
+    "bytes": 243,
+    "git_blob": "7739cba4ee214ec586357e0a83389e2790e9498e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-cpu_13112779_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-cpu_13112779_4294967294.out",
+    "bytes": 243,
+    "git_blob": "886ca5a620f1f0473b50eb9fa66a70f73dbdc28f",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-smoke_13124542_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-smoke_13124542_4294967294.out",
+    "bytes": 270,
+    "git_blob": "945be0fa009f434aad30e4e79170159006c2bb20",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-smoke_13124824_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h-smoke_13124824_4294967294.out",
+    "bytes": 276,
+    "git_blob": "56d85f38d90639a2c139156b75e59f2cb2cc3af3",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t128_13124927_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t128_13124927_1.out",
+    "bytes": 267,
+    "git_blob": "acabeb58451162172b1002fb986f387888e43a66",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t128_13124927_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t128_13124927_2.out",
+    "bytes": 267,
+    "git_blob": "967bd72f5b79f06074fedcf50fe19c0bd91e64a6",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t32_13124923_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t32_13124923_1.out",
+    "bytes": 265,
+    "git_blob": "ed2b218107e87d5b31ff6406740ccd4c7f030dc4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t32_13124923_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t32_13124923_2.out",
+    "bytes": 265,
+    "git_blob": "2751038d45776924f6a011ec5ed9c1fbd419844e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t64_13124925_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t64_13124925_1.out",
+    "bytes": 265,
+    "git_blob": "089e62b1076956c5cc845473e96942a8059fd502",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t64_13124925_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-h_sweep-t64_13124925_2.out",
+    "bytes": 265,
+    "git_blob": "1be18c078d7b4e2f01e3a0d845a4ef34b553c26a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-probe-cpu_13104771.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-probe-cpu_13104771.out",
+    "bytes": 195,
+    "git_blob": "9866ba8c96a412d9d9b1f4aa29c51615ab550dec",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_26.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_26.out",
+    "bytes": 235,
+    "git_blob": "2007d4d27cab578215f4cc479950ae9baed9c9d4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_27.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_27.out",
+    "bytes": 235,
+    "git_blob": "4e41d2738f650d8333a04496bccfc0800e5fdb20",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_28.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_28.out",
+    "bytes": 235,
+    "git_blob": "ff99adb6c00e6421894d478948ac0f3ac1a1732a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_29.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_29.out",
+    "bytes": 235,
+    "git_blob": "db6a7c4c8c048af6bd01e7f98e460e3b00ec8e23",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_30.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_30.out",
+    "bytes": 235,
+    "git_blob": "e8c4014d3bd10b4fd3dd6ff6c7091f8442d9e75b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_31.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_31.out",
+    "bytes": 235,
+    "git_blob": "09ffa23de7a3c3169a5607a70c6accae0e28ad33",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_32.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_32.out",
+    "bytes": 235,
+    "git_blob": "197b829f32df137370597318a6fc8d0907a2f62b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_33.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-cpu_13104847_33.out",
+    "bytes": 235,
+    "git_blob": "5198cdc1266e97ffd9e9c783c3b18339943cf0a9",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-smoke_13124541_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-smoke_13124541_4294967294.out",
+    "bytes": 262,
+    "git_blob": "d4b197cbe756c7b4f539f6fbadaee29e988960fa",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-smoke_13124819_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-smoke_13124819_4294967294.out",
+    "bytes": 268,
+    "git_blob": "5263ec78ff0f37d6f1fa5822780c81864bb91179",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t128_13124926_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t128_13124926_1.out",
+    "bytes": 259,
+    "git_blob": "58b296fdd475d20ea3cfea1b58b54929016018b5",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t128_13124926_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t128_13124926_2.out",
+    "bytes": 259,
+    "git_blob": "713d13688db9c1a083c24f6cbab23b04d03796a7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t128_13124926_3.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t128_13124926_3.out",
+    "bytes": 259,
+    "git_blob": "5f19c047121d3df46a75251731f92417b6a7bb03",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t128_13124926_4.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t128_13124926_4.out",
+    "bytes": 259,
+    "git_blob": "7bd4ad182811a99f79dbcb69d98a15175960c258",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t32_13124921_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t32_13124921_1.out",
+    "bytes": 257,
+    "git_blob": "61b0325462d26f5861e04dcd4e5c70b8290bcd3c",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t32_13124921_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t32_13124921_2.out",
+    "bytes": 257,
+    "git_blob": "96ecf43a4aa1ab51aca105e60ea80490a4051074",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t32_13124921_3.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t32_13124921_3.out",
+    "bytes": 257,
+    "git_blob": "a5b8d27473751ded4e6b3e614e5008a36f317a69",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t32_13124921_4.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t32_13124921_4.out",
+    "bytes": 257,
+    "git_blob": "f50753985c4c72cd7d0d9b9be5e375f1f04c4e3b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t64_13124924_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t64_13124924_1.out",
+    "bytes": 257,
+    "git_blob": "c54da04e76777f898c29de40a6d4d40d262f6bf5",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t64_13124924_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t64_13124924_2.out",
+    "bytes": 257,
+    "git_blob": "335d27c259d25fb947264ec2ab582adcf7c4c0f7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t64_13124924_3.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t64_13124924_3.out",
+    "bytes": 257,
+    "git_blob": "f597b25f5d69813cfe3e357813b7811a552b3aea",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t64_13124924_4.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-qft-t64_13124924_4.out",
+    "bytes": 257,
+    "git_blob": "efb63264ea5b0e179b063501fdbd037baeb2a3e1",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13104853_26.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13104853_26.out",
+    "bytes": 241,
+    "git_blob": "25d0956bc117e9d6a426227434f0786d13b3a03a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13104853_29.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13104853_29.out",
+    "bytes": 241,
+    "git_blob": "0e90794e162267427f01bdf0b3621682b942ea1b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13104853_33.err",
+    "bytes": 104,
+    "git_blob": "799422f464f523c1707335774994f5a3121aade4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13104853_33.out",
+    "bytes": 241,
+    "git_blob": "3a913b8238c98e13f267fc1626065c442e642661",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13112783_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13112783_1.out",
+    "bytes": 246,
+    "git_blob": "4abe03d12a64bba6256898ed5abb1196b6bfe10b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13112783_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13112783_2.out",
+    "bytes": 246,
+    "git_blob": "3171951c5d6e3a3fc5a4048e953b7971ef0ff7b9",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13112783_3.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-cpu_13112783_3.out",
+    "bytes": 246,
+    "git_blob": "0bd5e28633a6e93aa5b4c8e726c6b28f3f02821b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-smoke_13124543_4294967294.err",
+    "bytes": 248,
+    "git_blob": "182a4de5a08798c727e3347b814a17a36e5ea935",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-smoke_13124543_4294967294.out",
+    "bytes": 268,
+    "git_blob": "b68df8757eff0c4bee1867c1e77f986410ad3fab",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-smoke_13124828_4294967294.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-smoke_13124828_4294967294.out",
+    "bytes": 274,
+    "git_blob": "359325c8c1d3886922dc05022de1b993261364f4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t128_13124934_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t128_13124934_1.out",
+    "bytes": 265,
+    "git_blob": "e478688b77fb8ba703f4d02d9d2080afea99e4a9",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t128_13124934_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t128_13124934_2.out",
+    "bytes": 265,
+    "git_blob": "9f7969de904643f1e178209c1526b2fe06c5d309",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t128_13124935_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t128_13124935_1.out",
+    "bytes": 265,
+    "git_blob": "5bc0dfbb9f9ecfa9350bf7b1a99398d78ff4c71e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t32_13124930_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t32_13124930_1.out",
+    "bytes": 263,
+    "git_blob": "85d705fdc36701701b3900f3042b7f3cd92493a6",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t32_13124930_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t32_13124930_2.out",
+    "bytes": 263,
+    "git_blob": "15c0d959a1d7009926c9818a39bc666cc0f4c0de",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t32_13124931_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t32_13124931_1.out",
+    "bytes": 263,
+    "git_blob": "65318f3d06d199ee61d35306118dde21423655d7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t64_13124932_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t64_13124932_1.out",
+    "bytes": 263,
+    "git_blob": "0e011a79ad190fbd33c96e50f700735a20847ab3",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t64_13124932_2.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t64_13124932_2.out",
+    "bytes": 263,
+    "git_blob": "32ee6692810f5b91079480b5f45805ca814f9c81",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t64_13124933_1.err",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-random-t64_13124933_1.out",
+    "bytes": 263,
+    "git_blob": "5f1a0c59b50a69e7bfcf09eb041585083c86a37c",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-suite-cpu_13104317.err",
+    "bytes": 766,
+    "git_blob": "149b51becd324e42be715bfdbd77160393e4aee6",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-suite-cpu_13104317.out",
+    "bytes": 20030,
+    "git_blob": "1ba673da8d4d79445743b3b865c48047e23b6c2a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-suite-cpu_13104453.err",
+    "bytes": 86,
+    "git_blob": "c2338c37b9e86c2d905b1f064227cf3a18c57189",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_quest-suite-cpu_13104453.out",
+    "bytes": 22337,
+    "git_blob": "b4567e0f5d36efd90d5cba497608e9ca54973c84",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_thread_binding_check_20260403_181903/qft_archer2_cpu_mpi_off_q26_t32_direct.tsv",
+    "bytes": 3391,
+    "git_blob": "e3be66142467b39d5ae51a9c98a792e5f2769ac1",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_thread_smoke_20260403_180834/h_sweep_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 2819,
+    "git_blob": "99a69cefb25f291290514c83e32f3096a4c7e8f5",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_thread_smoke_20260403_180834/qft_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 3419,
+    "git_blob": "2aaa3ddd63a9584ae6eb17d0e2d455a107167b05",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_thread_smoke_20260403_180834/random_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  },
+  {
+    "path": "experiments/results/raw/archer2_thread_smoke_fixed_20260403_182246/h_sweep_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 2819,
+    "git_blob": "c905e17da43d8266d190e2232dca395b8682777c",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_thread_smoke_fixed_20260403_182246/qft_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 3391,
+    "git_blob": "899c3fed8d9368d6c70ac459cabff93b33413222",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_thread_smoke_fixed_20260403_182246/random_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 302,
+    "git_blob": "98113bfb4f5fe44f067ffe4108ee8a132fc7af5c",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182500/submission_meta.txt",
+    "bytes": 252,
+    "git_blob": "8516e8a00628d3b10bef48f39a575e6af7637602",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/h_sweep_archer2_cpu_mpi_off_q26_t128.tsv",
+    "bytes": 8181,
+    "git_blob": "a6deccb0093850b9a71bccb09b4128a77991e94d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/h_sweep_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 8103,
+    "git_blob": "db8283aaffa01b9263b0c82dca7a1b2de4604d8d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/h_sweep_archer2_cpu_mpi_off_q26_t64.tsv",
+    "bytes": 8103,
+    "git_blob": "f362adb241f5565a554b3e4fb205c8effe182e02",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/h_sweep_archer2_cpu_mpi_off_q33_t128.tsv",
+    "bytes": 10344,
+    "git_blob": "2562d6b364afd4e2e297aac7ca4ca5dbcad43e8e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/h_sweep_archer2_cpu_mpi_off_q33_t32.tsv",
+    "bytes": 10245,
+    "git_blob": "20ffbe8364afcd5c1c3605f8bb6871e07cb16dd9",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/h_sweep_archer2_cpu_mpi_off_q33_t64.tsv",
+    "bytes": 10245,
+    "git_blob": "4bc0c1f7a5b6d5351a409ffc866a1b06465e450f",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_h_t128.txt",
+    "bytes": 6,
+    "git_blob": "7a790058eaf0800c15ac5207754f2cc19de0842e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_h_t32.txt",
+    "bytes": 6,
+    "git_blob": "7a790058eaf0800c15ac5207754f2cc19de0842e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_h_t64.txt",
+    "bytes": 6,
+    "git_blob": "7a790058eaf0800c15ac5207754f2cc19de0842e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_qft_t128.txt",
+    "bytes": 12,
+    "git_blob": "1d8de5c56ec0f7a25757cc2e20b8814c83260191",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_qft_t32.txt",
+    "bytes": 12,
+    "git_blob": "1d8de5c56ec0f7a25757cc2e20b8814c83260191",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_qft_t64.txt",
+    "bytes": 12,
+    "git_blob": "1d8de5c56ec0f7a25757cc2e20b8814c83260191",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_random_large_t128.txt",
+    "bytes": 3,
+    "git_blob": "bb95160cb6e07358f54a28a208ae41e69889c97b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_random_large_t32.txt",
+    "bytes": 3,
+    "git_blob": "bb95160cb6e07358f54a28a208ae41e69889c97b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_random_large_t64.txt",
+    "bytes": 3,
+    "git_blob": "bb95160cb6e07358f54a28a208ae41e69889c97b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_random_small_t128.txt",
+    "bytes": 6,
+    "git_blob": "6e9e8d873bd01b40e5113e3ba513135146a21f0b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_random_small_t32.txt",
+    "bytes": 6,
+    "git_blob": "6e9e8d873bd01b40e5113e3ba513135146a21f0b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/manifest_random_small_t64.txt",
+    "bytes": 6,
+    "git_blob": "6e9e8d873bd01b40e5113e3ba513135146a21f0b",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q26_t128.tsv",
+    "bytes": 9865,
+    "git_blob": "afaec93a5d3fb62150cb5e292e1cdda54277da8e",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 9781,
+    "git_blob": "03ff6efb94ed8625da2b2e3c33cbcec74521221d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q26_t64.tsv",
+    "bytes": 9781,
+    "git_blob": "5b6abe5dd4350b4461a738a4f62919d36fafa9fe",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q29_t128.tsv",
+    "bytes": 11002,
+    "git_blob": "a75db86807392354068890c464e029716c6384c8",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q29_t32.tsv",
+    "bytes": 10909,
+    "git_blob": "e2544d90047d2e53e5ad311df8fed6ec8cecd008",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q29_t64.tsv",
+    "bytes": 10909,
+    "git_blob": "dc0bfd10af479f3780f2e3271c0eb7e3a4519496",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q31_t128.tsv",
+    "bytes": 11704,
+    "git_blob": "6175140a7f63d02971dde1d864a24e18f2996711",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q31_t32.tsv",
+    "bytes": 11731,
+    "git_blob": "1ee7a3bbe83e37d7939896d75f870a38e3a9eb73",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q31_t64.tsv",
+    "bytes": 11710,
+    "git_blob": "8458d7c1e7b5249b47bf4dd942317b6fc990baef",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q33_t128.tsv",
+    "bytes": 12556,
+    "git_blob": "4d6b7db01e4d7eedb895fdcd7451c9000c1d856a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q33_t32.tsv",
+    "bytes": 12599,
+    "git_blob": "4b93313b8d6398f210f6fad8b82441a690202dc4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/qft_archer2_cpu_mpi_off_q33_t64.tsv",
+    "bytes": 12475,
+    "git_blob": "fc72831f16d2a63dc54802fafa40adf8712f019a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q26_t128.tsv",
+    "bytes": 303,
+    "git_blob": "e1345510b6fc7f97c147ea398e441327dbb071d8",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q26_t32.tsv",
+    "bytes": 302,
+    "git_blob": "4f2d33e3542c32017174375efe4a546a0e836c68",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q26_t64.tsv",
+    "bytes": 302,
+    "git_blob": "1f0f2a36b66182ab05fa4282f724b229d47dd13a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q29_t128.tsv",
+    "bytes": 304,
+    "git_blob": "425843c06b29a48680a3b534eeedafe31a8ff7c4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q29_t32.tsv",
+    "bytes": 303,
+    "git_blob": "6e5a3b1cc53e6fe2d825f4e7b52a9d056c5d7a86",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q29_t64.tsv",
+    "bytes": 303,
+    "git_blob": "e2d1fd6f10886ec2a0bfc96af9626082f71a3d48",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q33_t128.tsv",
+    "bytes": 305,
+    "git_blob": "ad26aa2a8d0c186c208fb3c5b1cd888c0c084701",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q33_t32.tsv",
+    "bytes": 305,
+    "git_blob": "51a351afbb6b99b777b32d84e2572a28c46fbc49",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/random_archer2_cpu_mpi_off_q33_t64.tsv",
+    "bytes": 304,
+    "git_blob": "7a4229e624733f7f4a7ffc860363e827cb136f67",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/archer2_threads_20260403_182610/submission_meta.txt",
+    "bytes": 412,
+    "git_blob": "40312e205c516b15a89afd7cf858fbe976a3036c",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/probe_archer2_cpu_mpi_off.tsv",
+    "bytes": 294,
+    "git_blob": "be680afe6795dac51a9a0d1afd2b808161d1909d",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/q26_distributed_strong_scaling_20260409_235752/qft_archer2_cpu_mpi_on_n128_q26_t128_rep1_q26_ss_m25ext.tsv",
+    "bytes": 3643,
+    "git_blob": "0d11a293070b765c35d34b5a66b5a1bf53e6fa07",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/q26_distributed_strong_scaling_20260409_235752/qft_archer2_cpu_mpi_on_n16_q26_t128_rep1_q26_ss_m25ext.tsv",
+    "bytes": 3615,
+    "git_blob": "7f25deebfad27299d0f26fc3e3399f4f1f320660",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/q26_distributed_strong_scaling_20260409_235752/qft_archer2_cpu_mpi_on_n32_q26_t128_rep1_q26_ss_m25ext.tsv",
+    "bytes": 3615,
+    "git_blob": "79bc8568b14b3ef791ebfd7edd1fb850898f18c4",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/q26_distributed_strong_scaling_20260409_235752/qft_archer2_cpu_mpi_on_n64_q26_t128_rep1_q26_ss_m25ext.tsv",
+    "bytes": 3615,
+    "git_blob": "a82d9bb486f1b0a7970b414bb4ac11e88201b8ae",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/q26_distributed_strong_scaling_20260409_235752/qft_archer2_cpu_mpi_on_n8_q26_t128_rep1_q26_ss_m25ext.tsv",
+    "bytes": 3587,
+    "git_blob": "364174d137b47aa8032b06db4d0227ab70b7a073",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/q26_distributed_strong_scaling_20260409_235752/submission_meta.txt",
+    "bytes": 285,
+    "git_blob": "0173be7f4088e84b1c3fbe3f4dc67da8251380c7",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "experiments/results/raw/qft_archer2_cpu_mpi_off.tsv",
+    "bytes": 68974,
+    "git_blob": "fe570ed6c5650bc1fddfe001339095283e76f61a",
+    "present_in_remote_history": false
+  },
+  {
+    "path": "slurm-13124779.out",
+    "bytes": 0,
+    "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+    "present_in_remote_history": true
+  }
+]

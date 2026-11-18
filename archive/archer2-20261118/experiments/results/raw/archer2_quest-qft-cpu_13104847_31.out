@@ -1,0 +1,5 @@
+>>> ARCHER2 benchmark point job
+>>> Benchmark: qft
+>>> Qubit: 31
+>>> Node: nid006113
+>>> Output: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_parallel_20260402_222927/qft_archer2_cpu_mpi_off_q31.tsv

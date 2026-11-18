@@ -1,0 +1,10 @@
+run_tag=archer2_distributed_20260407_183611
+backend=cpu_mpi
+platform=archer2
+nodes=4
+threads_per_rank=128
+smoke_qubit=26
+search_min=32
+search_max=35
+preheat_mode=light
+preheat_qubits=24

@@ -1,0 +1,7 @@
+>>> ARCHER2 distributed suite point
+>>> Benchmark: qft
+>>> Qubit: 33
+>>> Nodes: 2
+>>> Distribution mode: on
+>>> OMP_NUM_THREADS=128
+>>> Output: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_distributed_strong_scaling_20260408_230804/qft_archer2_cpu_mpi_on_n2_q33_t128_rep2_pilot.tsv

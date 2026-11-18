@@ -1,0 +1,6 @@
+>>> ARCHER2 distributed suite point
+>>> Benchmark: random
+>>> Qubit: 34
+>>> Nodes: 4
+>>> OMP_NUM_THREADS=128
+>>> Output: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_distributed_20260407_183611/random_archer2_cpu_mpi_on_n4_q34_t128.tsv

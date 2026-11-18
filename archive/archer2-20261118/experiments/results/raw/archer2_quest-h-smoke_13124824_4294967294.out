@@ -1,0 +1,6 @@
+>>> ARCHER2 thread-sweep point job
+>>> Benchmark: h_sweep
+>>> Qubit: 26
+>>> Threads: 32
+>>> Node: nid002010
+>>> Output: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_thread_smoke_fixed_20260403_182246/h_sweep_archer2_cpu_mpi_off_q26_t32.tsv

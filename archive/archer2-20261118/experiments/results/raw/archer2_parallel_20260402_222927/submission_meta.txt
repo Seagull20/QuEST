@@ -1,0 +1,10 @@
+run_tag=archer2_parallel_20260402_222927
+run_raw_dir=/work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_parallel_20260402_222927
+build_job=13104769
+probe_job=13104771
+qft_job=13104847
+h_job=13104849
+random_job=13104853
+max_qubits=33
+sample_points=26,29,33
+parser_cmd=python3 experiments/scripts/parse_results.py --raw-dir /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_parallel_20260402_222927 --out-dir /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_parallel_20260402_222927/processed

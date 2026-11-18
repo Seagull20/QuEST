@@ -1,0 +1,8 @@
+/mnt/lustre/a2fs-work4/work/m25ext/m25ext/s2866920/quest_project/QuEST/quest/src/api/operations.cpp:1776:1: fatal error: opening dependency file CMakeFiles/QuEST.dir/quest/src/api/operations.cpp.o.d: Stale file handle
+ }
+ ^
+compilation terminated.
+gmake[3]: *** [CMakeFiles/QuEST.dir/build.make:202: CMakeFiles/QuEST.dir/quest/src/api/operations.cpp.o] Error 1
+gmake[2]: *** [CMakeFiles/Makefile2:224: CMakeFiles/QuEST.dir/all] Error 2
+gmake[1]: *** [CMakeFiles/Makefile2:283: CMakeFiles/probe.dir/rule] Error 2
+gmake: *** [Makefile:195: probe] Error 2

@@ -1,0 +1,5 @@
+>>> ARCHER2 benchmark point job
+>>> Benchmark: random
+>>> Qubit: 33
+>>> Node: nid002452
+>>> Output: /work/m25ext/m25ext/s2866920/quest_project/QuEST/experiments/results/raw/archer2_parallel_20260402_222927/random_archer2_cpu_mpi_off_q33.tsv
